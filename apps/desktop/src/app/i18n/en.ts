@@ -936,6 +936,9 @@ export const en = {
       automatic: "Automatic",
       copyOnSelect: "Copy on select",
       warnMultilinePaste: "Warn before pasting multiple lines",
+      fontDetected: (font: string) => `Using ${font} in front of the default font, so prompt icons show. Enter a font of your own to override it.`,
+      bundledConpty: "Use the bundled console host (ConPTY)",
+      bundledConptyHint: `Needed for images in the terminal (sixel). Turn it off if a terminal misbehaves. Applies after restarting ${APP_NAME}.`,
     },
     agents: {
       commands: "Agent commands",

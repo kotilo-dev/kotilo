@@ -517,6 +517,11 @@ export async function appInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("app_info");
 }
 
+/** D-055: an installed Nerd Font family (Windows Terminal's choice first) for the default terminal font, or null. */
+export async function terminalFontSuggestion(): Promise<string | null> {
+  return invoke<string | null>("terminal_font_suggestion");
+}
+
 // ---------------------------------------------------------------------------
 // M5 — Updater (tauri-plugin-updater behind the app's own commands, D-047)
 // ---------------------------------------------------------------------------
@@ -742,6 +747,8 @@ export interface Settings {
     defaultShell: ShellKind | null;
     copyOnSelect: boolean;
     warnMultilinePaste: boolean;
+    /** D-055: Microsoft's bundled ConPTY (sixel images); read by Rust at startup. */
+    bundledConpty: boolean;
   };
   agents: { commands: string[]; notifications: boolean };
   files: { hiddenPatterns: string[]; respectGitignore: boolean };

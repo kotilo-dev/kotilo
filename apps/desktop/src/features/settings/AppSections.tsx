@@ -11,6 +11,7 @@ import type { ShellKind, ThemeName } from "../../lib/ipc";
 import { useHelpStore } from "../help/helpStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTerminalStore } from "../../stores/terminalStore";
+import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
 import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, Select } from "./controls";
 import { EditableList } from "./EditableList";
 
@@ -76,10 +77,12 @@ export function TerminalSection() {
   const terminal = useSettingsStore((st) => st.settings.terminal);
   const update = useSettingsStore((st) => st.update);
   const profiles = useTerminalStore((st) => st.profiles);
+  const detected = getTerminalFontSuggestion();
+  const usesDetected = detected !== null && effectiveTerminalFont(terminal.fontFamily) !== terminal.fontFamily;
 
   return (
     <div className="flex max-w-md flex-col gap-5">
-      <Field label={s.settings.terminal.fontFamily}>
+      <Field label={s.settings.terminal.fontFamily} hint={usesDetected ? s.settings.terminal.fontDetected(detected) : undefined}>
         {({ id }) => <DebouncedText id={id} value={terminal.fontFamily} onCommit={(v) => update({ terminal: { fontFamily: v } })} />}
       </Field>
       <Field label={s.settings.terminal.fontSize}>
@@ -97,6 +100,12 @@ export function TerminalSection() {
       </Field>
       <Checkbox checked={terminal.copyOnSelect} onChange={(v) => update({ terminal: { copyOnSelect: v } })} label={s.settings.terminal.copyOnSelect} />
       <Checkbox checked={terminal.warnMultilinePaste} onChange={(v) => update({ terminal: { warnMultilinePaste: v } })} label={s.settings.terminal.warnMultilinePaste} />
+      <Checkbox
+        checked={terminal.bundledConpty}
+        onChange={(v) => update({ terminal: { bundledConpty: v } })}
+        label={s.settings.terminal.bundledConpty}
+        hint={s.settings.terminal.bundledConptyHint}
+      />
     </div>
   );
 }

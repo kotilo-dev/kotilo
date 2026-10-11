@@ -8,14 +8,21 @@ User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar 
 
 ---
 
-# Next – Terminal look closer to Windows Terminal (recorded 2026-10-11)
+# 0.2.1 – D-054 fixes + terminal images and fonts (started 2026-10-11)
 
-User report: a PowerShell tab in Kotilo does not look like their usual PowerShell. Kotilo starts `pwsh -NoLogo` (profile loads), so the differences come from the terminal itself. The user's setup: oh-my-posh prompt (needs a Nerd Font; Windows Terminal uses `MesloLGM Nerd Font`), `fastfetch --logo-type sixel` in the profile, Windows Terminal scheme "One Half Dark" with 80 % opacity + acrylic. Workaround today: Settings → Terminal → font family `MesloLGM Nerd Font`.
+User report: a PowerShell tab in Kotilo does not look like their usual PowerShell. Kotilo starts `pwsh -NoLogo` (profile loads), so the differences come from the terminal itself. The user's setup: oh-my-posh prompt (needs a Nerd Font; Windows Terminal uses `MesloLGM Nerd Font`), `fastfetch --logo-type sixel` in the profile, Windows Terminal scheme "One Half Dark" with 80 % opacity + acrylic. User decision (2026-10-11): 0.2.1 = the D-054 fixes + images and fonts only; colour schemes / background later; "unseen work" items not in 0.2.1.
 
-- [ ] Sixel images: add `@xterm/addon-image` (licence → THIRD_PARTY_NOTICES); first verify that ConPTY passes sixel sequences through to xterm.js on the supported Windows builds; keep memory limits sane
-- [ ] Font: if a Nerd Font is installed, put it first in the default terminal font list (or offer it in Settings); keep Geist Mono as fallback
-- [ ] Colour schemes: built-in choices (Kotilo default, One Half Dark/Light, Campbell, …) in Settings → Terminal, and optionally import the default profile's scheme from Windows Terminal's `settings.json` (read-only; never write it); tokens stay the source for the app chrome
-- [ ] Tests (scheme mapping, font detection), e2e screenshot of a pane with each scheme, manual test with oh-my-posh + fastfetch
+- [x] D-054: `idle_prompt` after a finished turn keeps the session idle; periodic-check changes are published (382f496)
+- [x] Spike: the system ConPTY (build 26300) strips sixel; Microsoft's ConPTY 1.25 passes it; `SetDllDirectoryW` switches portable-pty to it, off = system ConPTY (both verified)
+- [x] Bundled ConPTY (D-055): `scripts/fetch-conpty.ps1` (pinned version + SHA-256, Microsoft signature check), `release.ps1` installs `conpty\`, Rust `platform::conpty::select` at startup, setting `terminal.bundledConpty` (default on, after restart), THIRD_PARTY_NOTICES
+- [x] Images: `@xterm/addon-image` 0.9.0 (sixel + iTerm inline, 32 MB cache)
+- [x] Font: `platform::fonts` (registry font families, Windows Terminal faces read-only), `terminal_font_suggestion`, default terminal font gets the Nerd Font in front; Settings hint; tests
+- [x] Docs: D-055, user guide EN/TR, manual tests T-1…T-6, README build note
+- [x] All checks green (UI 855, Rust 588 + clippy, hub 694 + 222 + 76, e2e 64); user ran T-1…T-5 ("testler ok", 2026-10-11)
+- [ ] Version 0.2.1, release notes, tag, publish; T-6 on the installer
+
+## Later (recorded)
+- [ ] Colour schemes: built-in choices (Kotilo default, One Half Dark/Light, Campbell, …) for the terminal area only, and optionally import Windows Terminal's scheme (read-only); app chrome keeps the design tokens
 
 ---
 

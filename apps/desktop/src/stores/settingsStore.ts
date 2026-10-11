@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
     defaultShell: null,
     copyOnSelect: false,
     warnMultilinePaste: true,
+    bundledConpty: true,
   },
   agents: { commands: ["claude", "codex"], notifications: true },
   files: { hiddenPatterns: [".git", "node_modules", "dist", "target", ".DS_Store"], respectGitignore: false },

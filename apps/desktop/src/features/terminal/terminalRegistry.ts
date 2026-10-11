@@ -86,11 +86,32 @@ const SCROLLBACK = 10000;
 const FONT_FAMILY = '"Geist Mono", "Cascadia Code", Consolas, monospace';
 const FONT_SIZE = 15; // xterm'in kendi varsayılanı — settingsStore.DEFAULT_SETTINGS ile tutarlı
 
+let fontSuggestion: string | null = null;
+
+/** D-055: an installed Nerd Font (from `terminal_font_suggestion`), read once at startup. */
+export function setTerminalFontSuggestion(family: string | null): void {
+  fontSuggestion = family;
+}
+
+export function getTerminalFontSuggestion(): string | null {
+  return fontSuggestion;
+}
+
+/**
+ * The font family a terminal uses: the user's own setting as is; the default one gets the
+ * detected Nerd Font in front, so prompt icons (oh-my-posh, starship…) render out of the box.
+ */
+export function effectiveTerminalFont(setting: string): string {
+  const family = setting.trim() || FONT_FAMILY;
+  if (family !== FONT_FAMILY || !fontSuggestion) return family;
+  return `"${fontSuggestion.replace(/"/g, "")}", ${FONT_FAMILY}`;
+}
+
 function defaultCreateTerminal(): TermLike {
   const settings = useSettingsStore.getState().settings;
   return new Terminal({
     scrollback: SCROLLBACK,
-    fontFamily: settings.terminal.fontFamily || FONT_FAMILY,
+    fontFamily: effectiveTerminalFont(settings.terminal.fontFamily),
     fontSize: settings.terminal.fontSize || FONT_SIZE,
     cursorBlink: true,
     cursorStyle: "bar",

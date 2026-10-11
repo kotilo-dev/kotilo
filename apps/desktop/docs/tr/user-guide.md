@@ -256,6 +256,16 @@ başka birine geçtiğinizde arka planda açık kalır.
 - Terminal içi arama: `Ctrl+Shift+F`.
 - Kabuk dışında hâlâ çalışan bir işlemi olan sekmeyi kapatmak onay ister ve çalışan
   işlemleri listeler.
+- **Komut satırı simgeleri:** Bilgisayarınızda bir Nerd Font yüklüyse (oh-my-posh,
+  starship gibi prompt'lar için), terminaller onu varsayılan yazı tipinin önünde kullanır;
+  Windows Terminal'de kullandığınız varsa önce o seçilir. Hangisinin kullanıldığı Ayarlar →
+  Terminal'de yazar; kendi yazı tipinizi girerek değiştirebilirsiniz.
+- **Resimler:** Terminale resim çizen programlar (sixel, örneğin
+  `fastfetch --logo-type sixel`, ya da iTerm satır içi resimleri) çalışır. Windows'un kendi
+  konsol katmanı resimleri sildiği için Kotilo, Windows Terminal'in kullandığı Microsoft
+  konsol katmanını (ConPTY) yanında getirir. Bir terminal sorun çıkarırsa Ayarlar →
+  Terminal'de **Paketle gelen konsol katmanını (ConPTY) kullan** seçeneğini kapatıp Kotilo'yu
+  yeniden başlatın.
 
 ### Yan yana iki bölme
 

@@ -912,6 +912,9 @@ export const tr: Strings = {
       automatic: "Otomatik",
       copyOnSelect: "Seçince kopyala",
       warnMultilinePaste: "Çok satırlı yapıştırmadan önce uyar",
+      fontDetected: (font: string) => `Komut satırı simgeleri görünsün diye varsayılan yazı tipinin önünde ${font} kullanılıyor. Kendi yazı tipinizi girerek değiştirebilirsiniz.`,
+      bundledConpty: "Paketle gelen konsol katmanını (ConPTY) kullan",
+      bundledConptyHint: `Terminalde resim göstermek (sixel) için gerekli. Bir terminal sorun çıkarırsa kapatın. ${APP_NAME} yeniden başlatılınca uygulanır.`,
     },
     agents: {
       commands: "Ajan komutları",

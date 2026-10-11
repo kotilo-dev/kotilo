@@ -103,3 +103,16 @@ Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln`, then `np
 | M7-6 | Privacy: with Claude Code, chat a few turns; then look at `~/.claude/projects/` for a new folder/file for the buddy folder, `%LOCALAPPDATA%\kotilo\hub\hub.db` (`buddy_chats` gone) and `%LOCALAPPDATA%\kotilo\hub\logs` | No new Claude session file from the chat; no chat text in the database or logs (only provider, duration, outcome, counts). With Gemini/Copilot/OpenCode as provider the footer warns that the agent keeps its own copy |
 | M7-7 | Provider not installed / not signed in / Ollama stopped | The turn shows a clear error with "Settings → AI"; that button hides the popup and brings Kotilo up on Settings → AI |
 | M7-8 | Mascot on: click it while it sleeps; right-click → "Open assistant"; click during a permission wait. Dictation hotkey (hold and tap), `Esc` cancel and paste-last afterwards | Sleep click and the menu item open the assistant; the permission click still jumps to the agent; dictation hotkeys behave exactly as before |
+
+## Terminal images and fonts (0.2.1, D-055)
+
+Preparation: `./scripts/fetch-conpty.ps1 -Arch x64 -Into target/debug/conpty`, then `npm --prefix apps/desktop run tauri dev` (or install the release build). A PowerShell profile with oh-my-posh and `fastfetch --logo-type sixel` (the user's own setup), Claude Code and Codex installed.
+
+| # | Steps | Expected |
+|---|---|---|
+| T-1 | Open a PowerShell tab | oh-my-posh prompt icons render (no boxes); Settings → Terminal says which Nerd Font is used; the fastfetch logo appears as a picture |
+| T-2 | Settings → Terminal → font family `Consolas`; then back to the default | Consolas everywhere (icons become boxes); default again → the Nerd Font is back, without a restart |
+| T-3 | Run Claude Code and Codex in tabs; resize the window, split the pane, scroll back, select and copy, paste multi-line text, type Turkish characters (ğüşıöç) | Same behaviour as before 0.2.1: no garbled TUI after resize, correct wrapping, copy/paste and characters intact |
+| T-4 | `%LOCALAPPDATA%\kotilo\logs\kotilo.log` after start | "terminals: bundled ConPTY from …\conpty" |
+| T-5 | Turn off **Use the bundled console host (ConPTY)**, restart Kotilo, run fastfetch again | Log says "using the system ConPTY"; terminals work; the logo does not appear (expected) |
+| T-6 | Install the 0.2.1 installer (x64, and ARM64 if available) | `conpty\conpty.dll` and `conpty\OpenConsole.exe` next to `kotilo.exe`; uninstall removes them |

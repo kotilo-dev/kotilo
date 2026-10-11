@@ -104,6 +104,10 @@ pub struct TerminalSettings {
     pub copy_on_select: bool,
     #[serde(default = "default_true")]
     pub warn_multiline_paste: bool,
+    /// D-055: load Microsoft's bundled ConPTY (`conpty` next to the exe) instead of the one
+    /// built into Windows; read once at startup, so a change applies after a restart.
+    #[serde(default = "default_true")]
+    pub bundled_conpty: bool,
 }
 
 impl Default for TerminalSettings {
@@ -114,6 +118,7 @@ impl Default for TerminalSettings {
             default_shell: None,
             copy_on_select: false,
             warn_multiline_paste: true,
+            bundled_conpty: true,
         }
     }
 }

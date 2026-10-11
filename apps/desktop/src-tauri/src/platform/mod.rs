@@ -3,7 +3,9 @@
 //! the older inline `#[cfg(windows)]` blocks imported from AgentDeck move in over time.
 
 pub mod assistant;
+pub mod conpty;
 pub mod dictation;
+pub mod fonts;
 pub mod hotkeys;
 pub mod mascot;
 pub mod webview;

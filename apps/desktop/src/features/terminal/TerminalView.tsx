@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
+import { ImageAddon } from "@xterm/addon-image";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -29,7 +30,7 @@ import { useViewerStore } from "../../stores/viewerStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
-import { getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
+import { effectiveTerminalFont, getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
 import { routeKey } from "./keyRouting";
 import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
@@ -148,6 +149,10 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
 
     term.loadAddon(new Unicode11Addon());
     term.unicode.activeVersion = "11";
+
+    // D-055: sixel and iTerm inline images (e.g. fastfetch logos). They reach xterm.js only through
+    // the bundled ConPTY; the image cache is capped so a long scrollback of pictures stays small.
+    term.loadAddon(new ImageAddon({ sixelSupport: true, iipSupport: true, storageLimit: 32 }));
 
     // §8a: Ctrl+click hint – an element with the `xterm-hover` class inside `Terminal.element`
     // (xterm.d.ts `ILinkHandler.hover` docs: this class lets mouse events "pass over" without
@@ -313,7 +318,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   // (see the TerminalPanel.tsx header), so each open terminal updates itself.
   useEffect(() => {
     function apply(s: ReturnType<typeof useSettingsStore.getState>["settings"]) {
-      term.options.fontFamily = s.terminal.fontFamily;
+      term.options.fontFamily = effectiveTerminalFont(s.terminal.fontFamily);
       term.options.fontSize = s.terminal.fontSize;
       term.options.theme = xtermThemeFor(useResolvedTheme.getState().theme);
       if (entry.opened) {

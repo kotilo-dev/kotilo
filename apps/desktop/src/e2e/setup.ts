@@ -154,6 +154,8 @@ mockIPC(
         return updateCheckResult();
       case "update_install":
         return runUpdateInstall();
+      case "terminal_font_suggestion":
+        return null;
       case "app_info":
         return { osBuild: 26300, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os: "Windows 11", buildDate: "2026-10-04" };
       case "pty_profiles":

@@ -14,10 +14,12 @@ vi.mock("../../lib/ipc", () => ipc);
 import {
   clearAllEntries,
   disposeTerminal,
+  effectiveTerminalFont,
   getChannel,
   getOrCreateEntry,
   resetCreateTerminalFactory,
   setCreateTerminalFactory,
+  setTerminalFontSuggestion,
   xtermThemeFor,
 } from "./terminalRegistry";
 
@@ -137,5 +139,23 @@ describe("xtermThemeFor (DESIGN_SYSTEM §8)", () => {
     document.documentElement.style.setProperty("--terminal-bg", "#123456");
     const theme = xtermThemeFor("dark");
     expect(theme.cursorAccent).toBe("#123456");
+  });
+});
+
+describe("effectiveTerminalFont (D-055)", () => {
+  const DEFAULT = '"Geist Mono", "Cascadia Code", Consolas, monospace';
+  afterEach(() => setTerminalFontSuggestion(null));
+
+  it("puts a detected Nerd Font in front of the default font", () => {
+    setTerminalFontSuggestion("MesloLGM Nerd Font");
+    expect(effectiveTerminalFont(DEFAULT)).toBe(`"MesloLGM Nerd Font", ${DEFAULT}`);
+    expect(effectiveTerminalFont("")).toBe(`"MesloLGM Nerd Font", ${DEFAULT}`);
+  });
+
+  it("keeps a font the user chose and the default when nothing was detected", () => {
+    setTerminalFontSuggestion("MesloLGM Nerd Font");
+    expect(effectiveTerminalFont("Consolas")).toBe("Consolas");
+    setTerminalFontSuggestion(null);
+    expect(effectiveTerminalFont(DEFAULT)).toBe(DEFAULT);
   });
 });

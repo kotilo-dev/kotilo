@@ -85,6 +85,8 @@ windows = { version = "0.62", features = [
     "Win32_Storage_FileSystem",
     # Faz 4 §4.21: `app_info`'s `osBuild` reads `CurrentBuildNumber` from the registry.
     "Win32_System_Registry",
+    # D-055: `SetDllDirectoryW` points the terminals at the bundled conpty.dll.
+    "Win32_System_LibraryLoader",
     # BUG-2 fix: `SetConsoleCtrlHandler(None, false)` clears an inherited "ignore
     # Ctrl+C" flag before spawning pane shells.
     "Win32_System_Console",

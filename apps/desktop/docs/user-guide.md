@@ -254,6 +254,14 @@ when you switch away.
 - In-terminal search: `Ctrl+Shift+F`.
 - Closing a tab whose process is still running (something other than the shell
   itself) asks for confirmation and lists the running processes.
+- **Prompt icons:** if a Nerd Font is installed (for oh-my-posh, starship and similar
+  prompts), terminals use it in front of the default font – the one Windows Terminal
+  uses first. Settings → Terminal shows which one; enter a font of your own to override it.
+- **Images:** programs that draw pictures in the terminal (sixel, e.g.
+  `fastfetch --logo-type sixel`, or iTerm inline images) work. Kotilo ships Microsoft's
+  console host (ConPTY, the one Windows Terminal uses) for this, because the one built
+  into Windows drops images. If a terminal misbehaves, turn off **Use the bundled console
+  host (ConPTY)** in Settings → Terminal and restart Kotilo.
 
 ### Split pane
 

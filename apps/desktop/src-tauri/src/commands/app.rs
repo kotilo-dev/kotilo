@@ -183,3 +183,10 @@ mod tests {
         assert!(build > 10000 && build < 100000, "implausible build number: {build}");
     }
 }
+
+/// D-055: an installed Nerd Font family to put in front of the default terminal font
+/// (Windows Terminal's choice first), or `null`.
+#[tauri::command(async)]
+pub fn terminal_font_suggestion() -> Option<String> {
+    crate::platform::fonts::nerd_font_suggestion()
+}

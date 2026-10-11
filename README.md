@@ -107,6 +107,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 dotnet build hub/AgentHub.sln
 dotnet test hub/AgentHub.sln
 
+# Optional: Microsoft's ConPTY next to the dev exe, for images (sixel) in terminals
+./scripts/fetch-conpty.ps1 -Arch x64 -Into target/debug/conpty
+
 # Run the app in development mode
 npm --prefix apps/desktop run tauri dev
 
@@ -141,7 +144,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 
 Kotilo is applying to the SignPath Foundation. Until the project is accepted, release binaries are unsigned (`v0.1.0` is an unsigned beta); this section will say from which version on releases are signed.
 
-- **What is signed:** Kotilo's own binaries, built from this repository: the installer and uninstaller, `kotilo.exe`, `kotilo-hub.exe` and `kotilo-hook.exe`. Third-party libraries shipped with the app (for example `e_sqlite3.dll` and the Whisper runtime) are not signed by this project.
+- **What is signed:** Kotilo's own binaries, built from this repository: the installer and uninstaller, `kotilo.exe`, `kotilo-hub.exe` and `kotilo-hook.exe`. Third-party libraries shipped with the app (for example `e_sqlite3.dll` and the Whisper runtime) and Microsoft's ConPTY (`conpty.dll`, `OpenConsole.exe`, already signed by Microsoft) are not signed by this project.
 - **Builds:** release binaries are built by GitHub Actions from this repository ([`.github/workflows/release.yml`](.github/workflows/release.yml), [`scripts/release.ps1`](scripts/release.ps1)); nothing is built or signed on a personal machine for a release.
 - **Committers and reviewers:** [@xmsadik](https://github.com/xmsadik). Changes from other contributors are reviewed by a committer before they are merged.
 - **Approvers:** [@xmsadik](https://github.com/xmsadik) approves each signing request manually.

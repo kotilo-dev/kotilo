@@ -215,6 +215,7 @@ pub fn run() {
             commands::assistant::assistant_chat,
             commands::assistant::assistant_stop,
             commands::app::app_info,
+            commands::app::terminal_font_suggestion,
             commands::update::update_check,
             commands::update::update_install,
             commands::workspace::workspace_list,
@@ -267,6 +268,8 @@ pub fn run() {
             // Faz 7 §9.1: the live level ceiling, applied at startup too (not just on a
             // later `settings_set`).
             logging::apply_verbose_logging(verbose_logging);
+            // D-055: before any terminal exists – picks the bundled or the system ConPTY.
+            platform::conpty::select(settings_store.get().terminal.bundled_conpty);
 
             app.manage(state_store);
             app.manage(workspace_store);

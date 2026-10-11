@@ -133,6 +133,10 @@ Get-ChildItem $adaptersSrc -Recurse -File |
         Copy-Item $_.FullName $dest
     }
 
+# --- 2b. Microsoft's ConPTY (conpty.dll + OpenConsole.exe, D-055) -----------------------------
+# Installed in `conpty\` next to the app exe; Microsoft-signed already, never re-signed by us.
+& (Join-Path $root 'scripts\fetch-conpty.ps1') -Arch $Arch -Into (Join-Path $staging 'conpty')
+
 # --- 3. Pre-bundle signing --------------------------------------------------------------------
 $signScript = Join-Path $root 'scripts\sign.ps1'
 if ($Sign) {
@@ -148,6 +152,7 @@ $bundle = [ordered]@{
         '../../../adapters/'          = $null
         "$stagingRel/adapters/"       = 'adapters/'
         "$stagingRel/hub-files/"      = './'
+        "$stagingRel/conpty/"         = 'conpty/'
     }
 }
 

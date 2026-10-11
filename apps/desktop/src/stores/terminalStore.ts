@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import {
   appInfo,
+  terminalFontSuggestion,
   loadState,
   onPtyExit,
   onWorkspacesChanged,
@@ -339,6 +340,12 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
         registry.setWindowsPtyBuildNumber(info.osBuild);
       } catch {
         // yut — build number olmadan devam (conpty resize/imleç sezgileri devreye girmez)
+      }
+      // D-055: like the build number, read before the first terminal is created.
+      try {
+        registry.setTerminalFontSuggestion(await terminalFontSuggestion());
+      } catch {
+        // no suggestion: the default font stays as it is
       }
 
       let validWorkspaceIds: Set<string>;

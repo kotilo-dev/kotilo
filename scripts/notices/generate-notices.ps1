@@ -328,6 +328,14 @@ Add '  Whisper speech models (ggml format): NOT bundled. Downloaded at runtime, 
 Add '    from https://huggingface.co/ggerganov/whisper.cpp (MIT License, Copyright (c) 2023-2024'
 Add '    The ggml authors; model weights by OpenAI, MIT License).'
 
+# ConPTY (D-055): binaries from the NuGet package Microsoft.Windows.Console.ConPTY, fetched at
+# release time by scripts/fetch-conpty.ps1 (not a hub dependency, so listed here by hand).
+$conptyVersion = ((Get-Content (Join-Path $repo 'scripts\fetch-conpty.ps1') -Raw) -replace "(?s)^.*?\`$Version = '([^']+)'.*$", '$1')
+Add '  ConPTY (conpty.dll, OpenConsole.exe; bundled, Microsoft-signed, unmodified): NuGet package'
+Add "    Microsoft.Windows.Console.ConPTY $conptyVersion from https://github.com/microsoft/terminal, MIT License:"
+Add
+Add ((Normalize (Get-Content (Join-Path $licensesDir 'MIT.txt') -Raw)) -replace "Copyright \(c\) the package authors \(see the package's copyright notice\)", 'Copyright (c) Microsoft Corporation. All rights reserved.')
+
 $text = $sb.ToString() -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($Output, $text, [System.Text.UTF8Encoding]::new($false))
 
