@@ -2,6 +2,8 @@
 
 A home for your AI coding agents: real terminals with live agent status, permission handling, usage, costs and limits in one desktop app.
 
+**Website:** [kotilo.dev](https://kotilo.dev) · **Download:** [latest release](https://github.com/kotilo-dev/kotilo/releases/latest)
+
 Kotilo is Finnish for a snail shell ("koti" means home). It is a portable shell you carry your agents around in. It is free and open source under the Apache License 2.0.
 
 ## What it is

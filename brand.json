@@ -4,7 +4,7 @@
   "identifier": "dev.kotilo.app",
   "publisher": "Kotilo",
   "exePrefix": "kotilo",
-  "website": "https://github.com/kotilo-dev/kotilo",
+  "website": "https://kotilo.dev",
   "repository": "https://github.com/kotilo-dev/kotilo",
   "supportEmail": "",
   "updateEndpoint": "https://github.com/kotilo-dev/kotilo/releases/latest/download/latest.json",

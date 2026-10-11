@@ -1,3 +1,14 @@
+# Planned after v0.1.0 – Robot snail mascot (v0.2 candidate)
+
+Goal: the robot snail from D-049 walks on the taskbar and shows the agents' state – the spiral core and antennas carry the status colour (working / needs you / done / error), it celebrates finished work and can be hidden or turned off. Recorded 2026-10-11 (user: "todo'ya ekle"); the hub already has `MascotState`, `SpriteSheet` and the `buddy.mascot*` settings, but nothing draws the mascot and no sprite data exists.
+
+- [ ] Sprites: 16×16 frames from concept B (spiral core): walk, idle, waiting for permission, done/celebrate, error; status colour as a separate layer so one sheet serves every state; licence-clean (own work)
+- [ ] Mascot window (Tauri, platform layer): transparent, always on top, click-through except on the snail, follows the taskbar work area (`walkArea`), scale setting, multi-monitor and DPI changes
+- [ ] Wire `MascotState` from the hub to the window; click opens the session that needs the user; "hide until" and position settings
+- [ ] Settings UI (EN/TR), tests (state mapping, sprite parsing), e2e screenshot of the settings, manual test on the real desktop (rule 6: no automated global input)
+
+---
+
 # M5 – Open-source release (in progress, replanned 2026-10-09)
 
 Goal: publish the app as free, open-source software under Apache-2.0 – a public repo with clean history, signed per-user installers for x64 + ARM64 built by CI, the Tauri updater fed from GitHub Releases, complete notices, contributor docs – and keep the maintenance load low (adapters stay data-only, contributions welcome).
