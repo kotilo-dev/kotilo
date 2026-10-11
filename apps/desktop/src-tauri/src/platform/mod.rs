@@ -2,8 +2,11 @@
 //! functions, so callers never carry `#[cfg]` themselves. New platform code goes here;
 //! the older inline `#[cfg(windows)]` blocks imported from AgentDeck move in over time.
 
+pub mod assistant;
 pub mod dictation;
+pub mod hotkeys;
 pub mod mascot;
+pub mod webview;
 #[cfg(windows)]
 pub(crate) mod overlay_window;
 

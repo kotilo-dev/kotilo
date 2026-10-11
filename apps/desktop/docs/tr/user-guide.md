@@ -689,6 +689,52 @@ kotanızı kullanır.
 tanıma (Whisper) her zaman yerelde çalışır. İstemler ve yanıtlar asla günlüğe yazılmaz ya
 da saklanmaz; günlüğe yalnızca sağlayıcı, süre ve sonuç düşer.
 
+## Asistan
+
+Asistan, gün içinde aklınıza takılan kısa sorular için küçük bir sohbet penceresidir ("son
+commit'i nasıl geri alırım?", "bu regex ne yapıyor?"). Genel amaçlı bir sohbettir:
+oturumlarınızı, dosyalarınızı, terminallerinizi ya da kullanımınızı görmez; yapay zekâ
+araçlar kapalıyken çalışır.
+
+Açmak için **Ayarlar → Yapay zekâ** bölümündeki **Asistan** satırında **Asistanı kullan**
+kutusunu işaretleyin, bir **Kısayol** seçin (varsayılan `Ctrl+Alt+Space`) ve kaydedin.
+Kısayol her uygulamadan çalışır ve pencereyi açıp kapatır. Aynı satırdaki **Asistanı aç**
+düğmesi ve maskotun sağ tık menüsündeki **Asistanı aç** da pencereyi açar. Kısayolu başka bir
+uygulama kullanıyorsa alanın altında bunu söyleyen bir uyarı çıkar; o zaman başka bir kısayol
+seçin. Dikte ve görev kısayollarıyla da aynı olamaz. Sağlayıcı ve model de aynı satırdan
+seçilir.
+
+Penceredeki tuşlar:
+
+| Tuş | Ne yapar |
+|---|---|
+| `Enter` | Gönderir |
+| `Shift+Enter` | Yeni satıra geçer |
+| `↑` (mesaj kutusu boşken) | Son soruyu düzenlemenizi sağlar: soru ve yanıtı silinir, metin kutuya geri gelir |
+| `Esc` | Yazılmakta olan yanıtı durdurur; yanıt yoksa pencereyi kapatır |
+| `Ctrl+N` | Yeni sohbet başlatır |
+
+Yanıtlar yazıldıkça akar; Markdown, tablo ve renklendirilmiş kod desteklenir. Kod
+bloklarının ve yanıtların kendi kopyalama düğmesi vardır. Yanıt sürerken **Durdur** onu
+keser, o ana kadar yazılanı bırakır. Bir sorun çıkarsa (ajan CLI'ı kurulu değil ya da
+oturum açılmamış, sunucuya ulaşılamıyor, süre doldu…) hata o sorunun altında görünür;
+çözümü ayarlardaysa yanında **Ayarlar → Yapay zekâ** düğmesi de olur.
+
+**Hiçbir şey kaydedilmez.** Pencere her açıldığında yeni bir sohbet başlar; sohbet yalnızca
+pencere açıkken vardır, kapanınca kaybolur. Kotilo ne mesajları ne yanıtları ne de bir
+başlığı veritabanına, ayarlara ya da günlüğe yazar (günlüğe yalnızca sağlayıcı, süre, sonuç
+ve karakter sayıları düşer). Her soruda o ana kadarki sohbet, seçtiğiniz sağlayıcıya
+gönderilir; pencerenin altındaki satır da bunu hatırlatır ("Hiçbir şey kaydedilmez · araçlar
+kapalı · … sağlayıcısına gider").
+
+**Ajan CLI'ları kendi kopyalarını tutabilir.** Asistan bir ajan CLI'ı üzerinden çalışıyorsa o
+CLI sohbeti kendi oturum dosyalarına yazabilir; bu, Kotilo'nun elinde değildir. Kotilo
+destekleyen CLI'ları (Claude Code, Codex, Qwen Code) oturum dosyası bırakmadan başlatır;
+OpenAI uyumlu uç noktalar da bu bilgisayarda bir şey bırakmaz. Diğerlerinde pencerenin
+altında bir uyarı görünür: GitHub Copilot CLI, OpenCode ve Gemini CLI için "… bu sohbetin
+bir kopyasını kendi oturum dosyalarında saklar", durumun bilinmediği Cursor ve Factory Droid
+için "… saklayabilir". Bu sizin için önemliyse asistana başka bir sağlayıcı seçin.
+
 ## Maskot
 
 Kotilo'nun robot salyangozu masaüstünde durup ajanlarınızın genel durumunu gösterebilir;
@@ -711,7 +757,8 @@ arasındaki en acil durumun rengini alır:
 
 Salyangoza **tıklayınca** Kotilo öne gelir: bekleyen bir izin, cevap ya da hata varsa en
 uzun süredir bekleyen ajan açılır; terlerken Kullanım sayfası açılır. **Sağ tıkla** **1 saat
-gizle**, **Maskotu kapat** ve **Maskot ayarları…** seçenekleri gelir. Görev çubuğu boyunca
+gizle**, **Maskotu kapat**, **Maskot ayarları…** ve asistan açıksa **Asistanı aç** seçenekleri
+gelir. Görev çubuğu boyunca
 **sürükleyerek** yerini değiştirebilirsiniz; yeri hatırlanır.
 
 Ayarlar: **Boyut** (Küçük, Orta, Büyük), **Yerleşim** ("Görev çubuğunda yürüsün" ya da sağ

@@ -391,3 +391,354 @@ public sealed class CliAiProviderTests : IDisposable
         current.Read("ollama").Should().BeNull();
     }
 }
+
+/// <summary>Streaming chat over an OpenAI-compatible endpoint: the response body is fed chunk by chunk by the test.</summary>
+public sealed class OpenAiChatStreamTests
+{
+    /// <summary>A response body the test writes to while the provider reads it.</summary>
+    private sealed class ChunkStream : Stream
+    {
+        private readonly System.Threading.Channels.Channel<byte[]> _chunks = System.Threading.Channels.Channel.CreateUnbounded<byte[]>();
+        private byte[] _current = [];
+        private int _offset;
+
+        public void Write(string text) => _chunks.Writer.TryWrite(Encoding.UTF8.GetBytes(text));
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_offset >= _current.Length)
+            {
+                if (!await _chunks.Reader.WaitToReadAsync(cancellationToken))
+                {
+                    return 0;
+                }
+
+                _current = await _chunks.Reader.ReadAsync(cancellationToken);
+                _offset = 0;
+            }
+
+            var n = Math.Min(buffer.Length, _current.Length - _offset);
+            _current.AsMemory(_offset, n).CopyTo(buffer);
+            _offset += n;
+            return n;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class Handler(Func<HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public string? Body { get; private set; }
+
+        public string? Accept { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Accept = request.Headers.Accept.ToString();
+            return respond();
+        }
+    }
+
+    /// <summary>Collects <c>onText</c> calls and lets the test wait for a given text.</summary>
+    private sealed class Texts
+    {
+        private readonly List<string> _all = [];
+        private readonly List<(string Text, TaskCompletionSource Seen)> _waits = [];
+
+        public IReadOnlyList<string> All
+        {
+            get
+            {
+                lock (_all)
+                {
+                    return _all.ToList();
+                }
+            }
+        }
+
+        public void Add(string text)
+        {
+            lock (_all)
+            {
+                _all.Add(text);
+                foreach (var w in _waits.Where(w => w.Text == text))
+                {
+                    w.Seen.TrySetResult();
+                }
+            }
+        }
+
+        public Task WaitFor(string text)
+        {
+            lock (_all)
+            {
+                var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                if (_all.Contains(text))
+                {
+                    tcs.SetResult();
+                }
+
+                _waits.Add((text, tcs));
+                return tcs.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+    }
+
+    private static readonly AiChatRequest Chat = new(
+        "Be brief.", [new(AiChatRole.User, "hi"), new(AiChatRole.Assistant, "hello"), new(AiChatRole.User, "say more")], null, TimeSpan.FromSeconds(10));
+
+    private static string Delta(string text, string model = "m-live") =>
+        "data: " + JsonSerializer.Serialize(new { model, choices = new[] { new { delta = new { content = text } } } }) + "\n\n";
+
+    private static HttpResponseMessage Sse(ChunkStream body)
+    {
+        var content = new StreamContent(body);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    [Fact]
+    public async Task Chunks_are_passed_on_as_they_arrive()
+    {
+        var body = new ChunkStream();
+        var handler = new Handler(() => Sse(body));
+        using var http = new HttpClient(handler);
+        var provider = new OpenAiCompatibleProvider("ollama", "http://localhost:11434", "llama3", () => "sk-test", http);
+        var texts = new Texts();
+
+        var run = provider.ChatAsync(Chat, texts.Add, CancellationToken.None);
+        body.Write(": keep-alive\n\n" + Delta("<think>hmm"));
+        body.Write(Delta("</think>Hel"));
+        await texts.WaitFor("Hel");
+        run.IsCompleted.Should().BeFalse("the answer is still streaming");
+        body.Write(Delta("lo "));
+        body.Write("data: [DONE]\n\n");
+        var result = await run;
+
+        result.Should().Be(AiResult.Ok("Hello", "m-live"));
+        texts.All.Should().Equal("Hel", "Hello ");
+        handler.Accept.Should().Contain("text/event-stream");
+        using var doc = JsonDocument.Parse(handler.Body!);
+        doc.RootElement.GetProperty("stream").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("model").GetString().Should().Be("llama3");
+        doc.RootElement.GetProperty("messages").EnumerateArray().Select(m => (m.GetProperty("role").GetString(), m.GetProperty("content").GetString()))
+            .Should().Equal(("system", "Be brief."), ("user", "hi"), ("assistant", "hello"), ("user", "say more"));
+    }
+
+    [Fact]
+    public async Task A_server_that_does_not_stream_answers_with_one_json_body()
+    {
+        var handler = new Handler(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"model":"m-json","choices":[{"message":{"content":" Whole answer "}}]}""", Encoding.UTF8, "application/json"),
+        });
+        using var http = new HttpClient(handler);
+        var texts = new Texts();
+
+        var result = await new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => null, http).ChatAsync(Chat, texts.Add, CancellationToken.None);
+
+        result.Should().Be(AiResult.Ok("Whole answer", "m-json"));
+        texts.All.Should().Equal("Whole answer");
+    }
+
+    [Fact]
+    public async Task Event_streams_without_the_content_type_and_error_events_are_read()
+    {
+        var plain = new Handler(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(Delta("A") + Delta("B") + "data: [DONE]\n") });
+        using var http = new HttpClient(plain);
+        (await new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => null, http).ChatAsync(Chat, _ => { }, CancellationToken.None))
+            .Should().Be(AiResult.Ok("AB", "m-live"));
+
+        var failing = new Handler(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(Delta("A") + """data: {"error":{"message":"overloaded"}}""" + "\n\n"),
+        });
+        using var http2 = new HttpClient(failing);
+        var result = await new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => null, http2).ChatAsync(Chat, _ => { }, CancellationToken.None);
+        (result.ErrorKind, result.Detail).Should().Be((AiErrorKind.Failed, "HTTP 200: overloaded"));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, AiErrorKind.Unauthorized)]
+    [InlineData(HttpStatusCode.NotFound, AiErrorKind.Failed)]
+    public async Task Error_statuses_map_to_kinds_and_send_no_text(HttpStatusCode status, AiErrorKind kind)
+    {
+        var handler = new Handler(() => new HttpResponseMessage(status) { Content = new StringContent("""{"error":"nope"}""") });
+        using var http = new HttpClient(handler);
+        var texts = new Texts();
+
+        var result = await new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => "k", http).ChatAsync(Chat, texts.Add, CancellationToken.None);
+
+        (result.ErrorKind, result.Detail).Should().Be((kind, $"HTTP {(int)status}: nope"));
+        texts.All.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Cancelling_mid_stream_stops_the_read()
+    {
+        var body = new ChunkStream();
+        using var http = new HttpClient(new Handler(() => Sse(body)));
+        var texts = new Texts();
+        using var cancel = new CancellationTokenSource();
+
+        var run = new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => null, http).ChatAsync(Chat, texts.Add, cancel.Token);
+        body.Write(Delta("Part"));
+        await texts.WaitFor("Part");
+        await cancel.CancelAsync();
+        var result = await run.WaitAsync(TimeSpan.FromSeconds(10));
+
+        result.ErrorKind.Should().Be(AiErrorKind.Cancelled);
+        texts.All.Should().Equal("Part");
+    }
+
+    [Fact]
+    public async Task A_stalled_stream_times_out()
+    {
+        var body = new ChunkStream();
+        using var http = new HttpClient(new Handler(() => Sse(body)));
+
+        var result = await new OpenAiCompatibleProvider("x", "http://localhost:1", "m", () => null, http)
+            .ChatAsync(Chat with { Timeout = TimeSpan.FromMilliseconds(300) }, _ => { }, CancellationToken.None);
+
+        result.ErrorKind.Should().Be(AiErrorKind.Timeout);
+    }
+}
+
+/// <summary>Chat runs of a fake agent CLI (<c>.cmd</c> scripts, Windows only).</summary>
+public sealed class CliChatTests : IDisposable
+{
+    private static readonly AiChatMessage[] Conversation =
+        [new(AiChatRole.User, "2+2?"), new(AiChatRole.Assistant, "4."), new(AiChatRole.User, "100% & \"times\" | 3?")];
+
+    /// <summary>Plain-text, stdin, with a made-up no-persistence flag for chat runs.</summary>
+    private static readonly CliAgentSpec Plain = new(
+        "fake", "Fake", Verified: false, ["fake"], [], CliPromptInput.Stdin, CliOutput.PlainText, HasSystemPromptFlag: false,
+        i => i.Ephemeral ? ["--model", i.Model ?? "none", "--no-persist"] : ["--model", i.Model ?? "none"])
+    {
+        Ephemeral = true,
+    };
+
+    private readonly TempDir _dir = new();
+
+    public void Dispose() => _dir.Dispose();
+
+    private string Scratch => _dir.File("scratch");
+
+    private string Script(string name, string body)
+    {
+        var path = _dir.File(name);
+        File.WriteAllText(path, "@echo off\r\n" + body.ReplaceLineEndings("\r\n") + "\r\n");
+        return path;
+    }
+
+    private static AiChatRequest Chat() => new("Rules.", Conversation, "m1", TimeSpan.FromSeconds(20));
+
+    [Fact]
+    public async Task Plain_clis_get_the_rendered_conversation_on_stdin_and_the_no_persistence_flag()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var exe = Script("fake.cmd", "echo args=%*\nfindstr \"^\"");
+        var texts = new List<string>();
+
+        var result = await new CliAiProvider(Plain, () => exe, Scratch).ChatAsync(Chat(), texts.Add, CancellationToken.None);
+
+        var expected = "args=--model m1 --no-persist\n" + CliAgentSpecs.CombinePrompt("Rules.", AiChatPrompt.Render(Conversation));
+        result.Should().Be(AiResult.Ok(expected.ReplaceLineEndings("\r\n"), "m1"));
+        texts.Should().Equal([result.Text!], "the answer arrives once, at the end");
+    }
+
+    [Fact]
+    public async Task Claude_chats_stream_and_run_without_session_persistence()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        const string Init = """{"type":"system","subtype":"init","session_id":"s1","tools":[],"model":"claude-haiku-test"}""";
+        const string Text = """{"type":"assistant","message":{"id":"m1","content":[{"type":"text","text":"Twelve."}]}}""";
+        const string Result = """{"type":"result","subtype":"success","is_error":false,"result":"Twelve.","session_id":"s1","usage":{"input_tokens":3,"output_tokens":1}}""";
+        File.WriteAllLines(_dir.File("ok.jsonl"), [Init, Text, Result]);
+        var exe = Script("claude.cmd", "echo %* > \"%~dp0args.txt\"\nfindstr \"^\" > \"%~dp0stdin.txt\"\ntype \"%~dp0ok.jsonl\"");
+        var texts = new List<string>();
+
+        var result = await new CliAiProvider(CliAgentSpecs.ClaudeCode, () => exe, Scratch)
+            .ChatAsync(Chat() with { System = "safe system", Model = "haiku" }, texts.Add, CancellationToken.None);
+
+        result.Should().Be(AiResult.Ok("Twelve.", "claude-haiku-test"));
+        texts.Should().Equal("Twelve.");
+        File.ReadAllText(_dir.File("args.txt")).Should().Contain("--no-session-persistence").And.Contain("--append-system-prompt").And.NotContain("--resume");
+        File.ReadAllText(_dir.File("stdin.txt")).ReplaceLineEndings("\n").TrimEnd().Should().Be(AiChatPrompt.Render(Conversation));
+    }
+
+    [Fact]
+    public async Task Cancelling_a_chat_kills_the_process_tree()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // ping holds the output pipe: the run only ends this early if the whole tree is gone.
+        var exe = Script("slow.cmd", "ping -n 30 127.0.0.1 >nul\necho late");
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        var started = DateTime.UtcNow;
+
+        var result = await new CliAiProvider(Plain, () => exe, Scratch).ChatAsync(Chat(), _ => { }, cancel.Token);
+
+        result.ErrorKind.Should().Be(AiErrorKind.Cancelled);
+        (DateTime.UtcNow - started).Should().BeLessThan(TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
+    public void The_claude_locator_prefers_exe_on_path_then_local_bin()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var onPath = Directory.CreateDirectory(_dir.File("p")).FullName;
+        var profile = Directory.CreateDirectory(_dir.File("home")).FullName;
+        var localBin = Directory.CreateDirectory(Path.Combine(profile, ".local", "bin")).FullName;
+
+        CliAgentLocator.Find(CliAgentSpecs.ClaudeCode, onPath, profile).Should().BeNull();
+
+        File.WriteAllText(Path.Combine(localBin, "claude.exe"), "");
+        CliAgentLocator.Find(CliAgentSpecs.ClaudeCode, onPath, profile).Should().Be(Path.Combine(localBin, "claude.exe"));
+
+        File.WriteAllText(Path.Combine(onPath, "claude.cmd"), "");
+        CliAgentLocator.Find(CliAgentSpecs.ClaudeCode, onPath, profile).Should().Be(Path.Combine(localBin, "claude.exe"), ".exe wins over .cmd");
+
+        File.WriteAllText(Path.Combine(onPath, "claude.exe"), "");
+        CliAgentLocator.Find(CliAgentSpecs.ClaudeCode, $"\"{onPath}\";;", profile).Should().Be(Path.Combine(onPath, "claude.exe"));
+    }
+}

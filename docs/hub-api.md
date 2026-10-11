@@ -179,7 +179,7 @@ Model download progress is not on the stream yet; poll `GET /v1/dictation/models
 | Route | Response |
 |---|---|
 | `GET /v1/settings` | `HubSettings` |
-| `PUT /v1/settings` | Send back the whole object from GET with your changes (every section is required, except `ai`: left out, it stays unchanged). Returns `200 HubSettings`, or `400` with `fields` keyed by dotted path (`rules.contextThresholdPercent`, `dictation.hotkey`, `ai.providers[0].baseUrl`, …). |
+| `PUT /v1/settings` | Send back the whole object from GET with your changes (every section is required, except `ai`: left out, it stays unchanged). Returns `200 HubSettings`, or `400` with `fields` keyed by dotted path (`rules.contextThresholdPercent`, `dictation.hotkey`, `ai.providers[0].baseUrl`, …). `buddy.hotkey` (default `Ctrl+Alt+Space`) must differ from `dictation.hotkey`, `dictation.pasteLastHotkey` and `tasks.hotkey` (compared after parsing, so `alt+ctrl+d` = `Ctrl+Alt+D`): `fields["buddy.hotkey"]` = `already used by <field>`. |
 
 The hub's internal bookkeeping (last scheduled summary, seen Claude versions, health toast days, the wrapped statusLine command) is not part of the API. No secrets live in these settings.
 
@@ -187,7 +187,7 @@ The hub's internal bookkeeping (last scheduled summary, seen Claude versions, he
 
 The hub's own AI jobs (assistant, daily summary, dictation cleanup) each run on a provider the user picks (M3, ARCHITECTURE §3a):
 
-- **`cli:<adapter id>`** runs the user's installed agent CLI headless, one process per request, in an empty scratch folder (`<data>\buddy\ai-scratch`) with `AGENTHUB_INTERNAL=1` (the hook sidecar drops these runs' events). Tools are off or read-only and no auto-approve flag is ever passed. Authentication is the agent's own login; no credential file is read. Ids: `claude-code`, `codex`, `copilot`, `opencode` (flags verified against the installed `--help`), `gemini`, `qwen`, `droid`, `cursor` (from docs/source only, `verified: false`).
+- **`cli:<adapter id>`** runs the user's installed agent CLI headless, one process per request, in an empty scratch folder (`<data>\buddy\ai-scratch`) with `AGENTHUB_INTERNAL=1` (the hook sidecar drops these runs' events). Tools are off or read-only and no auto-approve flag is ever passed. Authentication is the agent's own login; no credential file is read. Ids: `claude-code`, `codex`, `copilot`, `opencode`, `gemini`, `qwen` (flags verified against the installed `--help`), `droid`, `cursor` (from docs/source only, `verified: false`).
 - **`openai:<name>`** calls `POST {baseUrl}/chat/completions` (`/v1` is added when the base URL does not end in a version segment) with `{model, messages: [system, user], stream: false}` and, when a key is stored, `Authorization: Bearer <key>`.
 
 Prompts and answers are never logged or stored; the log gets provider id, error kind, duration and character counts.
@@ -221,3 +221,36 @@ Prompts and answers are never logged or stored; the log gets provider id, error 
 `fullyLocal` is true when every enabled AI feature (assistant while `buddy.enabled`; daily summary while enabled and not `dailySummaryWithoutAi`; dictation cleanup while `dictation.enabled` and `aiCleanup`) uses an `openai:` provider whose base URL host is loopback (`localhost`, `*.localhost`, `127.0.0.0/8`, `::1`). Agent CLIs always count as not local.
 
 Failures keep the old behaviour: the daily summary falls back to its template, the dictation cleanup returns the raw text with `cleanupFailed`.
+
+## Assistant (M7)
+
+A general chat for quick questions, answered by the `ai.assistant` provider. There is no history: the client sends the whole conversation with every request, the hub keeps it in memory for that request only and writes nothing to the database or logs (the log gets provider, model, duration, outcome, message count and character counts). The assistant gets no session or usage context and has no tools. Agent CLIs run without saving a session where the installed CLI has an option for it (`ephemeral` below): Claude Code `--no-session-persistence`, Codex `exec --ephemeral`, Qwen Code `--chat-recording false`; Copilot CLI, OpenCode and Gemini CLI have none (they keep their own session files); Droid and Cursor are not checked. `openai:` providers store nothing on this machine (`ephemeral: true`), but the text is sent to that endpoint.
+
+| Route | Body | Response |
+|---|---|---|
+| `GET /v1/assistant/info` | – | `{ enabled, provider, providerLabel, model, ephemeral, available, unavailableReason }` (below). |
+| `POST /v1/assistant/chat` | `{ messages: [{ role: "user" \| "assistant", text }] }` | `200 application/x-ndjson`, one JSON object per line (below). `400` with `fields` (`messages`, `messages[i].role`, `messages[i].text`): no messages, more than 40, more than 32 000 characters in total, a role other than `user`/`assistant`, an empty text, or a last message that is not from the user. `409 { error: "disabled" }` while `buddy.enabled` is false; `409 { error: "busy" }` while another answer runs (one at a time). |
+
+`AssistantInfo`:
+
+```json
+{ "enabled": true, "provider": "cli:claude-code", "providerLabel": "Claude Code", "model": "haiku", "ephemeral": true, "available": true, "unavailableReason": null }
+```
+
+- `enabled`: `buddy.enabled`. `providerLabel`: the agent's display name for `cli:`, the provider name for `openai:`. `model`: `ai.assistant.model`, else the `openai:` provider's default model; null = the agent's default.
+- `ephemeral`: `true` = nothing of the chat is kept on this machine (CLI option verified and passed, or an `openai:` provider); `false` = the agent CLI keeps its own session files; `null` = not known for this agent.
+- `available` / `unavailableReason` (an `errorKind`): `notInstalled` (the agent's executable is not found), `notConfigured` (unknown provider, or an `openai:` provider without a model).
+
+Chat stream (each line flushed as it is written; text frames at most ~20 per second):
+
+```
+{"type":"meta","provider":"openai:ollama","providerLabel":"ollama","model":"llama3.1:8b","ephemeral":true}
+{"type":"text","text":"Two plus"}
+{"type":"text","text":"Two plus two is four."}
+{"type":"done","errorKind":"none","error":null}
+```
+
+- `text` always carries the full answer so far, not a delta; the last `text` before `done` is the final answer. `openai:` providers stream (`stream: true`, server-sent events; a server that answers with one JSON body is read as such); Claude Code streams (stream-json); the other agent CLIs send one `text` at the end.
+- `done.errorKind` is an `errorKind` (see AI providers); `error` is a short technical reason (exit code, HTTP status and the server's short message) or null. A `done` with an error may follow `text` frames (the partial answer).
+- Closing the request cancels the run: the agent CLI's process tree is killed, the HTTP stream to an `openai:` endpoint is closed. The answer is limited to 5 minutes (`timeout`).
+- Agent CLIs get no message list: earlier turns are written into the prompt (`User:` / `Assistant:` labels, then the new message); nothing is resumed.

@@ -28,6 +28,7 @@ import {
   validateEndpoint,
   type AiFeature,
 } from "./aiSettings";
+import { AssistantSettings } from "./AssistantSettings";
 import { Button, Card, Checkbox, Dialog, Field, Notice, SectionLabel, Select, TextInput } from "./controls";
 import type { HubSectionProps } from "./HubSections";
 import { asAppError, useHubResource } from "./hubData";
@@ -161,7 +162,7 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
             onTest={() => void runTest(`f:${f}`, ai[f].provider, ai[f].model)}
             onChange={(patch) => setChoice(f, patch)}
           >
-            {f === "assistant" && !draft.buddy.enabled && <span className="text-small text-muted">{t.assistantOff}</span>}
+            {f === "assistant" && <AssistantSettings draft={draft} update={update} errors={errors} />}
             {f === "dailySummary" && (
               <>
                 <Checkbox

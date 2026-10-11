@@ -275,6 +275,40 @@ describe("SettingsPage", () => {
       );
     });
 
+    it("keeps an unsaved assistant edit (Settings → AI) when a mascot change is saved at once (M7)", async () => {
+      const withAi = {
+        ...HUB_SETTINGS,
+        ai: { providers: [], assistant: { provider: "cli:claude-code", model: null }, dailySummary: { provider: "cli:claude-code", model: null }, dictationCleanup: { provider: "cli:claude-code", model: null } },
+      } as HubSettings;
+      let stored = structuredClone(withAi);
+      ipc.hubRequest.mockImplementation((m: string, p: string, b?: unknown) => {
+        if (p !== "/v1/settings") return routeHub(m, p, b);
+        if (m === "PUT") stored = structuredClone(b as HubSettings);
+        return Promise.resolve(structuredClone(stored));
+      });
+      useSettingsPageStore.setState({ section: "ai" });
+      render(<SettingsPage />);
+      fireEvent.click(await screen.findByLabelText(strings.assistant.settings.enabled, { exact: false }));
+      fireEvent.change(screen.getByRole("textbox", { name: strings.assistant.settings.hotkey }), { target: { value: "Ctrl+Alt+K" } });
+
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.mascot }));
+      fireEvent.click(await screen.findByRole("radio", { name: strings.mascot.sizeLarge }));
+      await waitFor(() => expect(useMascotSettingsStore.getState().settings?.buddy.mascotScale).toBe(4));
+      // The immediate mascot save didn't take the unsaved assistant edit along.
+      expect(stored.buddy.enabled).toBe(false);
+
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.ai }));
+      expect(screen.getByLabelText(strings.assistant.settings.enabled, { exact: false })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.save }));
+      await waitFor(() =>
+        expect(ipc.hubRequest).toHaveBeenLastCalledWith(
+          "PUT",
+          "/v1/settings",
+          expect.objectContaining({ buddy: expect.objectContaining({ enabled: true, hotkey: "Ctrl+Alt+K", mascotScale: 4 }) }),
+        ),
+      );
+    });
+
     it("shows when the mascot is hidden and brings it back", async () => {
       const hidden = { ...HUB_SETTINGS, buddy: { ...HUB_SETTINGS.buddy, mascotEnabled: true, mascotHiddenUntil: new Date(Date.now() + 1_800_000).toISOString() } };
       ipc.hubRequest.mockImplementation((m: string, p: string, b?: unknown) =>

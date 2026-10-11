@@ -391,10 +391,10 @@ export const hubSettings: HubSettings = {
   doNotDisturbUntil: null,
   suppressWhenTerminalFocused: true,
   buddy: {
-    enabled: false,
+    enabled: true,
     mascotEnabled: false,
     mascotOffered: true,
-    hotkey: "Ctrl+Alt+B",
+    hotkey: "Ctrl+Alt+Space",
     mascotScale: 3,
     walkArea: "taskbar",
     celebrate: true,

@@ -26,6 +26,7 @@ import { ToastHost } from "../features/toast/ToastHost";
 import { UpdatePrompt } from "../features/update/UpdatePrompt";
 import { MascotOffer } from "../features/toast/MascotOffer";
 import { useMascotBridge } from "../features/mascot/useMascotBridge";
+import { useAssistantBridge } from "../features/assistant/useAssistantBridge";
 import { scheduleStartupUpdateCheck } from "../features/update/updateStore";
 import { QuickPick } from "../features/palette/QuickPick";
 import { installRecentTabsTracking } from "../features/palette/recentTabs";
@@ -113,6 +114,7 @@ export function App() {
 
   // M6: combined agent state → the desktop mascot; its clicks and menu come back here.
   useMascotBridge();
+  useAssistantBridge();
 
   // D18 (second half): WebView2 accelerator keys are disabled in Rust (src-tauri/src/lib.rs);
   // the right-click context menu is blocked here in the frontend.

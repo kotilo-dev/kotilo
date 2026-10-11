@@ -33,15 +33,35 @@ Wave 2 checks (2026-10-11, integrated tree): hub 698 + 214 + 64 (one Infrastruct
 
 ---
 
-# M7 – Assistant chat popup (after M6, recorded 2026-10-11)
+# M7 – Assistant chat popup (planned 2026-10-11)
 
-Found missing (user: "kısayol ile açılıp günlük soruları sorduğumuz popup… settings'de bulamadım"): the old prototype's "Bip" chat was never ported. The hub still has `BuddyService.AskAsync` and the chat history store (`BuddyChatRepository`), but nothing calls them and there is no API; `buddy.enabled` and `buddy.hotkey` (Ctrl+Alt+B) exist only in the settings type – no toggle in Settings, no registered hotkey, no window. Settings → AI → "Assistant" only picks the provider. PRD §5 lists it ("Asistan ve özet: küçük sohbet").
+Goal: a small chat window opened with a global hotkey for quick everyday questions, answered by the AI provider the user picked for "Assistant" (Settings → AI). Found missing after M6 (user: "kısayol ile açılıp günlük soruları sorduğumuz popup… settings'de bulamadım"): the old prototype's "Bip" chat was never ported.
 
-To plan at the start of M7:
-- [ ] Hub: chat API (ask with streamed answer, stop, history list/open/delete), answering through the provider chosen for `ai.assistant` (check whether `AskAsync` is still `claude -p`-only); no transcript content in logs (rule 5) – decide whether chat history may be stored (old prototype did; needs an explicit user decision like saved prompts)
-- [ ] Rust: global hotkey for the popup (reuse the dictation hotkey layer), popup window that takes focus, near the cursor's monitor, hidden from Alt+Tab
-- [ ] UI: chat popup (messages, markdown-lite, stop, new chat, history), Settings → Assistant on/off + hotkey (EN/TR)
-- [ ] Mascot link: right-click "Open chat", click in sleep/done opens the chat (old Bip behaviour)
+User decisions (2026-10-11): **no history at all** – every opening is a new chat, the conversation ends when the window closes, nothing is written to disk ("verdiğimiz mesaj gizlilik bozulmasın"); **general chat** – the assistant gets no session or usage context (fix the "Answers questions about your sessions and usage" description).
+
+## Findings that shape the plan
+- `BuddyService.AskAsync` is `claude -p`-only (resume via Claude's own transcripts) and has no callers or API; the provider layer (`IAiProvider.CompleteAsync(AiRequest{System, User})`) is single-turn, non-streaming (OpenAI `stream=false`, Claude CLI stream thrown away, other CLIs collect stdout).
+- `BuddyChatRepository` (`buddy_chats`, migration 004) would store the first 60 chars of the first message as a title – conflicts with rule 5 and the user's decision; `BuddyTranscriptReader` and `MarkdownLite` are unused leftovers. Nothing writes the table today.
+- **Agent CLIs keep their own transcripts** (`~/.claude/projects/…`, `~/.codex/sessions/…`): a CLI-backed chat would leave the conversation on disk even though Kotilo stores nothing. Use each CLI's no-persistence mode where it exists (Claude Code: verify `--no-session-persistence` in the installed `--help`; Codex and others: verify) and show a note in the window for providers that cannot run ephemerally.
+- Hub stream (`/v1/stream`) broadcasts to every client – not suitable for a private answer stream; no SSE/progressive endpoint exists yet.
+- Desktop hotkeys: `RegisterHotKey` on a dedicated thread owned by dictation (`platform/dictation/win_hotkeys.rs`, closed `HotkeyId` enum, presses go to the dictation controller) – needs a small generalisation for a second consumer. `buddy.hotkey` defaults to `Ctrl+Alt+Space`; no duplicate-hotkey validation.
+- No focusable secondary window exists yet (overlay and mascot are no-activate); main disables WebView2 browser accelerators (`lib.rs`), a new focusable webview needs the same. `react-markdown` + `remark-gfm` + highlight already in the app.
+
+## Design (D-053)
+- **Hub:** `IAiProvider` gets a streaming multi-turn call (`AiChatRequest{System, Messages[], Model, Timeout}` + `onText`): OpenAI-compatible with `stream=true` (SSE), Claude CLI with stream-json and the conversation rendered into the stdin prompt (no `--resume`), other CLIs plain (answer at the end), all CLIs in no-persistence mode where supported; `POST /v1/assistant/chat` returns a chunked NDJSON stream (`{type:"text",text}` … `{type:"done",errorKind,error?}`), client abort = cancel (process tree killed), one chat at a time (409 busy). Logs: provider, duration, outcome, character counts only. Remove `AskAsync`, `BuddyChatRepository`, `BuddyTranscriptReader`, `MarkdownLite` (+ tests) and drop `buddy_chats` with a new migration. Settings validation: `buddy.hotkey` must differ from the dictation/paste-last/task hotkeys.
+- **Rust:** the hotkey thread becomes app-level (dictation keeps its ids; a new `Assistant` id routes to an assistant handler); registers `buddy.hotkey` while `buddy.enabled`, reports "taken" to the main window. Window `assistant` (`?view=assistant`): 400×580, undecorated, always on top, skip taskbar, takes focus, placed bottom-right of the monitor under the cursor, browser accelerators off; the hotkey toggles it; hiding destroys the page state (new chat next time). Command `assistant_chat(messages, channel)` streams the hub NDJSON to the page over a Tauri `Channel`; `assistant_stop`; capability file.
+- **UI:** popup page: header (title, provider·model, new chat, close), messages (user right/accent, assistant left with markdown + code copy), composer (Enter send, Shift+Enter newline, Esc stops a running answer or closes, Ctrl+N new chat), footer "Nothing is saved · tools off · sent to <provider>" plus the no-persistence warning when needed; errors with a hint (not installed / not signed in → Settings → AI). Settings → Assistant (or the AI section): on/off, hotkey field (reuse the dictation hotkey input), "taken" warning, link to the provider choice; EN/TR; fixed description. Mascot: right-click "Open assistant", click in sleep/done opens it.
+
+## Wave 1 (parallel, file ownership)
+- [x] A – Hub: streaming chat on providers + endpoint + no-persistence flags (verified against installed `--help`) + cleanup migration + hotkey validation; fixture tests (fake CLI, fake SSE server)
+- [x] B – Rust: app-level hotkey thread, `assistant` window + placement + toggle, `assistant_chat`/`assistant_stop` with Channel streaming, mascot menu item hook; tests for the pure parts
+- [x] C – UI: popup page + markdown + keyboard, Settings → Assistant + i18n EN/TR, mascot "Open assistant" wiring; unit tests + e2e screenshots with a mocked stream
+
+## Wave 2 – checks
+- [x] Integrate, hub/Rust/clippy/UI/e2e green, D-053, manual tests M7-1… (hotkey toggle from another app, focus, streaming, stop, Esc, provider switch incl. OpenAI-compatible/Ollama, nothing on disk: no new files under `~/.claude/projects` for the buddy folder, no rows/logs with text), user guide EN/TR
+- [x] Manual tests M7-1…M7-8 on the real desktop – user: "herşey çalıştı" (2026-10-11)
+
+Wave 2 checks (2026-10-11, integrated tree): hub 690 + 222 + 75, Rust 583 + 67 + 11 + 3 + 1 + 1 + clippy clean, UI build + 853 unit tests, e2e 64 (13 assistant: multi-turn with code, streaming + Stop, error turn, unavailable/off, Settings EN/TR light/dark). Lead fixes at integration: popup window transparent without native shadow (the page paints the rounded card), Rust listens for `assistant:settings` and brings the main window up. CLI no-persistence flags verified against the installed `--help` (Claude Code 2.1.296, Codex 0.160.0, Qwen 0.25.0; none in Copilot 1.0.91, OpenCode 2.0.22, Gemini 0.62.0). Not run: the real app.
 
 ---
 

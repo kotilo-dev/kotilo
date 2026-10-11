@@ -11,6 +11,7 @@ import * as fx from "./fixtures";
 import * as agentFx from "./agentFixtures";
 import * as composerFx from "./composerFixtures";
 import * as timelineFx from "./timelineFixtures";
+import * as assistantFx from "./assistantFixtures";
 
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "light" ? "light" : "dark";
@@ -178,6 +179,21 @@ mockIPC(
         return { hubAvailable: true, installed: true, upToDate: true, state: "installed", settingsPath: "C:\\Users\\demo\\.claude\\settings.json" };
       case "dictation_status":
         return { enabled: true, hotkey: { gesture: "Ctrl+Alt+D", error: null }, pasteLastHotkey: { gesture: "Ctrl+Alt+Shift+D", error: null }, phase: "hidden" };
+      case "assistant_info":
+        return assistantFx.assistantInfo();
+      case "assistant_chat":
+        return assistantFx.assistantChat(args);
+      case "assistant_stop":
+        return assistantFx.assistantStop();
+      case "assistant_hide":
+        window.__e2eAssistant.hides += 1;
+        return null;
+      case "assistant_open":
+        window.__e2eAssistant.opens += 1;
+        return null;
+      case "assistant_set_config":
+        window.__e2eAssistant.configs.push(args.config);
+        return { status: "ok", hotkey: String((args.config as { hotkey?: string } | undefined)?.hotkey ?? "") };
       case "hub_status":
         return { state: "running", pid: 4242 };
       case "hub_request":

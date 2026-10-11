@@ -1,0 +1,107 @@
+/*
+ * Assistant chat popup (M7, D-053). The window is transparent outside the rounded card; all
+ * colours come from the theme tokens (index.css).
+ */
+
+html[data-view="assistant"] body {
+  background: transparent;
+}
+
+/* Answers: the file preview's markdown typography, tightened for a 400 px chat column. */
+.assistant-md {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.assistant-md > :last-child {
+  margin-bottom: 0;
+}
+.assistant-md p,
+.assistant-md ul,
+.assistant-md ol,
+.assistant-md blockquote,
+.assistant-md table,
+.assistant-md .assistant-code {
+  margin: 0 0 0.7em;
+}
+.assistant-md .assistant-code pre {
+  margin: 0;
+  padding-right: 2.5em;
+  background: var(--terminal-bg);
+  border: 1px solid var(--border);
+}
+.assistant-md ul,
+.assistant-md ol {
+  padding-left: 1.4em;
+}
+.assistant-md h1,
+.assistant-md h2,
+.assistant-md h3,
+.assistant-md h4 {
+  margin: 0.9em 0 0.4em;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.assistant-md h1 {
+  font-size: 1.25em;
+}
+.assistant-md h2 {
+  font-size: 1.15em;
+}
+.assistant-md h3,
+.assistant-md h4 {
+  font-size: 1.05em;
+}
+/* Highlight.js paints its own background; the block's token background wins. */
+.assistant-md pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
+
+.assistant-code > button {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.assistant-code:hover > button,
+.assistant-code > button:focus-visible {
+  opacity: 1;
+}
+
+/* Typing indicator: three dots. */
+.assistant-typing span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 3px;
+  border-radius: 9999px;
+  background: var(--text-muted);
+  animation: assistant-dot 1.2s ease-in-out infinite;
+}
+.assistant-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.assistant-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes assistant-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-typing span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* The composer box shows the focus (accent border); no second ring on the textarea. */
+.assistant-composer:focus-visible {
+  outline: none;
+}

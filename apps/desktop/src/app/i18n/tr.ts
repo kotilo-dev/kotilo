@@ -11,6 +11,7 @@ import { composerTr } from "./composer.tr";
 import { timelineTr } from "./timeline.tr";
 import { missionTr } from "./mission.tr";
 import { updateTr } from "./update.tr";
+import { assistantTr } from "./assistant.tr";
 
 function runningTerminalsSuffix(runningCount: number): string {
   if (runningCount <= 0) return "";
@@ -352,11 +353,10 @@ export const tr: Strings = {
     features: "Özellikler",
     featureNames: { assistant: "Asistan", dailySummary: "Günlük özet", dictationCleanup: "Dikte düzenleme" },
     featureHints: {
-      assistant: "Oturumlarınız ve kullanımınızla ilgili soruları yanıtlar.",
+      assistant: "Gündelik sorular için küçük, genel amaçlı bir sohbet penceresi. Oturumlarınızı ya da kullanımınızı görmez.",
       dailySummary: "Gün sonu özetini etkinliğinizden yazar (yalnızca sayılar ve proje adları).",
       dictationCleanup: "Dikte edilen metni toparlar (noktalama, dolgu sözcükleri, üslup).",
     },
-    assistantOff: "Asistan kapalı.",
     dailySummaryUseAi: "Özeti yapay zekâyla yaz (yoksa basit şablon)",
     dailySummaryOff: "Günlük özet kapalı (Ayarlar → Kullanım ve maliyet).",
     dictationOff: "Dikte kapalı (Ayarlar → Dikte).",
@@ -590,6 +590,7 @@ export const tr: Strings = {
   timeline: timelineTr,
   mission: missionTr,
   update: updateTr,
+  assistant: assistantTr,
 
   permission: {
     region: "İzin isteği",

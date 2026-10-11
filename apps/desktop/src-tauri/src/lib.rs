@@ -1,5 +1,6 @@
 pub mod adapters;
 pub mod adfs;
+pub mod assistant;
 pub mod agents;
 pub mod brand;
 pub mod commands;
@@ -59,44 +60,6 @@ fn hub_status(supervisor: State<'_, hub::supervisor::HubSupervisor>) -> hub::sup
     supervisor.status()
 }
 
-/// D18: WebView2 has browser-like accelerator keys enabled by default (Ctrl+P print,
-/// Ctrl+F find, F5 reload, Ctrl+Shift+J devtools, ...), which collide with Kotilo's
-/// own shortcuts (`Ctrl+P` file search, `Ctrl+Shift+F` terminal search, ...).
-///
-/// Tauri 2.12 / wry 0.57 have no `tauri.conf.json` flag for this (checked the vendored
-/// crate sources — see DECISIONS.md D18); wry itself supports it only through
-/// `WebViewBuilderExtWindows::with_browser_accelerator_keys`, which isn't wired up by
-/// Tauri's `WebviewWindowBuilder`. The documented escape hatch is
-/// `WebviewWindow::with_webview`, which hands us the raw `ICoreWebView2Controller` so we
-/// can call the underlying COM API (`ICoreWebView2Settings3::SetAreBrowserAcceleratorKeysEnabled`)
-/// directly.
-#[cfg(windows)]
-fn disable_browser_accelerator_keys<R: tauri::Runtime>(
-    window: &tauri::WebviewWindow<R>,
-) -> tauri::Result<()> {
-    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
-    use windows::core::Interface;
-
-    window.with_webview(|webview| {
-        let controller = webview.controller();
-        // SAFETY: `controller` is a valid, live ICoreWebView2Controller for this window
-        // (handed to us by Tauri inside `with_webview`, which runs on the main thread
-        // before the window is dropped). All calls below are plain COM getters/setters.
-        unsafe {
-            let Ok(core_webview) = controller.CoreWebView2() else {
-                return;
-            };
-            let Ok(settings) = core_webview.Settings() else {
-                return;
-            };
-            let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() else {
-                return;
-            };
-            let _ = settings3.SetAreBrowserAcceleratorKeysEnabled(false);
-        }
-    })
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Faz 7 §9.1/§9.2: the panic hook is the very first statement of `run()` — installed
@@ -133,8 +96,12 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 // M2b: the dictation overlay places itself; never restore it (it would reappear).
-                // M6: the mascot window places itself too.
-                .with_denylist(&[platform::dictation::OVERLAY_LABEL, platform::mascot::MASCOT_LABEL])
+                // M6: the mascot window places itself too. M7: so does the assistant popup.
+                .with_denylist(&[
+                    platform::dictation::OVERLAY_LABEL,
+                    platform::mascot::MASCOT_LABEL,
+                    platform::assistant::ASSISTANT_LABEL,
+                ])
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
@@ -150,6 +117,8 @@ pub fn run() {
         .manage(GitignoreTreeCache::default())
         .manage(hub::supervisor::HubSupervisor::default())
         .manage(platform::mascot::Mascot::default())
+        .manage(platform::assistant::Assistant::default())
+        .manage(assistant::chat::ChatSlot::default())
         .on_page_load(move |webview, payload| {
             if webview.label() != "main" || payload.event() != tauri::webview::PageLoadEvent::Started {
                 return;
@@ -179,6 +148,16 @@ pub fn run() {
         // M2b: the hidden dictation overlay must not keep the app alive once the main
         // window is gone.
         .on_window_event(|window, event| {
+            // M7: closing the assistant popup (Alt+F4) only hides it; the page state goes
+            // with `assistant:closed`. Hidden off this (UI) thread.
+            if window.label() == platform::assistant::ASSISTANT_LABEL {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let app = window.app_handle().clone();
+                    tauri::async_runtime::spawn_blocking(move || app.state::<platform::assistant::Assistant>().hide(&app));
+                }
+                return;
+            }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 if let Some(overlay) = window.app_handle().get_webview_window(platform::dictation::OVERLAY_LABEL) {
                     let _ = overlay.destroy();
@@ -186,6 +165,8 @@ pub fn run() {
                 // M6: stop the mascot's threads and close its window.
                 let app = window.app_handle();
                 app.state::<platform::mascot::Mascot>().shutdown(app);
+                // M7: the hidden assistant popup must not keep the app alive either.
+                app.state::<platform::assistant::Assistant>().shutdown(app);
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -227,6 +208,12 @@ pub fn run() {
             commands::mascot::mascot_context_menu,
             commands::mascot::mascot_drag,
             commands::mascot::mascot_drag_end,
+            commands::assistant::assistant_set_config,
+            commands::assistant::assistant_open,
+            commands::assistant::assistant_hide,
+            commands::assistant::assistant_info,
+            commands::assistant::assistant_chat,
+            commands::assistant::assistant_stop,
             commands::app::app_info,
             commands::update::update_check,
             commands::update::update_install,
@@ -285,12 +272,10 @@ pub fn run() {
             app.manage(workspace_store);
             app.manage(settings_store);
 
-            #[cfg(windows)]
-            {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Err(err) = disable_browser_accelerator_keys(&window) {
-                        log::warn!("WebView2 browser accelerator keys could not be disabled: {err}");
-                    }
+            // D18 (moved to `platform::webview` in M7, shared with the assistant popup).
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(err) = platform::webview::disable_browser_accelerator_keys(&window) {
+                    log::warn!("WebView2 browser accelerator keys could not be disabled: {err}");
                 }
             }
 
@@ -315,6 +300,11 @@ pub fn run() {
             if let Some(data_dir) = hub::data_dir(&|k| std::env::var(k).ok()) {
                 hub::stream::spawn(app.handle().clone(), data_dir);
             }
+
+            // M7: one app-wide global hotkey thread (dictation + assistant); before dictation
+            // starts, which installs its handler on it.
+            app.manage(platform::hotkeys::Hotkeys::start());
+            platform::assistant::Assistant::install_hotkey(app.handle());
 
             // M2b: live dictation (global hotkey, microphone, overlay). Needs the hub for
             // transcription; the hotkeys register once the hub settings load.

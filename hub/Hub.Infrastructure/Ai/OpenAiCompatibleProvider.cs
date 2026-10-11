@@ -56,29 +56,60 @@ public sealed partial class OpenAiCompatibleProvider(string name, string baseUrl
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
         var (status, json, error) = await SendAsync(message, request.Timeout, ct);
-        if (error is not null)
+        return error is not null ? error with { Model = model } : ParseCompletion(status, json!, model);
+    }
+
+    /// <summary>
+    /// <c>stream: true</c>: the answer arrives as server-sent events (<c>data: {choices[0].delta.content}</c> … <c>data: [DONE]</c>).
+    /// A server that ignores <c>stream</c> and returns one JSON body is read like <see cref="CompleteAsync"/>.
+    /// </summary>
+    public async Task<AiResult> ChatAsync(AiChatRequest request, Action<string> onText, CancellationToken ct)
+    {
+        var model = request.Model ?? defaultModel;
+        if (string.IsNullOrWhiteSpace(model))
         {
-            return error with { Model = model };
+            return AiResult.Error(AiErrorKind.NotConfigured, "model");
         }
 
-        try
+        var messages = new List<object>();
+        if (!string.IsNullOrWhiteSpace(request.System))
         {
-            using var doc = JsonDocument.Parse(json!);
-            var root = doc.RootElement;
-            var content = root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
-                && choices[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String
-                    ? c.GetString()
-                    : null;
-            var answered = root.TryGetProperty("model", out var am) && am.ValueKind == JsonValueKind.String ? am.GetString() : model;
-            var text = StripThinking(content ?? "");
-            return text.Length > 0
-                ? AiResult.Ok(text, answered)
-                : new AiResult(null, AiErrorKind.Failed, $"HTTP {(int)status}: no message content") { Model = answered };
+            messages.Add(new { role = "system", content = request.System });
         }
-        catch (JsonException)
+
+        messages.AddRange(request.Messages.Select(m => new { role = m.Role == AiChatRole.User ? "user" : "assistant", content = m.Text }));
+        var body = JsonSerializer.Serialize(new { model, messages, stream = true });
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, ApiRoot(baseUrl) + "/chat/completions")
         {
-            return new AiResult(null, AiErrorKind.Failed, $"HTTP {(int)status}: not JSON") { Model = model };
-        }
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+        var result = await SendAsync(message, request.Timeout, async (response, token) =>
+        {
+            if (response.Content.Headers.ContentType?.MediaType is "text/event-stream")
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(token);
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                return await ReadEventsAsync(reader, response.StatusCode, model, onText, token);
+            }
+
+            var text = await response.Content.ReadAsStringAsync(token);
+            if (text.TrimStart().StartsWith("data:", StringComparison.Ordinal))
+            {
+                using var reader = new StringReader(text);
+                return await ReadEventsAsync(reader, response.StatusCode, model, onText, token);
+            }
+
+            var answer = ParseCompletion(response.StatusCode, text, model);
+            if (answer.IsOk)
+            {
+                onText(answer.Text!);
+            }
+
+            return answer;
+        }, ct);
+        return result.Model is null ? result with { Model = model } : result;
     }
 
     /// <summary><c>GET {baseUrl}/models</c> → <c>data[].id</c>, sorted.</summary>
@@ -112,7 +143,126 @@ public sealed partial class OpenAiCompatibleProvider(string name, string baseUrl
     /// <summary>Reasoning models served through Ollama and others put their chain of thought in <c>&lt;think&gt;</c>.</summary>
     internal static string StripThinking(string text) => ThinkRegex().Replace(text, "").Trim();
 
+    /// <summary>A partial answer as the user may see it: nothing while a leading <c>&lt;think&gt;</c> block is still open.</summary>
+    internal static string VisiblePartial(string text)
+    {
+        var trimmed = text.TrimStart();
+        if (!trimmed.StartsWith("<think>", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var end = trimmed.IndexOf("</think>", StringComparison.Ordinal);
+        return end < 0 ? "" : trimmed[(end + "</think>".Length)..].TrimStart();
+    }
+
+    private static AiResult ParseCompletion(HttpStatusCode status, string json, string model)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var content = root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
+                && choices[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String
+                    ? c.GetString()
+                    : null;
+            var answered = root.TryGetProperty("model", out var am) && am.ValueKind == JsonValueKind.String ? am.GetString() : model;
+            var text = StripThinking(content ?? "");
+            return text.Length > 0
+                ? AiResult.Ok(text, answered)
+                : new AiResult(null, AiErrorKind.Failed, $"HTTP {(int)status}: no message content") { Model = answered };
+        }
+        catch (JsonException)
+        {
+            return new AiResult(null, AiErrorKind.Failed, $"HTTP {(int)status}: not JSON") { Model = model };
+        }
+    }
+
+    /// <summary>
+    /// Server-sent events: <c>data:</c> lines only (comments, <c>event:</c> and blank lines are skipped), each a chunk with
+    /// <c>choices[0].delta.content</c>, until <c>[DONE]</c> or the end of the body. An <c>error</c> object fails the run.
+    /// </summary>
+    private static async Task<AiResult> ReadEventsAsync(TextReader reader, HttpStatusCode status, string model, Action<string> onText, CancellationToken ct)
+    {
+        var raw = new StringBuilder();
+        var answered = model;
+        var shown = "";
+        while (await reader.ReadLineAsync(ct) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (data == "[DONE]")
+            {
+                break;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                if (root.TryGetProperty("error", out var error) && error.ValueKind is JsonValueKind.Object or JsonValueKind.String)
+                {
+                    return new AiResult(null, AiErrorKind.Failed, Detail(status, data)) { Model = answered };
+                }
+
+                if (root.TryGetProperty("model", out var am) && am.ValueKind == JsonValueKind.String && am.GetString() is { Length: > 0 } m)
+                {
+                    answered = m;
+                }
+
+                if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("delta", out var delta) && delta.ValueKind == JsonValueKind.Object
+                    && delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String && c.GetString() is { Length: > 0 } piece)
+                {
+                    raw.Append(piece);
+                    var visible = VisiblePartial(raw.ToString());
+                    if (visible.Length > 0 && visible != shown)
+                    {
+                        shown = visible;
+                        onText(visible);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // A keep-alive or vendor extension that is not JSON: skip it.
+            }
+        }
+
+        var text = StripThinking(raw.ToString());
+        return text.Length > 0
+            ? AiResult.Ok(text, answered)
+            : new AiResult(null, AiErrorKind.Failed, $"HTTP {(int)status}: no message content") { Model = answered };
+    }
+
     private async Task<(HttpStatusCode Status, string? Json, AiResult? Error)> SendAsync(HttpRequestMessage message, TimeSpan timeout, CancellationToken ct)
+    {
+        HttpStatusCode status = 0;
+        string? json = null;
+        var result = await SendAsync(message, timeout, async (response, token) =>
+        {
+            status = response.StatusCode;
+            json = await response.Content.ReadAsStringAsync(token);
+            return new AiResult(null, AiErrorKind.None, null);
+        }, ct);
+        return result.ErrorKind == AiErrorKind.None ? (status, json, null) : (status, null, result);
+    }
+
+    /// <summary>
+    /// Sends with the key and the timeout, maps HTTP and connection errors, and hands a 2xx response to
+    /// <paramref name="read"/> as soon as its headers are in (so an answer can be streamed).
+    /// </summary>
+    private async Task<AiResult> SendAsync(
+        HttpRequestMessage message, TimeSpan timeout, Func<HttpResponseMessage, CancellationToken, Task<AiResult>> read, CancellationToken ct)
     {
         if (key() is { Length: > 0 } secret)
         {
@@ -124,36 +274,39 @@ public sealed partial class OpenAiCompatibleProvider(string name, string baseUrl
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timer.Token);
         try
         {
-            using var response = await http.SendAsync(message, HttpCompletionOption.ResponseContentRead, linked.Token);
-            var text = await response.Content.ReadAsStringAsync(linked.Token);
-            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            {
-                return (response.StatusCode, null, AiResult.Error(AiErrorKind.Unauthorized, Detail(response.StatusCode, text)));
-            }
-
+            using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, linked.Token);
             if (!response.IsSuccessStatusCode)
             {
-                return (response.StatusCode, null, AiResult.Error(AiErrorKind.Failed, Detail(response.StatusCode, text)));
+                var text = await response.Content.ReadAsStringAsync(linked.Token);
+                var kind = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden ? AiErrorKind.Unauthorized : AiErrorKind.Failed;
+                return AiResult.Error(kind, Detail(response.StatusCode, text));
             }
 
-            return (response.StatusCode, text, null);
+            return await read(response, linked.Token);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (Exception ex) when ((ex is OperationCanceledException or IOException or ObjectDisposedException or HttpRequestException)
+                                   && linked.IsCancellationRequested)
         {
-            return (0, null, AiResult.Error(AiErrorKind.Cancelled));
-        }
-        catch (OperationCanceledException)
-        {
-            return (0, null, AiResult.Error(AiErrorKind.Timeout));
+            // Cancelling a read in the middle of a body may surface as an I/O error instead of a cancellation.
+            return AiResult.Error(ct.IsCancellationRequested ? AiErrorKind.Cancelled : AiErrorKind.Timeout);
         }
         catch (HttpRequestException ex) when (ex.InnerException is SocketException or AuthenticationException or IOException || ex.HttpRequestError
                                                    is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.SecureConnectionError)
         {
-            return (0, null, AiResult.Error(AiErrorKind.Unreachable, ex.HttpRequestError.ToString()));
+            return AiResult.Error(AiErrorKind.Unreachable, ex.HttpRequestError.ToString());
         }
         catch (HttpRequestException ex)
         {
-            return (0, null, AiResult.Error(AiErrorKind.Failed, ex.HttpRequestError.ToString()));
+            return AiResult.Error(AiErrorKind.Failed, ex.HttpRequestError.ToString());
+        }
+        catch (OperationCanceledException)
+        {
+            return AiResult.Error(AiErrorKind.Timeout);
+        }
+        catch (IOException)
+        {
+            // The connection dropped in the middle of a streamed answer.
+            return AiResult.Error(AiErrorKind.Failed, "connectionLost");
         }
     }
 

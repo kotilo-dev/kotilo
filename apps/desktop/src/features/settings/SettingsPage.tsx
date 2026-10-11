@@ -61,6 +61,8 @@ export const useSettingsPageStore = create<{ section: SettingsSectionId; setSect
 export function sectionForField(field: string): SettingsSectionId | null {
   if (field === "tasksGlob" || field === "insights.uncommittedThreshold") return "projects";
   if (field === "insights.dailySummaryTime") return "usage";
+  // M7: the assistant's on/off and shortcut sit in the AI section; the rest of `buddy` is the mascot.
+  if (field === "buddy.enabled" || field === "buddy.hotkey") return "ai";
   const head = field.split(".")[0];
   switch (head) {
     case "rules":
@@ -106,12 +108,13 @@ export function SettingsPage() {
 
   // Mascot settings are saved at once elsewhere (Mascot section, the mascot's menu and drag):
   // take their `buddy` into base and draft so a later draft save sends the current values back
-  // and the save bar doesn't count them as edits.
+  // and the save bar doesn't count them as edits. The assistant's fields (`enabled`, `hotkey`)
+  // are edited in the draft (Settings → AI), so the draft keeps its own values for those.
   const mascotBuddy = useMascotSettingsStore((st) => st.settings?.buddy);
   useEffect(() => {
     if (!mascotBuddy) return;
     setBase((b) => (b ? { ...b, buddy: mascotBuddy } : b));
-    setDraft((d) => (d ? { ...d, buddy: mascotBuddy } : d));
+    setDraft((d) => (d ? { ...d, buddy: { ...mascotBuddy, enabled: d.buddy.enabled, hotkey: d.buddy.hotkey } } : d));
   }, [mascotBuddy]);
 
   const dirty = draft !== null && base !== null && JSON.stringify(draft) !== JSON.stringify(base);

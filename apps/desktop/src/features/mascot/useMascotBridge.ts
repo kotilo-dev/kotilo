@@ -112,7 +112,13 @@ export function installMascotBridge(): () => void {
     const now = Date.now();
     const config = mascotConfig(
       s.buddy,
-      { aria: strings.mascot.aria, hideHour: strings.mascot.hideHour, turnOff: strings.mascot.turnOff, settings: strings.mascot.openSettings },
+      {
+        aria: strings.mascot.aria,
+        hideHour: strings.mascot.hideHour,
+        turnOff: strings.mascot.turnOff,
+        settings: strings.mascot.openSettings,
+        ...(s.buddy.enabled ? { openAssistant: strings.assistant.openFromMascot } : {}),
+      },
       now,
     );
     // Re-send when "hidden until" passes.

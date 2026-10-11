@@ -11,6 +11,7 @@ import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
 import { missionEn } from "./mission.en";
 import { updateEn } from "./update.en";
+import { assistantEn } from "./assistant.en";
 
 function runningTerminalsSuffix(runningCount: number): string {
   if (runningCount <= 0) return "";
@@ -359,11 +360,10 @@ export const en = {
     features: "Features",
     featureNames: { assistant: "Assistant", dailySummary: "Daily summary", dictationCleanup: "Dictation cleanup" },
     featureHints: {
-      assistant: "Answers questions about your sessions and usage.",
+      assistant: "A small general-purpose chat window for quick everyday questions. It doesn't see your sessions or usage.",
       dailySummary: "Writes the end-of-day summary from your activity (counts and project names only).",
       dictationCleanup: "Tidies dictated text (punctuation, filler words, style).",
     },
-    assistantOff: "The assistant is off.",
     dailySummaryUseAi: "Write the summary with AI (otherwise a plain template)",
     dailySummaryOff: "The daily summary is off (Settings → Usage & costs).",
     dictationOff: "Dictation is off (Settings → Dictation).",
@@ -608,6 +608,8 @@ export const en = {
   mission: missionEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */
   update: updateEn,
+  /** M7: assistant chat popup and its settings (`assistant.en.ts`). */
+  assistant: assistantEn,
 
   /** M2 permission card (DESIGN_SYSTEM §7.5). */
   permission: {

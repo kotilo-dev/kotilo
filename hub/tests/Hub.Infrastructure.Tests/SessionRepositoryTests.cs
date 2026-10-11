@@ -31,12 +31,12 @@ public sealed class SessionRepositoryTests : IDisposable
     [Fact]
     public void Migrate_creates_all_tables_and_is_repeatable()
     {
-        _db.Migrate().Should().Be(9);
+        _db.Migrate().Should().Be(10);
 
         using var c = _db.Open();
         var tables = c.Query<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
         tables.Should().Contain(["sessions", "session_transitions", "usage_entries", "transcript_offsets", "projects", "notification_log", "schema_version", "personal_tasks", "dictations"]);
-        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(9);
+        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(10);
     }
 
     [Fact]

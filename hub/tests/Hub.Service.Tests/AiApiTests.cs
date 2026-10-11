@@ -30,6 +30,20 @@ public sealed class FakeOpenAiServer : IAsyncDisposable
 
     public string Answer { get; set; } = """{"model":"fake-model","choices":[{"message":{"role":"assistant","content":"OK"}}]}""";
 
+    /// <summary>Set: answer as server-sent events, one write (and flush) per item, <see cref="ChunkDelay"/> apart.</summary>
+    public IReadOnlyList<string>? Events { get; set; }
+
+    public TimeSpan ChunkDelay { get; set; } = TimeSpan.FromMilliseconds(30);
+
+    /// <summary>After the events, keep the connection open until the client closes it (then <see cref="ClientClosed"/> completes).</summary>
+    public bool HoldOpen { get; set; }
+
+    public TaskCompletionSource ClientClosed { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>One SSE chunk with <c>choices[0].delta.content</c>.</summary>
+    public static string Delta(string text) =>
+        "data: " + JsonSerializer.Serialize(new { model = "fake-model", choices = new[] { new { delta = new { content = text } } } }) + "\n\n";
+
     public async ValueTask DisposeAsync()
     {
         await _stop.CancelAsync();
@@ -44,32 +58,71 @@ public sealed class FakeOpenAiServer : IAsyncDisposable
         {
             try
             {
-                using var client = await _listener.AcceptTcpClientAsync(_stop.Token);
-                await using var stream = client.GetStream();
-                var head = new StringBuilder();
-                var buffer = new byte[1];
-                while (!head.ToString().EndsWith("\r\n\r\n", StringComparison.Ordinal) && await stream.ReadAsync(buffer, _stop.Token) == 1)
-                {
-                    head.Append((char)buffer[0]);
-                }
-
-                var lines = head.ToString().Split("\r\n");
-                string? Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase))?[(name.Length + 1)..].Trim();
-                var length = int.TryParse(Header("Content-Length"), out var n) ? n : 0;
-                var body = new byte[length];
-                await stream.ReadExactlyAsync(body, _stop.Token);
-                lock (Requests)
-                {
-                    Requests.Add((lines[0], Header("Authorization"), Encoding.UTF8.GetString(body)));
-                }
-
-                var payload = Encoding.UTF8.GetBytes(Answer);
-                var response = $"HTTP/1.1 {Status} X\r\nContent-Type: application/json\r\nContent-Length: {payload.Length}\r\nConnection: close\r\n\r\n";
-                await stream.WriteAsync(Encoding.ASCII.GetBytes(response), _stop.Token);
-                await stream.WriteAsync(payload, _stop.Token);
+                var client = await _listener.AcceptTcpClientAsync(_stop.Token);
+                _ = Task.Run(() => HandleAsync(client));
             }
-            catch (Exception ex) when (ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException)
+            catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException)
             {
+            }
+        }
+    }
+
+    private async Task HandleAsync(TcpClient connection)
+    {
+        using var client = connection;
+        try
+        {
+            await using var stream = client.GetStream();
+            var head = new StringBuilder();
+            var buffer = new byte[1];
+            while (!head.ToString().EndsWith("\r\n\r\n", StringComparison.Ordinal) && await stream.ReadAsync(buffer, _stop.Token) == 1)
+            {
+                head.Append((char)buffer[0]);
+            }
+
+            var lines = head.ToString().Split("\r\n");
+            string? Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase))?[(name.Length + 1)..].Trim();
+            var length = int.TryParse(Header("Content-Length"), out var n) ? n : 0;
+            var body = new byte[length];
+            await stream.ReadExactlyAsync(body, _stop.Token);
+            lock (Requests)
+            {
+                Requests.Add((lines[0], Header("Authorization"), Encoding.UTF8.GetString(body)));
+            }
+
+            if (Events is { } events)
+            {
+                await stream.WriteAsync("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n"u8.ToArray(), _stop.Token);
+                foreach (var e in events)
+                {
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes(e), _stop.Token);
+                    await stream.FlushAsync(_stop.Token);
+                    await Task.Delay(ChunkDelay, _stop.Token);
+                }
+
+                if (HoldOpen)
+                {
+                    while (await stream.ReadAsync(buffer, _stop.Token) > 0)
+                    {
+                    }
+                }
+
+                return;
+            }
+
+            var payload = Encoding.UTF8.GetBytes(Answer);
+            var response = $"HTTP/1.1 {Status} X\r\nContent-Type: application/json\r\nContent-Length: {payload.Length}\r\nConnection: close\r\n\r\n";
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(response), _stop.Token);
+            await stream.WriteAsync(payload, _stop.Token);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            if (HoldOpen)
+            {
+                ClientClosed.TrySetResult();
             }
         }
     }

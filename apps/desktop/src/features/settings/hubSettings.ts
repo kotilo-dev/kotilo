@@ -69,6 +69,7 @@ export function validateHubSettings(s: HubSettings, t: Strings["settingsPage"]):
   if (!isTimeOfDay(s.quietHours.end)) errors["quietHours.end"] = t.timeError;
   if (s.dictation.hotkey.trim() === "") errors["dictation.hotkey"] = t.dictation.hotkeyRequired;
   if (s.dictation.pasteLastHotkey.trim() === "") errors["dictation.pasteLastHotkey"] = t.dictation.hotkeyRequired;
+  if (s.buddy.enabled && s.buddy.hotkey.trim() === "") errors["buddy.hotkey"] = t.dictation.hotkeyRequired;
   range("dictation.maxMinutes", s.dictation.maxMinutes, 1, 60);
   range("insights.uncommittedThreshold", s.insights.uncommittedThreshold, 1, 10_000);
   if (!isTimeOfDay(s.insights.dailySummaryTime)) errors["insights.dailySummaryTime"] = t.timeError;

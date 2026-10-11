@@ -88,3 +88,18 @@ Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln` (tauri de
 | M6-8 | Display scale 100 % → 150 % while the snail is visible; with two monitors, change which one is primary | The snail keeps its size in logical px and re-lays out within ~2 s; it stays on the primary monitor |
 | M6-9 | Play a video full screen, start a full-screen game, start a PowerPoint slide show | The snail hides within ~2 s and comes back after leaving full screen |
 | M6-10 | Windows Settings → Accessibility → Visual effects → Animation effects off, with an agent working; then watch Task Manager with the snail standing | No walking, bobbing or halo pulse (state still shown by colour and bubble); with the snail standing, no measurable CPU from Kotilo's mascot |
+
+## Assistant popup (M7, `apps/desktop/src/features/assistant/`, `src-tauri/src/platform/assistant/`, `hub/Hub.Service/Api/AssistantEndpoints.cs`)
+
+Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln`, then `npm --prefix apps/desktop run tauri dev`; Settings → AI: Assistant on, provider Claude Code (later also Codex and an OpenAI-compatible endpoint such as Ollama). Steps press global hotkeys on the real desktop, so they need the user (AGENTS.md rule 6).
+
+| # | Steps | Expected |
+|---|---|---|
+| M7-1 | Focus Notepad, press `Ctrl+Alt+Space`; type a question, `Enter` | The popup appears at the bottom right of the monitor under the cursor with rounded corners (no square frame), focus in the message box; the answer streams in; no Alt+Tab entry, no taskbar button |
+| M7-2 | Ask a follow-up that needs the first answer ("make it shorter"); ask for code | The assistant uses the earlier turn; code renders highlighted with a copy button that works |
+| M7-3 | During a long answer press `Esc`; then `Esc` again; reopen with the hotkey | First `Esc` stops (partial text kept, "stopped"); second closes; reopening shows an empty new chat. Starting a new question right after a stop gives no "busy" error |
+| M7-4 | Hotkey while the popup is open and focused; click another app, press it again | Focused → hides; in the background → comes back focused with the chat kept |
+| M7-5 | Settings → AI: set the assistant shortcut to the dictation shortcut; then to one another app holds (e.g. one registered by another tool); turn the assistant off | Same as dictation → field error on save; taken by another app → "Shortcut is used by another app"; off → the hotkey does nothing |
+| M7-6 | Privacy: with Claude Code, chat a few turns; then look at `~/.claude/projects/` for a new folder/file for the buddy folder, `%LOCALAPPDATA%\kotilo\hub\hub.db` (`buddy_chats` gone) and `%LOCALAPPDATA%\kotilo\hub\logs` | No new Claude session file from the chat; no chat text in the database or logs (only provider, duration, outcome, counts). With Gemini/Copilot/OpenCode as provider the footer warns that the agent keeps its own copy |
+| M7-7 | Provider not installed / not signed in / Ollama stopped | The turn shows a clear error with "Settings → AI"; that button hides the popup and brings Kotilo up on Settings → AI |
+| M7-8 | Mascot on: click it while it sleeps; right-click → "Open assistant"; click during a permission wait. Dictation hotkey (hold and tap), `Esc` cancel and paste-last afterwards | Sleep click and the menu item open the assistant; the permission click still jumps to the agent; dictation hotkeys behave exactly as before |

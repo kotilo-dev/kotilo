@@ -677,6 +677,49 @@ computer (`localhost`), so nothing leaves it. Speech recognition (Whisper) alway
 locally. Prompts and answers are never logged or stored; the log gets only the provider,
 the duration and the outcome.
 
+## Assistant
+
+The assistant is a small chat window for quick everyday questions ("how do I undo the last
+commit?", "what does this regex do?"). It is a general-purpose chat: it doesn't see your
+sessions, files, terminals or usage, and the AI runs with tools off.
+
+Turn it on in **Settings → AI**, in the **Assistant** row: **Turn on the assistant**, then
+pick its **Shortcut** (default `Ctrl+Alt+Space`) and save. The shortcut works from any app
+and toggles the window; **Open assistant** in the same row opens it too, and so does **Open
+assistant** in the mascot's right-click menu. If another app already uses the shortcut, the
+field says "Shortcut is used by another app" – pick a different one. It also can't be the
+same as the dictation or task shortcuts. The provider and model come from the same row.
+
+Keys in the window:
+
+| Key | Action |
+|---|---|
+| `Enter` | Send |
+| `Shift+Enter` | New line |
+| `↑` (empty message box) | Edit the last question: it and its answer are removed and the text comes back |
+| `Esc` | Stop the answer that is being written; otherwise close the window |
+| `Ctrl+N` | New chat |
+
+Answers stream in as they are written and support Markdown, tables and highlighted code.
+Code blocks and whole answers have a copy button. While an answer runs, **Stop** ends it
+and keeps what was written so far. If something goes wrong (agent CLI not installed or not
+signed in, endpoint unreachable, timed out, …) the error shows on that question, with a
+**Settings → AI** button when the fix lives there.
+
+**Nothing is saved.** Every opening starts a new chat; the conversation exists only while
+the window is open and is gone when it closes. Kotilo writes no message, answer or title to
+its database, settings or logs (only the provider, the duration, the outcome and character
+counts). Each question sends the conversation so far to the provider you picked, as the
+footer says ("Nothing is saved · tools off · sent to …").
+
+**Agent CLIs may keep their own copy.** When the assistant runs on an agent CLI, that CLI
+may write the chat into its own session files, outside Kotilo's control. Kotilo starts the
+CLIs that support it without session files (Claude Code, Codex, Qwen Code) and OpenAI-compatible
+endpoints keep nothing on this computer. For the others the footer warns: "… keeps its own
+copy of this chat in its session files" (GitHub Copilot CLI, OpenCode, Gemini CLI) or "…
+may keep its own copy" when it isn't known (Cursor, Factory Droid). Pick a different
+provider for the assistant if that matters to you.
+
 ## Mascot
 
 Kotilo's robot snail can sit on your desktop and show your agents' combined state, so you
@@ -699,7 +742,8 @@ including sessions started outside Kotilo:
 
 **Click** the snail to bring Kotilo up: with a permission, an answer or an error waiting it
 opens the agent that has waited longest; while sweating it opens Usage. **Right-click** for
-**Hide for 1 hour**, **Turn off mascot** and **Mascot settings…**. **Drag** it along the
+**Hide for 1 hour**, **Turn off mascot**, **Mascot settings…** and, while the assistant is
+on, **Open assistant**. **Drag** it along the
 taskbar to move it; the place is remembered.
 
 Settings: **Size** (Small, Medium, Large), **Placement** ("Walk along the taskbar" or "Sit in

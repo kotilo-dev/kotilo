@@ -182,10 +182,39 @@ public sealed class AiProviderResolver(Func<AiSettings> settings, Func<string, A
             : AiResult.Error(AiErrorKind.NotConfigured, "unknownProvider");
         result = result with { Model = result.Model ?? model ?? providerId };
         Completed?.Invoke(new AiRunInfo(
-            providerId, feature, result.ErrorKind, _time.GetElapsedTime(started), system.Length + user.Length, result.Text?.Length ?? 0));
+            providerId, feature, result.ErrorKind, _time.GetElapsedTime(started), system.Length + user.Length, result.Text?.Length ?? 0)
+        {
+            Model = result.Model,
+        });
+        return result;
+    }
+
+    /// <summary>A multi-turn chat through the feature's provider; <paramref name="onText"/> as in <see cref="IAiProvider.ChatAsync"/>.</summary>
+    public async Task<AiResult> ChatAsync(
+        AiFeature feature, string system, IReadOnlyList<AiChatMessage> messages, TimeSpan timeout, Action<string> onText, CancellationToken ct)
+    {
+        var choice = Choice(feature);
+        var started = _time.GetTimestamp();
+        var request = new AiChatRequest(system, messages, choice.Model, timeout);
+        var result = Create(choice.Provider) is { } provider
+            ? await provider.ChatAsync(request, onText, ct)
+            : AiResult.Error(AiErrorKind.NotConfigured, "unknownProvider");
+        result = result with { Model = result.Model ?? choice.Model };
+        Completed?.Invoke(new AiRunInfo(
+            choice.Provider, feature, result.ErrorKind, _time.GetElapsedTime(started), request.InputChars, result.Text?.Length ?? 0)
+        {
+            Model = result.Model,
+            Messages = messages.Count,
+        });
         return result;
     }
 }
 
 /// <summary>What the log may know about one AI run (AGENTS rule 5).</summary>
-public sealed record AiRunInfo(string ProviderId, AiFeature? Feature, AiErrorKind ErrorKind, TimeSpan Elapsed, int InputChars, int OutputChars);
+public sealed record AiRunInfo(string ProviderId, AiFeature? Feature, AiErrorKind ErrorKind, TimeSpan Elapsed, int InputChars, int OutputChars)
+{
+    public string? Model { get; init; }
+
+    /// <summary>Turns sent (1 for a one-shot request).</summary>
+    public int Messages { get; init; } = 1;
+}

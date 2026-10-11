@@ -22,7 +22,11 @@ public enum CliOutput
 
 /// <param name="Prompt">Null when the prompt goes through stdin.</param>
 /// <param name="System">Only for CLIs with a system prompt flag; otherwise it is already in the prompt.</param>
-public sealed record CliInvocation(string? Prompt, string? System, string? Model, string ScratchDir);
+public sealed record CliInvocation(string? Prompt, string? System, string? Model, string ScratchDir)
+{
+    /// <summary>A chat run: add the option that keeps the CLI from saving the session, where <see cref="CliAgentSpec.Ephemeral"/> is true.</summary>
+    public bool Ephemeral { get; init; }
+}
 
 /// <summary>
 /// How one agent CLI runs headless for the hub's own AI work, with tools off or read-only (research:
@@ -51,6 +55,13 @@ public sealed record CliAgentSpec(
 
     public IReadOnlyDictionary<int, string> ExitCodes { get; init; } = new Dictionary<int, string>();
 
+    /// <summary>
+    /// Whether a chat run leaves no session or transcript behind: true = an option for that was verified in the installed
+    /// CLI's <c>--help</c> and is passed (always, or when <see cref="CliInvocation.Ephemeral"/> is set); false = the
+    /// installed CLI has no such option; null = not checked (the CLI was not installed when this was verified).
+    /// </summary>
+    public bool? Ephemeral { get; init; }
+
     public string ProviderId => AiProviderIds.Cli(AdapterId);
 }
 
@@ -65,33 +76,51 @@ public static class CliAgentSpecs
 
     private const string Npm = "%APPDATA%\\npm";
 
-    /// <summary>Claude Code 2.1.291 (stream path unchanged since D-070: no tools, no user settings or MCP).</summary>
+    /// <summary>
+    /// Claude Code 2.1.296 (stream path unchanged since D-070: no tools, no user settings or MCP); chat runs add
+    /// <c>--no-session-persistence</c> (print mode only: nothing saved to disk, cannot be resumed).
+    /// </summary>
     public static readonly CliAgentSpec ClaudeCode = new(
         AgentIds.ClaudeCode, "Claude Code", Verified: true, ["claude"], ["%USERPROFILE%\\.local\\bin", Npm],
         CliPromptInput.Stdin, CliOutput.ClaudeStreamJson, HasSystemPromptFlag: true,
-        i => ClaudeArguments(i.Model, null, i.System ?? ""));
+        i => ClaudeArguments(i.Model, i.System ?? "", noSessionPersistence: i.Ephemeral))
+    {
+        Ephemeral = true,
+    };
 
-    /// <summary>codex-cli 0.160.0 <c>codex exec --help</c>: read-only sandbox, never asks, no session file, prompt from stdin (<c>-</c>).</summary>
+    /// <summary>
+    /// codex-cli 0.160.0 <c>codex exec --help</c>: read-only sandbox, never asks, no session file (<c>--ephemeral</c>: "Run
+    /// without persisting session files to disk", always on), prompt from stdin (<c>-</c>).
+    /// </summary>
     public static readonly CliAgentSpec Codex = new(
         AgentIds.Codex, "Codex", Verified: true, ["codex"], ["%LOCALAPPDATA%\\Programs\\OpenAI\\Codex\\bin", Npm],
         CliPromptInput.Stdin, CliOutput.PlainText, HasSystemPromptFlag: false,
         i => Concat(
             ["exec", "--sandbox", "read-only", "-c", "approval_policy=never", "--skip-git-repo-check", "--ephemeral", "--color", "never", "-C", i.ScratchDir],
             ModelFlag("-m", i.Model),
-            ["-"]));
+            ["-"]))
+    {
+        Ephemeral = true,
+    };
 
-    /// <summary>GitHub Copilot CLI 1.0.91 <c>copilot --help</c>: shell, write and URL access denied, no ask_user, no MCP.</summary>
+    /// <summary>
+    /// GitHub Copilot CLI 1.0.91 <c>copilot --help</c>: shell, write and URL access denied, no ask_user, no MCP. No option to
+    /// skip saving the session (checked <c>--help</c>, <c>help config</c>, <c>help environment</c>).
+    /// </summary>
     public static readonly CliAgentSpec Copilot = new(
         "copilot", "GitHub Copilot CLI", Verified: true, ["copilot"], [Npm],
         CliPromptInput.Argument, CliOutput.PlainText, HasSystemPromptFlag: false,
         i => Concat(
             ["-p", i.Prompt!, "-s", "--no-ask-user", "--no-custom-instructions", "--disable-builtin-mcps", "--no-auto-update", "--no-remote",
                 "--no-color", "--log-level", "none", "--deny-tool=shell", "--deny-tool=write", "--deny-tool=url"],
-            ModelFlag("--model", i.Model)));
+            ModelFlag("--model", i.Model)))
+    {
+        Ephemeral = false,
+    };
 
     /// <summary>
     /// OpenCode 2.0.22 <c>opencode run --help</c>: a private server, every permission denied through
-    /// <c>OPENCODE_CONFIG_CONTENT</c>, no <c>--auto</c>.
+    /// <c>OPENCODE_CONFIG_CONTENT</c>, no <c>--auto</c>. No option to skip saving the session (<c>run</c> has none).
     /// </summary>
     public static readonly CliAgentSpec OpenCode = new(
         "opencode", "OpenCode", Verified: true, ["opencode"], [Npm],
@@ -99,23 +128,34 @@ public static class CliAgentSpecs
         i => Concat(["run", "--standalone", "--format", "default", "--title", RunTitle], ModelFlag("-m", i.Model), [i.Prompt!]))
     {
         Environment = new Dictionary<string, string> { ["OPENCODE_CONFIG_CONTENT"] = """{"permission":"deny"}""" },
+        Ephemeral = false,
     };
 
-    /// <summary>From source/docs (not installed here): headless <c>-p</c>, default approval mode denies mutating tools.</summary>
+    /// <summary>
+    /// Gemini CLI 0.62.0 <c>gemini --help</c>: headless <c>-p</c>, default approval mode denies mutating tools. No option to
+    /// skip saving the session.
+    /// </summary>
     public static readonly CliAgentSpec Gemini = new(
-        "gemini", "Gemini CLI", Verified: false, ["gemini"], [Npm],
+        "gemini", "Gemini CLI", Verified: true, ["gemini"], [Npm],
         CliPromptInput.Argument, CliOutput.PlainText, HasSystemPromptFlag: false,
-        i => Concat(["-p", i.Prompt!, "-o", "text", "--skip-trust", "--approval-mode", "default"], ModelFlag("-m", i.Model)));
+        i => Concat(["-p", i.Prompt!, "-o", "text", "--skip-trust", "--approval-mode", "default"], ModelFlag("-m", i.Model)))
+    {
+        Ephemeral = false,
+    };
 
-    /// <summary>From source/docs (not installed here): safe mode (no hooks/MCP), read-only, no chat file, aborts on a tool call (exit 55).</summary>
+    /// <summary>
+    /// Qwen Code 0.25.0 <c>qwen --help</c>: safe mode (no hooks/MCP), read-only, no chat file (<c>--chat-recording false</c>,
+    /// always on), aborts on a tool call (exit 55).
+    /// </summary>
     public static readonly CliAgentSpec Qwen = new(
-        "qwen", "Qwen Code", Verified: false, ["qwen"], [Npm],
+        "qwen", "Qwen Code", Verified: true, ["qwen"], [Npm],
         CliPromptInput.Argument, CliOutput.PlainText, HasSystemPromptFlag: false,
         i => Concat(
             ["-p", i.Prompt!, "-o", "text", "--approval-mode", "plan", "--safe-mode", "--chat-recording", "false", "--max-tool-calls", "0"],
             ModelFlag("-m", i.Model)))
     {
         ExitCodes = new Dictionary<int, string> { [55] = "tools", [53] = "turnLimit" },
+        Ephemeral = true,
     };
 
     /// <summary>From docs (not installed here): <c>droid exec</c> without <c>--auto</c> is read-only.</summary>
@@ -150,8 +190,9 @@ public static class CliAgentSpecs
         return text.TrimStart().StartsWith('-') ? "Input:\n" + text : text;
     }
 
-    /// <summary>The Claude flags verified against CLI 2.1.286 (D-070) and 2.1.291.</summary>
-    public static IEnumerable<string> ClaudeArguments(string? model, string? resumeSessionId, string systemPrompt)
+    /// <summary>The Claude flags verified against CLI 2.1.286 (D-070), 2.1.291 and 2.1.296.</summary>
+    /// <param name="noSessionPersistence">Chat runs: Claude Code writes no transcript (nothing to resume).</param>
+    public static IEnumerable<string> ClaudeArguments(string? model, string systemPrompt, bool noSessionPersistence)
     {
         yield return "-p";
         yield return "--output-format";
@@ -171,10 +212,9 @@ public static class CliAgentSpecs
 
         yield return "--append-system-prompt";
         yield return systemPrompt;
-        if (!string.IsNullOrEmpty(resumeSessionId))
+        if (noSessionPersistence)
         {
-            yield return "--resume";
-            yield return resumeSessionId;
+            yield return "--no-session-persistence";
         }
     }
 

@@ -44,6 +44,12 @@ async function bootstrap() {
     bootstrapMascot();
     return;
   }
+  // M7: the assistant chat popup (focusable window, chat only).
+  if (view === "assistant") {
+    const { bootstrapAssistant } = await import("./features/assistant/assistantEntry");
+    await bootstrapAssistant();
+    return;
+  }
   try {
     let settings = DEFAULT_SETTINGS;
     try {

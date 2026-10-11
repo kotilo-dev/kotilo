@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "assistant",
+  "description": "M7: the assistant popup only listens to `assistant:opened` / `assistant:closed` and calls the app's own assistant_* commands (app commands and their Channel need no permission entry).",
+  "windows": ["assistant"],
+  "permissions": ["core:default", "core:event:default"]
+}

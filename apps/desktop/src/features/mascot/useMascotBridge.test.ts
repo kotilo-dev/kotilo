@@ -114,6 +114,14 @@ describe("mascot bridge", () => {
     vi.useRealTimers();
   });
 
+  it("adds the Open assistant menu label while the assistant is on (M7)", async () => {
+    await flush();
+    expect((lastCall("mascot_set_config")!.config as { labels: object }).labels).not.toHaveProperty("openAssistant");
+    useMascotSettingsStore.setState({ settings: { ...structuredClone(SETTINGS), buddy: { ...SETTINGS.buddy, enabled: true } } });
+    await flush();
+    expect((lastCall("mascot_set_config")!.config as { labels: object }).labels).toMatchObject({ openAssistant: strings.assistant.openFromMascot });
+  });
+
   it("sends the config with labels and the state once it changes", async () => {
     await flush();
     expect(lastCall("mascot_set_config")).toEqual({

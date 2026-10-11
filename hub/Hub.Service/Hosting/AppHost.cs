@@ -36,8 +36,9 @@ public sealed class AppHost : IAsyncDisposable
         AiProviders = new Hub.Infrastructure.Ai.AiProviderFactory(BuddyService.ScratchDirOf(paths), secrets, AiHttp);
         Ai = new Hub.Core.Ai.AiProviderResolver(() => Settings.Ai, AiProviders.Create);
         Ai.Completed += r => Log.Information(
-            "AI run {Provider} ({Feature}): {Kind} in {Ms} ms, {In} chars in, {Out} chars out", r.ProviderId, r.Feature, r.ErrorKind, (long)r.Elapsed.TotalMilliseconds, r.InputChars, r.OutputChars);
-        Buddy = new BuddyService(paths, db, Ai);
+            "AI run {Provider} ({Feature}, model {Model}): {Kind} in {Ms} ms, {Messages} messages, {In} chars in, {Out} chars out",
+            r.ProviderId, r.Feature, r.Model, r.ErrorKind, (long)r.Elapsed.TotalMilliseconds, r.Messages, r.InputChars, r.OutputChars);
+        Buddy = new BuddyService(paths, Ai);
         PersonalTasks = new PersonalTaskRepository(db);
         Pipeline.IsHiddenCwd = cwd => !Settings.Buddy.ShowBuddySessions && Buddy.Filter.IsBuddy(cwd);
         Projects.IsExcludedRoot = Buddy.Filter.IsBuddy;
@@ -102,6 +103,7 @@ public sealed class AppHost : IAsyncDisposable
         Ingest.Modules.Add(app => Api.DictationEndpoints.Map(app, Dictation));
         Ingest.Modules.Add(app => Api.SettingsEndpoints.Map(app, this));
         Ingest.Modules.Add(app => Api.AiEndpoints.Map(app, this));
+        Ingest.Modules.Add(app => Api.AssistantEndpoints.Map(app, this));
         Pipeline.SessionsChanged += _ => Stream.MarkDirty("sessions");
         Pipeline.ActivityChanged += () => Stream.MarkDirty("activity");
         Usage.SnapshotChanged += _ => Stream.MarkDirty("usage");

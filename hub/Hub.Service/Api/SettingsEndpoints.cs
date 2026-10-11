@@ -253,6 +253,19 @@ internal static class SettingsEndpoints
             }
         }
 
+        // The assistant's shortcut is registered next to the others: compared after parsing ("alt+ctrl+space" = "Ctrl+Alt+Space").
+        if (HotkeyGesture.Parse(s.Buddy.Hotkey) is { } assistant)
+        {
+            foreach (var (name, gesture) in new[] { ("dictation.hotkey", d.Hotkey), ("dictation.pasteLastHotkey", d.PasteLastHotkey), ("tasks.hotkey", s.Tasks.Hotkey) })
+            {
+                if (HotkeyGesture.Parse(gesture) is { } other && (other.Modifiers, other.VirtualKey) == (assistant.Modifiers, assistant.VirtualKey))
+                {
+                    Fail("buddy.hotkey", $"already used by {name}");
+                    break;
+                }
+            }
+        }
+
         if (s.Buddy.MascotScale is < 2 or > 4)
         {
             Fail("buddy.mascotScale", "2..4");

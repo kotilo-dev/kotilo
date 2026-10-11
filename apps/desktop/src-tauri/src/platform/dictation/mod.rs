@@ -1,12 +1,11 @@
-//! Dictation's OS side (D-020): global hotkeys, microphone, overlay window, sounds and text
-//! insertion. [`DesktopPlatform`] implements `dictation::Platform` over the per-OS helpers
-//! below; only Windows is implemented in v1, other systems get inert stubs.
+//! Dictation's OS side (D-020): global hotkeys (through the app-wide `platform::hotkeys`,
+//! M7), microphone, overlay window, sounds and text insertion. [`DesktopPlatform`]
+//! implements `dictation::Platform` over the per-OS helpers below; only Windows is
+//! implemented in v1, other systems get inert stubs.
 
 pub mod recorder;
 pub mod sounds;
 
-#[cfg(windows)]
-mod win_hotkeys;
 #[cfg(windows)]
 mod win_input;
 #[cfg(windows)]
@@ -22,6 +21,7 @@ use crate::dictation::audio::Recording;
 use crate::dictation::controller::Event;
 use crate::dictation::gesture::Gesture;
 use crate::dictation::{ComposerResult, Delivery, HotkeyError, HotkeyId, OverlayState, Phase, Platform, Sound, WindowId};
+use crate::platform::hotkeys::{self, Consumer, HotkeySlot, Hotkeys};
 use recorder::Recorder;
 
 pub const OVERLAY_LABEL: &str = "dictation-overlay";
@@ -31,28 +31,14 @@ const OVERLAY_MARGIN: f64 = 28.0;
 
 #[cfg(windows)]
 mod os {
-    pub use super::win_hotkeys::{key_down, HotkeyThread};
     pub use super::win_input::WinDelivery as OsDelivery;
     pub use super::win_window::{foreground_window, overlay_rect, play_wav, show_without_activation};
 }
 
 #[cfg(not(windows))]
 mod os {
-    use crate::dictation::gesture::Gesture;
-    use crate::dictation::{Delivery, HotkeyError, HotkeyId, InsertMethod, InsertResult, WindowId};
+    use crate::dictation::{Delivery, InsertMethod, InsertResult, WindowId};
 
-    pub struct HotkeyThread;
-    impl HotkeyThread {
-        pub fn start(_on_press: impl Fn(HotkeyId) + Send + 'static) -> Option<Self> {
-            None
-        }
-        pub fn register(&self, _id: HotkeyId, _gesture: Option<&Gesture>) -> Result<(), HotkeyError> {
-            Err(HotkeyError::Taken)
-        }
-    }
-    pub fn key_down(_vk: u32) -> bool {
-        false
-    }
     pub fn foreground_window() -> Option<WindowId> {
         None
     }
@@ -99,16 +85,22 @@ pub fn create_overlay_window(app: &AppHandle) -> tauri::Result<()> {
 
 pub struct DesktopPlatform {
     app: AppHandle,
-    hotkeys: Option<os::HotkeyThread>,
+    hotkeys: Option<Hotkeys>,
     recorder: Recorder,
     overlay_visible: AtomicBool,
 }
 
 impl DesktopPlatform {
     pub fn new(app: AppHandle, events: Sender<Event>) -> Self {
-        let hotkeys = os::HotkeyThread::start(move |id| {
-            let _ = events.send(Event::Hotkey(id));
-        });
+        // M7: the hotkey thread is app-wide; dictation owns its three slots.
+        let hotkeys = app.try_state::<Hotkeys>().map(|h| h.inner().clone());
+        if let Some(h) = &hotkeys {
+            h.set_handler(Consumer::Dictation, move |slot| {
+                if let HotkeySlot::Dictation(id) = slot {
+                    let _ = events.send(Event::Hotkey(id));
+                }
+            });
+        }
         Self { app, hotkeys, recorder: Recorder::default(), overlay_visible: AtomicBool::new(false) }
     }
 }
@@ -119,12 +111,12 @@ impl Platform for DesktopPlatform {
     }
 
     fn key_down(&self, vk: u32) -> bool {
-        os::key_down(vk)
+        hotkeys::key_down(vk)
     }
 
     fn register_hotkey(&mut self, id: HotkeyId, gesture: Option<&Gesture>) -> Result<(), HotkeyError> {
         match &self.hotkeys {
-            Some(h) => h.register(id, gesture),
+            Some(h) => h.register(HotkeySlot::Dictation(id), gesture),
             None if gesture.is_none() => Ok(()),
             None => Err(HotkeyError::Taken),
         }

@@ -142,12 +142,13 @@ public sealed record ClaudeRunResult(
 /// </summary>
 public static class ClaudeCliRunner
 {
+    /// <param name="noSessionPersistence">Chat runs: Claude Code saves no transcript.</param>
     /// <param name="onText">Called with the full answer so far, on a background thread.</param>
     public static async Task<ClaudeRunResult> RunAsync(
-        string executable, string message, string? model, string? resumeSessionId, string systemPrompt, string workingDirectory,
+        string executable, string message, string? model, string systemPrompt, bool noSessionPersistence, string workingDirectory,
         Action<string> onText, CancellationToken ct)
     {
-        var args = CliAgentSpecs.ClaudeArguments(model, resumeSessionId, systemPrompt).ToList();
+        var args = CliAgentSpecs.ClaudeArguments(model, systemPrompt, noSessionPersistence).ToList();
         if (CliProcess.StartInfo(executable, args, workingDirectory) is not { } psi)
         {
             return Fail(AiErrorKind.Failed, "unsafeShim");
@@ -230,9 +231,38 @@ public sealed partial class CliAiProvider(CliAgentSpec spec, Func<string?> locat
 
     public CliAgentSpec Spec => spec;
 
-    public async Task<AiResult> CompleteAsync(AiRequest request, CancellationToken ct)
+    public Task<AiResult> CompleteAsync(AiRequest request, CancellationToken ct) =>
+        RunAsync(request.Model, request.Timeout, (exe, token) => spec.Output == CliOutput.ClaudeStreamJson
+            ? RunClaudeAsync(exe, request.System, request.User, request.Model, ephemeral: false, static _ => { }, token)
+            : RunPlainAsync(exe, request.System, request.User, request.Model, ephemeral: false, token), ct);
+
+    /// <summary>
+    /// The conversation goes into one prompt (<see cref="AiChatPrompt"/>); the CLI runs in its no-persistence mode where it
+    /// has one. Claude Code streams; the other CLIs answer once at the end.
+    /// </summary>
+    public Task<AiResult> ChatAsync(AiChatRequest request, Action<string> onText, CancellationToken ct)
     {
-        if (request.Model is not null && !AiProviderIds.IsValidModel(request.Model))
+        var prompt = AiChatPrompt.Render(request.Messages);
+        return RunAsync(request.Model, request.Timeout, async (exe, token) =>
+        {
+            if (spec.Output == CliOutput.ClaudeStreamJson)
+            {
+                return await RunClaudeAsync(exe, request.System, prompt, request.Model, ephemeral: true, onText, token);
+            }
+
+            var result = await RunPlainAsync(exe, request.System, prompt, request.Model, ephemeral: true, token);
+            if (result.IsOk)
+            {
+                onText(result.Text!);
+            }
+
+            return result;
+        }, ct);
+    }
+
+    private async Task<AiResult> RunAsync(string? model, TimeSpan timeoutAfter, Func<string, CancellationToken, Task<AiResult>> run, CancellationToken ct)
+    {
+        if (model is not null && !AiProviderIds.IsValidModel(model))
         {
             return AiResult.Error(AiErrorKind.Failed, "invalidModel");
         }
@@ -243,11 +273,9 @@ public sealed partial class CliAiProvider(CliAgentSpec spec, Func<string?> locat
         }
 
         Directory.CreateDirectory(scratchDir);
-        using var timeout = new CancellationTokenSource(request.Timeout);
+        using var timeout = new CancellationTokenSource(timeoutAfter);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-        var result = spec.Output == CliOutput.ClaudeStreamJson
-            ? await RunClaudeAsync(executable, request, linked.Token)
-            : await RunPlainAsync(executable, request, linked.Token);
+        var result = await run(executable, linked.Token);
 
         // The run was killed by the timeout, not by the caller: whatever came back is incomplete.
         return result.ErrorKind != AiErrorKind.None && !ct.IsCancellationRequested && timeout.IsCancellationRequested
@@ -255,19 +283,23 @@ public sealed partial class CliAiProvider(CliAgentSpec spec, Func<string?> locat
             : result;
     }
 
-    private async Task<AiResult> RunClaudeAsync(string executable, AiRequest request, CancellationToken ct)
+    private async Task<AiResult> RunClaudeAsync(
+        string executable, string system, string user, string? model, bool ephemeral, Action<string> onText, CancellationToken ct)
     {
-        var run = await ClaudeCliRunner.RunAsync(executable, request.User, request.Model, null, request.System, scratchDir, static _ => { }, ct);
+        var run = await ClaudeCliRunner.RunAsync(executable, user, model, system, ephemeral, scratchDir, onText, ct);
         return run.ErrorKind == AiErrorKind.None
             ? Answer(run.Text, run.Model)
             : new AiResult(null, run.ErrorKind, run.Detail) { Model = run.Model };
     }
 
-    private async Task<AiResult> RunPlainAsync(string executable, AiRequest request, CancellationToken ct)
+    private async Task<AiResult> RunPlainAsync(string executable, string system, string user, string? model, bool ephemeral, CancellationToken ct)
     {
-        var prompt = spec.HasSystemPromptFlag ? request.User : CliAgentSpecs.CombinePrompt(request.System, request.User);
+        var prompt = spec.HasSystemPromptFlag ? user : CliAgentSpecs.CombinePrompt(system, user);
         var viaArgument = spec.PromptInput == CliPromptInput.Argument;
-        var invocation = new CliInvocation(viaArgument ? prompt : null, spec.HasSystemPromptFlag ? request.System : null, request.Model, scratchDir);
+        var invocation = new CliInvocation(viaArgument ? prompt : null, spec.HasSystemPromptFlag ? system : null, model, scratchDir)
+        {
+            Ephemeral = ephemeral,
+        };
         var args = spec.Arguments(invocation).ToList();
         if (CliProcess.StartInfo(executable, args, scratchDir, spec.Environment) is not { } psi)
         {
@@ -312,7 +344,7 @@ public sealed partial class CliAiProvider(CliAgentSpec spec, Func<string?> locat
             return AiResult.Error(kind, outcome.ExitCode == 0 ? "empty" : stderr.Length > 0 ? $"exit {outcome.ExitCode}: {stderr}" : $"exit {outcome.ExitCode}");
         }
 
-        return Answer(text, request.Model);
+        return Answer(text, model);
     }
 
     private static AiResult Answer(string text, string? model) =>

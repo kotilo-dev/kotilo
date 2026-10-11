@@ -48,6 +48,9 @@ public sealed class AiProviderFactory(string scratchDir, ISecretStore secrets, H
 
     public bool HasKey(string name) => SafeGet(name) is { Length: > 0 };
 
+    /// <summary>The agent's executable is found (the CLI is not run).</summary>
+    public bool IsInstalled(CliAgentSpec spec) => _locate(spec) is not null;
+
     /// <summary>A vault read error counts as "no key": the request then goes out without one and reports Unauthorized.</summary>
     private string? SafeGet(string name)
     {

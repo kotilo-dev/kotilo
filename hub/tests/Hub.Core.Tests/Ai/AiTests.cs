@@ -124,7 +124,22 @@ public class CliAgentSpecsTests
 
     [Fact]
     public void Only_the_locally_checked_specs_are_verified() =>
-        CliAgentSpecs.All.Where(s => s.Verified).Select(s => s.AdapterId).Should().Equal("claude-code", "codex", "copilot", "opencode");
+        CliAgentSpecs.All.Where(s => s.Verified).Select(s => s.AdapterId).Should().Equal("claude-code", "codex", "copilot", "opencode", "gemini", "qwen");
+
+    [Fact]
+    public void Ephemeral_is_recorded_per_agent_and_chat_runs_pass_the_option()
+    {
+        CliAgentSpecs.All.ToDictionary(s => s.AdapterId, s => s.Ephemeral).Should().Equal(new Dictionary<string, bool?>
+        {
+            ["claude-code"] = true, ["codex"] = true, ["copilot"] = false, ["opencode"] = false, ["gemini"] = false, ["qwen"] = true,
+            ["droid"] = null, ["cursor"] = null,
+        });
+        List<string> Chat(CliAgentSpec spec) =>
+            spec.Arguments(new CliInvocation(spec.PromptInput == CliPromptInput.Argument ? "PROMPT" : null, "SYS", null, @"C:\scratch") { Ephemeral = true }).ToList();
+        Chat(CliAgentSpecs.ClaudeCode).Should().Contain("--no-session-persistence");
+        Chat(CliAgentSpecs.Codex).Should().Contain("--ephemeral");
+        Chat(CliAgentSpecs.Qwen).Should().ContainInOrder("--chat-recording", "false");
+    }
 
     [Fact]
     public void Stdin_specs_keep_free_text_off_the_command_line()
@@ -143,7 +158,9 @@ public class CliAgentSpecsTests
         args.Should().ContainInOrder("-p", "--output-format", "stream-json", "--tools", "", "--strict-mcp-config", "--setting-sources", "project,local");
         args.Should().ContainInOrder("--model", "m1", "--append-system-prompt", "SYS");
         args.Should().NotContain("--resume");
-        CliAgentSpecs.ClaudeArguments("haiku", "s-1", "x").Should().EndWith(["--resume", "s-1"]);
+        args.Should().NotContain("--no-session-persistence", "one-shot runs keep the old behaviour");
+        CliAgentSpecs.ClaudeCode.Arguments(new CliInvocation(null, "SYS", null, @"C:scratch") { Ephemeral = true })
+            .Should().Contain("--no-session-persistence").And.NotContain("--resume");
     }
 
     [Fact]
@@ -211,6 +228,8 @@ public class AiProviderResolverTests
             Requests.Add(request);
             return Task.FromResult(answer(request));
         }
+
+        public Task<AiResult> ChatAsync(AiChatRequest request, Action<string> onText, CancellationToken ct) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -247,5 +266,54 @@ public class AiProviderResolverTests
 
         result.ErrorKind.Should().Be(AiErrorKind.NotConfigured);
         result.IsOk.Should().BeFalse();
+    }
+}
+
+public class AiChatTests
+{
+    [Fact]
+    public async Task Chats_run_on_the_assistant_provider_and_report_counts_only()
+    {
+        var settings = new AiSettings { Assistant = new AiFeatureChoice { Provider = "cli:codex", Model = "m1" } };
+        IAiProvider? provider = null;
+        var resolver = new AiProviderResolver(() => settings, (id, _) => provider ??= new FakeChat());
+        var runs = new List<AiRunInfo>();
+        resolver.Completed += runs.Add;
+        var texts = new List<string>();
+        AiChatMessage[] messages = [new(AiChatRole.User, "hi"), new(AiChatRole.Assistant, "hello"), new(AiChatRole.User, "again")];
+
+        var result = await resolver.ChatAsync(AiFeature.Assistant, "sys", messages, TimeSpan.FromSeconds(5), texts.Add, CancellationToken.None);
+
+        result.Should().Be(AiResult.Ok("Hello", "m1"));
+        texts.Should().Equal("Hel", "Hello");
+        ((FakeChat)provider!).Request.Should().BeEquivalentTo(new AiChatRequest("sys", messages, "m1", TimeSpan.FromSeconds(5)));
+        var run = runs.Should().ContainSingle().Subject;
+        (run.ProviderId, run.Feature, run.Model, run.Messages, run.InputChars, run.OutputChars)
+            .Should().Be(("cli:codex", AiFeature.Assistant, "m1", 3, 3 + 2 + 5 + 5, 5));
+    }
+
+    [Fact]
+    public void Single_messages_go_as_is_and_conversations_are_labelled()
+    {
+        AiChatPrompt.Render([new(AiChatRole.User, "2+2?")]).Should().Be("2+2?");
+        AiChatPrompt.Render([new(AiChatRole.User, "2+2?"), new(AiChatRole.Assistant, " 4. \n"), new(AiChatRole.User, "times 3?")])
+            .Should().Be("Earlier turns of this conversation:\n\nUser:\n2+2?\n\nAssistant:\n4.\n\n---\n\nThe user's new message (answer this one):\n\ntimes 3?");
+    }
+
+    private sealed class FakeChat : IAiProvider
+    {
+        public AiChatRequest? Request { get; private set; }
+
+        public string Id => "cli:codex";
+
+        public Task<AiResult> CompleteAsync(AiRequest request, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<AiResult> ChatAsync(AiChatRequest request, Action<string> onText, CancellationToken ct)
+        {
+            Request = request;
+            onText("Hel");
+            onText("Hello");
+            return Task.FromResult(AiResult.Ok("Hello"));
+        }
     }
 }

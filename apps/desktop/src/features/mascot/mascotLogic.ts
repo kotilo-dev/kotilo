@@ -218,6 +218,8 @@ export interface MascotLabels {
   hideHour: string;
   turnOff: string;
   settings: string;
+  /** M7: "Open assistant" menu item; left out while the assistant is off. */
+  openAssistant?: string;
 }
 
 /** `mascot_set_config` payload (contract with the Rust side). */

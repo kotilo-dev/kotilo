@@ -17,7 +17,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use geometry::{Direction, Display, MascotState, Rect, WalkArea};
@@ -32,6 +32,7 @@ const MAX_STEP: f64 = 0.1;
 const MENU_HIDE_HOUR: &str = "mascot:hideHour";
 const MENU_TURN_OFF: &str = "mascot:turnOff";
 const MENU_SETTINGS: &str = "mascot:settings";
+const MENU_OPEN_ASSISTANT: &str = "mascot:openAssistant";
 
 #[cfg(windows)]
 mod os {
@@ -67,6 +68,31 @@ pub struct MascotLabels {
     pub hide_hour: String,
     pub turn_off: String,
     pub settings: String,
+    /// M7: "Open assistant"; empty = no menu item.
+    pub open_assistant: String,
+}
+
+/// M7: a click on a calm snail opens the assistant (the old prototype's "Bip"); a snail
+/// that needs attention keeps bringing the main window up.
+fn click_opens_assistant(state: MascotState, assistant_enabled: bool) -> bool {
+    assistant_enabled && matches!(state, MascotState::Sleep | MascotState::Done | MascotState::Work)
+}
+
+fn assistant_enabled(app: &AppHandle) -> bool {
+    app.try_state::<crate::platform::assistant::Assistant>().is_some_and(|a| a.enabled())
+}
+
+/// Opens the assistant off the calling thread (menu events run on the UI thread).
+fn open_assistant(app: &AppHandle) {
+    let app = app.clone();
+    let spawned = thread::Builder::new().name("assistant-open".into()).spawn(move || {
+        if let Some(assistant) = app.try_state::<crate::platform::assistant::Assistant>() {
+            assistant.open(&app);
+        }
+    });
+    if let Err(e) = spawned {
+        log::error!("mascot: assistant could not be opened: {e}");
+    }
 }
 
 /// `mascot_set_config` argument. `enabled` already folds in "hidden until".
@@ -415,7 +441,12 @@ impl Mascot {
 
     pub fn clicked(&self, app: &AppHandle) {
         let state = lock(&self.inner).state;
-        bring_main_up(app);
+        if click_opens_assistant(state, assistant_enabled(app)) {
+            open_assistant(app);
+        } else {
+            bring_main_up(app);
+        }
+        // Sent in every case so the main window's handling stays the same.
         let _ = app.emit_to(MAIN_LABEL, "mascot:clicked", serde_json::json!({ "state": state }));
     }
 
@@ -425,7 +456,13 @@ impl Mascot {
         let hide = MenuItem::with_id(app, MENU_HIDE_HOUR, &labels.hide_hour, true, None::<&str>)?;
         let off = MenuItem::with_id(app, MENU_TURN_OFF, &labels.turn_off, true, None::<&str>)?;
         let settings = MenuItem::with_id(app, MENU_SETTINGS, &labels.settings, true, None::<&str>)?;
-        let menu = Menu::with_items(app, &[&hide, &off, &settings])?;
+        let menu = if !labels.open_assistant.is_empty() && assistant_enabled(app) {
+            let assistant = MenuItem::with_id(app, MENU_OPEN_ASSISTANT, &labels.open_assistant, true, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
+            Menu::with_items(app, &[&assistant, &separator, &hide, &off, &settings])?
+        } else {
+            Menu::with_items(app, &[&hide, &off, &settings])?
+        };
         window.popup_menu(&menu)
     }
 
@@ -554,6 +591,8 @@ fn on_menu(app: &AppHandle, id: &str) {
             bring_main_up(app);
             "settings"
         }
+        // M7: handled here; the main window has nothing to do for it.
+        MENU_OPEN_ASSISTANT => return open_assistant(app),
         _ => return,
     };
     let _ = app.emit_to(MAIN_LABEL, "mascot:menu", serde_json::json!({ "action": action }));
@@ -611,8 +650,23 @@ mod tests {
         assert_eq!(c.walk_area, WalkArea::Corner);
         assert_eq!(c.labels.hide_hour, "H");
         assert_eq!(c.labels.turn_off, "T");
+        assert_eq!(c.labels.open_assistant, "", "optional");
+        let labels: MascotLabels = serde_json::from_str(r#"{"openAssistant":"Open assistant"}"#).unwrap();
+        assert_eq!(labels.open_assistant, "Open assistant");
         let u: MascotUpdate = serde_json::from_str(r#"{"state":"perm","speed":1.15}"#).unwrap();
         assert_eq!(u.state, MascotState::Perm);
+    }
+
+    #[test]
+    fn calm_states_open_the_assistant_when_it_is_on() {
+        use MascotState::*;
+        for state in [Sleep, Done, Work] {
+            assert!(click_opens_assistant(state, true), "{state:?}");
+            assert!(!click_opens_assistant(state, false), "{state:?}");
+        }
+        for state in [Perm, Input, Error, Sweat] {
+            assert!(!click_opens_assistant(state, true), "{state:?}");
+        }
     }
 
     #[test]
