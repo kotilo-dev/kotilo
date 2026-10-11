@@ -210,6 +210,7 @@ export const en = {
     sectionsLabel: "Settings sections",
     sections: {
       appearance: "Appearance",
+      mascot: "Mascot",
       editor: "Editor",
       terminal: "Terminal",
       files: "Files",
@@ -1079,6 +1080,33 @@ export const en = {
     viewerNextTab: "Next tab",
     viewerPrevTab: "Previous tab",
     viewerToggleMarkdownMode: "Toggle markdown edit/preview",
+  },
+  mascot: {
+    // Sent to the mascot window (accessible name, right-click menu).
+    aria: `${APP_NAME} robot snail: your agents' state`,
+    hideHour: "Hide for 1 hour",
+    turnOff: "Turn off mascot",
+    openSettings: "Mascot settings…",
+    // Settings → Mascot
+    enabled: "Show the robot snail on the desktop",
+    enabledHint: "It shows your agents' combined state at a glance. Click it to go to the agent that needs you.",
+    size: "Size",
+    sizeSmall: "Small",
+    sizeMedium: "Medium",
+    sizeLarge: "Large",
+    placement: "Placement",
+    placementTaskbar: "Walk along the taskbar",
+    placementCorner: "Sit in the corner",
+    celebrate: "Celebrate finished work",
+    celebrateHint: "A short hop when an agent finishes a longer turn.",
+    hiddenUntil: (time: string) => `Hidden until ${time}`,
+    showNow: "Show now",
+    saveFailed: (message: string) => `Mascot setting not saved: ${message}`,
+    // One-time suggestion
+    offerLabel: "Mascot suggestion",
+    offerText: `${APP_NAME}'s robot snail can show your agents' state on the taskbar.`,
+    offerTurnOn: "Turn on",
+    offerDismiss: "No thanks",
   },
 };
 

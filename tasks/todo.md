@@ -1,11 +1,47 @@
-# Planned after v0.1.0 – Robot snail mascot (v0.2 candidate)
+# M6 – Robot snail mascot (v0.2, planned 2026-10-11)
 
-Goal: the robot snail from D-049 walks on the taskbar and shows the agents' state – the spiral core and antennas carry the status colour (working / needs you / done / error), it celebrates finished work and can be hidden or turned off. Recorded 2026-10-11 (user: "todo'ya ekle"); the hub already has `MascotState`, `SpriteSheet` and the `buddy.mascot*` settings, but nothing draws the mascot and no sprite data exists.
+Goal: the robot snail from D-049 (concept B: spiral shell, core and antennas in the status colour) lives on the desktop and shows the agents' combined state at a glance; clicking it takes you to the agent that needs you.
 
-- [ ] Sprites: 16×16 frames from concept B (spiral core): walk, idle, waiting for permission, done/celebrate, error; status colour as a separate layer so one sheet serves every state; licence-clean (own work)
-- [ ] Mascot window (Tauri, platform layer): transparent, always on top, click-through except on the snail, follows the taskbar work area (`walkArea`), scale setting, multi-monitor and DPI changes
-- [ ] Wire `MascotState` from the hub to the window; click opens the session that needs the user; "hide until" and position settings
-- [ ] Settings UI (EN/TR), tests (state mapping, sprite parsing), e2e screenshot of the settings, manual test on the real desktop (rule 6: no automated global input)
+User decisions (2026-10-11): **vector art** exactly like concept B (not pixel art); **both placements**, chosen in Settings – walks along the top of the taskbar (default) or sits still in the bottom-right corner; **off by default**, offered once (Settings + a one-time "Turn on the mascot" suggestion when the first agent starts working).
+
+## Findings that shape the plan
+- State is already in the main window's frontend: own panes from the Rust `AgentTracker` (`agents:changed`), outside sessions from the hub stream (`sessions`). Nothing aggregates them for a mascot; the hub's `MascotStateResolver` (ported from the old prototype's "Bip") is used only by tests, and `SpriteSheet` is pixel-art code with no data.
+- The dictation overlay is the pattern for a secondary window: transparent, undecorated, `skip_taskbar`, `always_on_top`, shown with `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW` (`platform/dictation/win_window.rs`), own capability file.
+- Hub `buddy` settings exist (`mascotEnabled` default **true**, `mascotScale` 2–4, `walkArea` taskbar|corner, `celebrate`, `mascotHiddenUntil`, `mascotPosition`) but no UI and no i18n; e2e/test fixtures use `mascotScale: 1`, which the hub rejects.
+- "Burn projection exceeds" exists only as the `usage.burn_projection` notification; DND/quiet hours live in the notification settings.
+- Jump-to-agent is frontend-only: `navigateToAgent` (`features/agents/navigate.ts`), `goToSession` for hub sessions.
+- No Win32 Shell APIs enabled yet (`SHAppBarMessage` for the taskbar edge, `SHQueryUserNotificationState` for full screen need `Win32_UI_Shell`).
+
+## Design (D-052)
+- **Window:** a small Tauri webview window `mascot` (`index.html?view=mascot`), sized tightly around the snail (+ room for the halo/bubble) so little transparent area catches clicks; created only while the mascot is on; capability file with `core:default` + events only.
+- **Art:** one React SVG component from concept B, colours from design tokens (status colours), state = CSS class: `sleep` (dim, Zz), `work` (walk cycle: foot wave + bob), `perm` (red core + antennas, halo pulse, "!" bubble), `input` ("?" bubble), `error` (red core, "!"), `sweat` (amber, drops, slow walk), `done` (short hop + sparkle, only if `celebrate`). Scale 2/3/4 = 32/48/64 px tall. Reduced motion (Windows animation effects off) = no walk/bob, state only.
+- **Movement (platform layer, Rust):** walk geometry is a pure, tested function (work area, taskbar edge, position 0..1, direction, speed, turn at edges, corner placement); the Windows part reads the taskbar edge (`SHAppBarMessage`) and full-screen/presentation mode (`SHQueryUserNotificationState`, hide), moves the window with `SetWindowPos(SWP_NOACTIVATE)` from a timer that runs only while walking (≈30 fps), and follows display/DPI changes. Non-Windows: stub.
+- **State (main window frontend):** `mascotLogic.ts` = port of the hub resolver (perm > error > input > sweat > work > done 3 s > sleep; DND → sleep; speed factor), over own agents + hub sessions (deduped by pane), burn flag from `usage.burn_projection` for the current block → `mascot_update` command → Rust forwards to the mascot window.
+- **Interaction:** click → `mascot:clicked` → main window: perm/input → focus the main window and `navigateToAgent` (oldest waiting first), sweat → Usage page, otherwise show the main window. Right click → native menu: Hide for 1 hour, Turn off mascot, Settings. Drag along the walking axis → `mascotPosition`.
+- **Hub:** `mascotEnabled` default false (+ one-time migration for settings files that only carry the old default), add `mascotOffered`; delete the unused pixel `SpriteSheet` and the C# resolver (logic moves to TS, tests move with it).
+
+## Wave 1 (parallel, file ownership)
+- [x] A – Art + mascot view (FE `features/mascot/`): SVG component, state classes/animations, `?view=mascot` page listening to `mascot:state`, click/drag/right-click → events; e2e page rendering every state at every scale + screenshots
+- [x] B – Rust: `platform/mascot/` (window create/destroy, show without activation, taskbar/full-screen/DPI, move timer), pure walk geometry + tests, commands `mascot_update` / `mascot_set_config`, events, capability file, `Win32_UI_Shell` feature
+- [x] C – Main window + hub: `mascotLogic.ts` + tests, wiring (agents + sessions + burn + DND), click handling, Settings → Mascot section (on/off, size, placement, celebrate) EN/TR, one-time offer, hub default/migration/`mascotOffered`, delete `SpriteSheet` + C# resolver, fix fixtures (`mascotScale`)
+
+## Wave 2 – checks
+- [x] Integrate, hub/Rust/clippy/UI/e2e green, D-052, manual tests M6-1… in `docs/manual-tests.md` (walk on taskbar left/bottom/right/top, auto-hide taskbar, two monitors, DPI 100/150 %, full-screen video hides it, click/right-click/drag, reduced motion), user guide EN/TR section, screenshots
+- [x] Manual tests M6-1…M6-10 on the real desktop – user: "denedim çalışıyor" (2026-10-11)
+
+Wave 2 checks (2026-10-11, integrated tree): hub 698 + 214 + 64 (one Infrastructure test failed once while Rust/UI builds ran in parallel, green on two reruns), Rust 557 + 67 + 11 + 3 + 1 + 1 + clippy clean, UI build + 805 unit tests, e2e 51 (incl. mascot states/scales/drag/click and Settings → Mascot EN/TR light/dark). Screens: `test-results/screens/mascot-lineup-s3.png`, `settings-mascot-*.png`. Not run: the real app (`tauri dev`) – the window, walking and menu are only checked by the manual tests.
+
+---
+
+# M7 – Assistant chat popup (after M6, recorded 2026-10-11)
+
+Found missing (user: "kısayol ile açılıp günlük soruları sorduğumuz popup… settings'de bulamadım"): the old prototype's "Bip" chat was never ported. The hub still has `BuddyService.AskAsync` and the chat history store (`BuddyChatRepository`), but nothing calls them and there is no API; `buddy.enabled` and `buddy.hotkey` (Ctrl+Alt+B) exist only in the settings type – no toggle in Settings, no registered hotkey, no window. Settings → AI → "Assistant" only picks the provider. PRD §5 lists it ("Asistan ve özet: küçük sohbet").
+
+To plan at the start of M7:
+- [ ] Hub: chat API (ask with streamed answer, stop, history list/open/delete), answering through the provider chosen for `ai.assistant` (check whether `AskAsync` is still `claude -p`-only); no transcript content in logs (rule 5) – decide whether chat history may be stored (old prototype did; needs an explicit user decision like saved prompts)
+- [ ] Rust: global hotkey for the popup (reuse the dictation hotkey layer), popup window that takes focus, near the cursor's monitor, hidden from Alt+Tab
+- [ ] UI: chat popup (messages, markdown-lite, stop, new chat, history), Settings → Assistant on/off + hotkey (EN/TR)
+- [ ] Mascot link: right-click "Open chat", click in sleep/done opens the chat (old Bip behaviour)
 
 ---
 

@@ -71,3 +71,20 @@ Preparation: `npm --prefix apps/desktop run tauri dev`; Claude Code and Codex in
 | M4-11 | Restart the background service (kill `Hub.Service`) during a session | The timeline starts empty and fills again with the next tool call; no activity text in `%LOCALAPPDATA%\kotilo\hub\logs` or `hub.db` |
 | M4-12 | Mission control (`Alt+3`) with two in-app agents and one agent started in an external terminal; switch filters; click a tile; minimise the window for a while | Tiles show the last 5 lines of each pane, updating about once a second; the external session says "Running outside Kotilo" with metadata only and is not clickable; filter counts match; a click opens the right workspace and tab with the terminal focused; no CPU use from previews while minimised |
 | M4-13 | `Alt+1` … `Alt+9` with focus in a terminal, in the composer and on Settings; `Ctrl+,` | Alt+3 opens Mission control, Alt+9 and `Ctrl+,` open Settings; the rail tooltips show the same numbers; nothing reaches the agent |
+
+## Mascot (M6, `apps/desktop/src/features/mascot/`, `src-tauri/src/platform/mascot/`)
+
+Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln` (tauri dev does not rebuild the hub), then `npm --prefix apps/desktop run tauri dev`; Claude Code (or Codex) integration installed. Steps click and drag on the real desktop, so they need the user (AGENTS.md rule 6).
+
+| # | Steps | Expected |
+|---|---|---|
+| M6-1 | Fresh settings (or an older settings file): start the app, start an agent and let it work | The mascot is off; the one-time "Mascot suggestion" card appears once; **No thanks** never shows it again (also after a restart); on a second profile **Turn on** shows the snail |
+| M6-2 | Mascot on, taskbar at the bottom: run an agent turn, then let it finish; trigger a permission prompt; answer it; let a turn end with a question | Snail stands asleep (dim, Zz) → walks along the top of the taskbar while working, turns at the screen edges → short hop when the turn ends (with "Celebrate finished work") → stops with red halo and "!" on the permission → "?" when waiting for input; colours change within about a second |
+| M6-3 | Click the snail in each state; type in Notepad first, then click | Permission/input/error: Kotilo comes to the front on the agent that waited longest with its terminal focused; sweat: Usage; sleep/work/done: Kotilo comes to the front. The snail window itself never shows in Alt+Tab or the taskbar |
+| M6-4 | Right-click the snail; choose each item; also open the menu and click elsewhere | Menu at the cursor with "Hide for 1 hour", "Turn off mascot", "Mascot settings…"; hide → gone, Settings shows "Hidden until …" and **Show now** brings it back; turn off → gone and the toggle is off; settings → Settings → Mascot; clicking elsewhere closes the menu |
+| M6-5 | Drag the snail along the taskbar; restart the app | It follows the pointer horizontally only, faces the drag direction, walking pauses while dragging; the position is kept after the restart |
+| M6-6 | Settings → Mascot: sizes Small/Medium/Large; placement "Sit in the corner" and back | 32/48/64 px snail, never clipped; corner = bottom right of the work area, no walking or dragging; back to taskbar resumes walking |
+| M6-7 | Move the taskbar to the top / left / right (or turn on auto-hide), with an agent working | The snail walks along the bottom of the work area (no climbing); no flicker; returns to the taskbar top edge when the taskbar is back at the bottom |
+| M6-8 | Display scale 100 % → 150 % while the snail is visible; with two monitors, change which one is primary | The snail keeps its size in logical px and re-lays out within ~2 s; it stays on the primary monitor |
+| M6-9 | Play a video full screen, start a full-screen game, start a PowerPoint slide show | The snail hides within ~2 s and comes back after leaving full screen |
+| M6-10 | Windows Settings → Accessibility → Visual effects → Animation effects off, with an agent working; then watch Task Manager with the snail standing | No walking, bobbing or halo pulse (state still shown by colour and bubble); with the snail standing, no measurable CPU from Kotilo's mascot |

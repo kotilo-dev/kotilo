@@ -9,6 +9,8 @@ import { useStrings } from "../../app/i18n";
 import { dictationReload, hubRequest } from "../../lib/ipc";
 import type { AiSettings, HubSettings } from "../../lib/hubTypes";
 import { AiSection } from "./AiSection";
+import { MascotSection } from "./MascotSection";
+import { useMascotSettingsStore } from "./mascotSettings";
 import { AboutSection, AgentsSection, AppearanceSection, EditorSection, FilesSection, TerminalSection } from "./AppSections";
 import { Button, Notice, Page, PageHeader } from "./controls";
 import { DictationSection, NotificationsSection, ProjectsSection, TasksSection, UsageSection, type HubSectionProps } from "./HubSections";
@@ -18,6 +20,7 @@ import { validateAi } from "./aiSettings";
 
 export type SettingsSectionId =
   | "appearance"
+  | "mascot"
   | "editor"
   | "terminal"
   | "files"
@@ -34,6 +37,7 @@ type Section = { id: SettingsSectionId; app: ComponentType } | { id: SettingsSec
 
 const SECTIONS: readonly Section[] = [
   { id: "appearance", app: AppearanceSection },
+  { id: "mascot", app: MascotSection },
   { id: "editor", app: EditorSection },
   { id: "terminal", app: TerminalSection },
   { id: "files", app: FilesSection },
@@ -70,6 +74,8 @@ export function sectionForField(field: string): SettingsSectionId | null {
       return "ai";
     case "dictation":
       return "dictation";
+    case "buddy":
+      return "mascot";
     default:
       return null;
   }
@@ -98,6 +104,16 @@ export function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hub.data]);
 
+  // Mascot settings are saved at once elsewhere (Mascot section, the mascot's menu and drag):
+  // take their `buddy` into base and draft so a later draft save sends the current values back
+  // and the save bar doesn't count them as edits.
+  const mascotBuddy = useMascotSettingsStore((st) => st.settings?.buddy);
+  useEffect(() => {
+    if (!mascotBuddy) return;
+    setBase((b) => (b ? { ...b, buddy: mascotBuddy } : b));
+    setDraft((d) => (d ? { ...d, buddy: mascotBuddy } : d));
+  }, [mascotBuddy]);
+
   const dirty = draft !== null && base !== null && JSON.stringify(draft) !== JSON.stringify(base);
   // Field messages from the hub's last rejection; cleared on the next edit.
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
@@ -118,6 +134,7 @@ export function SettingsPage() {
       if (!base?.ai) throw new Error(t.loadFailed(""));
       const saved = await hubRequest<HubSettings>("PUT", "/v1/settings", { ...base, ai: change(base.ai) });
       setBase(saved);
+      useMascotSettingsStore.getState().setFromHub(saved);
       setDraft((d) => (d?.ai && saved.ai ? { ...d, ai: { ...change(d.ai), providers: saved.ai.providers } } : saved));
     },
     [base, t],
@@ -133,6 +150,7 @@ export function SettingsPage() {
     try {
       const saved = await hubRequest<HubSettings>("PUT", "/v1/settings", draft);
       setBase(saved);
+      useMascotSettingsStore.getState().setFromHub(saved);
       setDraft(saved);
       setSave({ kind: "saved" });
       // Dictation shortcuts and options take effect without a restart (best effort).

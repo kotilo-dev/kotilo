@@ -677,6 +677,40 @@ computer (`localhost`), so nothing leaves it. Speech recognition (Whisper) alway
 locally. Prompts and answers are never logged or stored; the log gets only the provider,
 the duration and the outcome.
 
+## Mascot
+
+Kotilo's robot snail can sit on your desktop and show your agents' combined state, so you
+can see without opening the app whether an agent needs you. It is off by default: turn it on
+in **Settings → Mascot** ("Show the robot snail on the desktop"), or with **Turn on** in the
+one-time suggestion that appears when an agent first starts working.
+
+The snail's core and antennas take the colour of the most urgent state across all agents,
+including sessions started outside Kotilo:
+
+| Snail | Meaning |
+|---|---|
+| Red core with a pulsing halo and "!" | An agent is waiting for your permission |
+| Red core and "!" (no halo) | An agent stopped with an error |
+| Red core and "?" | An agent is waiting for your answer |
+| Amber, with sweat drops | Agents are working and the current 5-hour block is projected to cross your usage threshold |
+| Amber, walking | Agents are working |
+| Blue, a short hop | An agent finished a longer turn (only with "Celebrate finished work") |
+| Dimmed, "Zz" | Nothing is running, or do not disturb / quiet hours are on |
+
+**Click** the snail to bring Kotilo up: with a permission, an answer or an error waiting it
+opens the agent that has waited longest; while sweating it opens Usage. **Right-click** for
+**Hide for 1 hour**, **Turn off mascot** and **Mascot settings…**. **Drag** it along the
+taskbar to move it; the place is remembered.
+
+Settings: **Size** (Small, Medium, Large), **Placement** ("Walk along the taskbar" or "Sit in
+the corner" at the bottom right) and **Celebrate finished work**. While it is hidden the
+section shows "Hidden until …" with **Show now**.
+
+The snail walks only while agents work and stands still otherwise, without using CPU. It
+stays on the primary monitor, hides while a full-screen app, game or presentation runs, and
+does not walk when Windows animation effects are turned off (Settings → Accessibility →
+Visual effects).
+
 ## Command palette and quick open
 
 - `Ctrl+Shift+P` (or typing `>` in the quick-open box) opens the **command palette**:

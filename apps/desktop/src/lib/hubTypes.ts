@@ -490,13 +490,20 @@ export interface QuietHours {
 
 export interface BuddySettings {
   enabled: boolean;
+  /** Desktop mascot (robot snail, M6); off by default. */
   mascotEnabled: boolean;
+  /** The one-time "turn on the mascot" suggestion was answered. */
+  mascotOffered: boolean;
   hotkey: string;
+  /** 2 | 3 | 4 = 32 / 48 / 64 px tall (the hub rejects anything else). */
   mascotScale: number;
   walkArea: "taskbar" | "corner";
+  /** Short "done" hop after finished work. */
   celebrate: boolean;
   showBuddySessions: boolean;
+  /** "Hide for 1 hour" from the mascot menu. */
   mascotHiddenUntil: IsoDateTime | null;
+  /** 0..1 along the walking axis, kept after a drag. */
   mascotPosition: number;
 }
 

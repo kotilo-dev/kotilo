@@ -3,6 +3,9 @@
 //! the older inline `#[cfg(windows)]` blocks imported from AgentDeck move in over time.
 
 pub mod dictation;
+pub mod mascot;
+#[cfg(windows)]
+pub(crate) mod overlay_window;
 
 use std::process::Command;
 

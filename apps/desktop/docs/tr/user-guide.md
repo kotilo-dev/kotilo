@@ -689,6 +689,39 @@ kotanızı kullanır.
 tanıma (Whisper) her zaman yerelde çalışır. İstemler ve yanıtlar asla günlüğe yazılmaz ya
 da saklanmaz; günlüğe yalnızca sağlayıcı, süre ve sonuç düşer.
 
+## Maskot
+
+Kotilo'nun robot salyangozu masaüstünde durup ajanlarınızın genel durumunu gösterebilir;
+böylece uygulamayı açmadan bir ajanın sizi bekleyip beklemediğini görürsünüz. Varsayılan
+olarak kapalıdır: **Ayarlar → Maskot** bölümünden ("Robot salyangozu masaüstünde göster")
+ya da bir ajan ilk kez çalışmaya başladığında çıkan tek seferlik öneride **Aç** ile açılır.
+
+Salyangozun çekirdeği ve antenleri, Kotilo dışında başlatılan oturumlar dahil tüm ajanlar
+arasındaki en acil durumun rengini alır:
+
+| Salyangoz | Anlamı |
+|---|---|
+| Kırmızı çekirdek, atan bir hale ve "!" | Bir ajan izninizi bekliyor |
+| Kırmızı çekirdek ve "!" (halesiz) | Bir ajan hatayla durdu |
+| Kırmızı çekirdek ve "?" | Bir ajan cevabınızı bekliyor |
+| Kehribar, ter damlalarıyla | Ajanlar çalışıyor ve bu 5 saatlik bloğun kullanım eşiğinizi aşacağı öngörülüyor |
+| Kehribar, yürüyor | Ajanlar çalışıyor |
+| Mavi, kısa bir zıplama | Bir ajan uzun bir turu bitirdi (yalnızca "Biten işi kutlasın" açıksa) |
+| Soluk, "Zz" | Çalışan bir şey yok ya da rahatsız etme / sessiz saatler açık |
+
+Salyangoza **tıklayınca** Kotilo öne gelir: bekleyen bir izin, cevap ya da hata varsa en
+uzun süredir bekleyen ajan açılır; terlerken Kullanım sayfası açılır. **Sağ tıkla** **1 saat
+gizle**, **Maskotu kapat** ve **Maskot ayarları…** seçenekleri gelir. Görev çubuğu boyunca
+**sürükleyerek** yerini değiştirebilirsiniz; yeri hatırlanır.
+
+Ayarlar: **Boyut** (Küçük, Orta, Büyük), **Yerleşim** ("Görev çubuğunda yürüsün" ya da sağ
+altta "Köşede otursun") ve **Biten işi kutlasın**. Gizliyken bölümde "… saatine kadar gizli"
+yazısı ve **Şimdi göster** düğmesi görünür.
+
+Salyangoz yalnızca ajanlar çalışırken yürür, diğer zamanlarda işlemci kullanmadan durur.
+Birincil monitörde kalır, tam ekran bir uygulama, oyun ya da sunum açıkken gizlenir ve
+Windows animasyon efektleri kapalıysa (Ayarlar → Erişilebilirlik → Görsel efektler) yürümez.
+
 ## Komut paleti ve hızlı açma
 
 - `Ctrl+Shift+P` (ya da hızlı açma kutusunda ilk karakter olarak `>`) **komut

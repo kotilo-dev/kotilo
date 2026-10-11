@@ -32,9 +32,16 @@ const CRASH_LOOP_THRESHOLD = 2;
 async function bootstrap() {
   // M2b: the dictation overlay is its own small window on the same bundle; it renders only the
   // overlay, without the app shell.
-  if (new URLSearchParams(window.location.search).get("view") === "dictation-overlay") {
+  const view = new URLSearchParams(window.location.search).get("view");
+  if (view === "dictation-overlay") {
     const { bootstrapOverlay } = await import("./features/dictation/overlay/overlayEntry");
     await bootstrapOverlay();
+    return;
+  }
+  // M6: the desktop mascot is another small window on the same bundle (snail only).
+  if (view === "mascot") {
+    const { bootstrapMascot } = await import("./features/mascot/mascotEntry");
+    bootstrapMascot();
     return;
   }
   try {

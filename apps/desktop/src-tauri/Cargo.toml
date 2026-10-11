@@ -106,6 +106,9 @@ windows = { version = "0.62", features = [
     "Win32_Graphics_Gdi",
     "Win32_UI_HiDpi",
     "Win32_Media_Audio",
+    # M6 mascot: taskbar edge (`SHAppBarMessage`) and full-screen state
+    # (`SHQueryUserNotificationState`).
+    "Win32_UI_Shell",
 ] }
 
 [dev-dependencies]

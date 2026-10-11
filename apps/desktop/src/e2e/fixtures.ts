@@ -393,8 +393,9 @@ export const hubSettings: HubSettings = {
   buddy: {
     enabled: false,
     mascotEnabled: false,
+    mascotOffered: true,
     hotkey: "Ctrl+Alt+B",
-    mascotScale: 1,
+    mascotScale: 3,
     walkArea: "taskbar",
     celebrate: true,
     showBuddySessions: false,

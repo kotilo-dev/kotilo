@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Hub.Core.Ai;
 using Hub.Core.Notifications;
@@ -9,7 +10,13 @@ namespace Hub.Service.Hosting;
 /// <summary>The hub's own settings (<c>%LOCALAPPDATA%\kotilo\hub\settings.json</c>, spec §13).</summary>
 public sealed record AppSettings
 {
+    /// <summary>Bumped when a load-time migration has to run once; see <see cref="MigrateVersion"/>.</summary>
+    public const int CurrentVersion = 1;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    /// <summary>File format version. Files written before versioning have no such field and load as 0.</summary>
+    public int Version { get; init; } = CurrentVersion;
 
     /// <summary>UI language: Turkish (spec header) on a Turkish Windows, English otherwise.</summary>
     public string Language { get; init; } =
@@ -55,7 +62,14 @@ public sealed record AppSettings
         {
             if (File.Exists(path))
             {
-                return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions) ?? new AppSettings()).MigrateAi();
+                var text = File.ReadAllText(path);
+                var settings = JsonSerializer.Deserialize<AppSettings>(text, JsonOptions) ?? new AppSettings();
+                if (JsonNode.Parse(text) is JsonObject root && !root.ContainsKey(nameof(Version)))
+                {
+                    settings = settings with { Version = 0 };
+                }
+
+                return settings.MigrateAi().MigrateVersion();
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -86,6 +100,20 @@ public sealed record AppSettings
             Insights = Insights with { DailySummaryModel = null },
             Dictation = Dictation with { AiModel = null },
         };
+    }
+
+    /// <summary>
+    /// Version 0 → 1 (M6): <c>Buddy.MascotEnabled</c> defaulted to true while no mascot existed, so old files carry
+    /// <c>true</c> without the user ever choosing it. The mascot is off by default now; turn it off once.
+    /// </summary>
+    public AppSettings MigrateVersion()
+    {
+        if (Version >= CurrentVersion)
+        {
+            return this;
+        }
+
+        return this with { Version = CurrentVersion, Buddy = Buddy with { MascotEnabled = false } };
     }
 
     public void Save(string path)
@@ -207,7 +235,11 @@ public sealed record BuddySettings
 {
     public bool Enabled { get; init; } = true;
 
-    public bool MascotEnabled { get; init; } = true;
+    /// <summary>The desktop mascot (robot snail); off by default and offered once (M6).</summary>
+    public bool MascotEnabled { get; init; }
+
+    /// <summary>The one-time "turn on the mascot" suggestion was answered (either button).</summary>
+    public bool MascotOffered { get; init; }
 
     /// <summary>"Ctrl+Alt+Space" style; parsed by <see cref="Hub.Core.Buddy.HotkeyGesture"/>.</summary>
     public string Hotkey { get; init; } = "Ctrl+Alt+Space";
@@ -216,7 +248,7 @@ public sealed record BuddySettings
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Model { get; init; }
 
-    /// <summary>Nearest-neighbor scale of the 16 px sprite: 2, 3 or 4.</summary>
+    /// <summary>Mascot size: 2, 3 or 4 (32, 48 or 64 px tall).</summary>
     public int MascotScale { get; init; } = 3;
 
     /// <summary>"taskbar" walks along the taskbar; "corner" stays in the bottom-right corner.</summary>

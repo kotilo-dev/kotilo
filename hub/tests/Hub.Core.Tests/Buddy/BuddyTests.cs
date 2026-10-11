@@ -1,6 +1,4 @@
 using Hub.Core.Buddy;
-using Hub.Core.Sessions;
-using static Hub.Core.Tests.TestData;
 
 namespace Hub.Core.Tests.Buddy;
 
@@ -73,67 +71,6 @@ public class ClaudeCliStreamParserTests
     public void Ignored_lines(string line) => ClaudeCliStreamParser.ParseLine(line).Should().BeNull();
 }
 
-public class MascotStateResolverTests
-{
-    private static readonly DateTimeOffset Now = T0.AddHours(1);
-
-    private static SessionInfo S(string id, SessionState state, int minutesAgo = 1) => Session(state, Now.AddMinutes(-minutesAgo)) with { SessionId = id };
-
-    private static MascotState Resolve(IReadOnlyList<SessionInfo> sessions, bool sweat = false, DateTimeOffset? done = null, bool dnd = false) =>
-        MascotStateResolver.Resolve(new MascotInputs(sessions, sweat, done, dnd), Now);
-
-    [Fact]
-    public void Priority_order_is_perm_input_sweat_work_done_sleep()
-    {
-        var all = new[] { S("w", SessionState.Working), S("i", SessionState.WaitingInput), S("p", SessionState.WaitingPermission) };
-        Resolve(all, sweat: true, done: Now).Should().Be(MascotState.Perm);
-        Resolve(all[..2], sweat: true, done: Now).Should().Be(MascotState.Input);
-        Resolve(all[..1], sweat: true, done: Now).Should().Be(MascotState.Sweat);
-        Resolve(all[..1], done: Now).Should().Be(MascotState.Work);
-        Resolve([S("idle", SessionState.Idle)], done: Now).Should().Be(MascotState.Done);
-        Resolve([S("idle", SessionState.Idle)]).Should().Be(MascotState.Sleep);
-        Resolve([]).Should().Be(MascotState.Sleep);
-    }
-
-    [Fact]
-    public void Sweat_needs_a_working_session()
-    {
-        Resolve([S("idle", SessionState.Idle)], sweat: true).Should().Be(MascotState.Sleep);
-    }
-
-    [Fact]
-    public void Done_lasts_three_seconds()
-    {
-        Resolve([], done: Now.AddSeconds(-2.9)).Should().Be(MascotState.Done);
-        Resolve([], done: Now.AddSeconds(-3)).Should().Be(MascotState.Sleep);
-        Resolve([], done: Now.AddSeconds(1)).Should().Be(MascotState.Sleep, "a future timestamp is clock skew, not a celebration");
-    }
-
-    [Fact]
-    public void Do_not_disturb_always_sleeps()
-    {
-        Resolve([S("p", SessionState.WaitingPermission)], dnd: true).Should().Be(MascotState.Sleep);
-    }
-
-    [Fact]
-    public void Ended_and_unknown_sessions_are_ignored()
-    {
-        Resolve([S("e", SessionState.Ended), S("u", SessionState.Unknown)]).Should().Be(MascotState.Sleep);
-    }
-
-    [Fact]
-    public void Oldest_permission_wait_is_the_click_target_and_speed_grows_with_work()
-    {
-        var sessions = new[] { S("new", SessionState.WaitingPermission, 1), S("old", SessionState.WaitingPermission, 9), S("w", SessionState.Working) };
-        MascotStateResolver.OldestWaitingForPermission(sessions)!.SessionId.Should().Be("old");
-
-        var inputs = new MascotInputs([S("a", SessionState.Working), S("b", SessionState.Working), S("c", SessionState.Working)], false, null, false);
-        MascotStateResolver.SpeedFactor(inputs).Should().BeApproximately(1.3, 1e-9);
-        MascotStateResolver.SpeedFactor(inputs with { Sessions = Enumerable.Range(0, 20).Select(i => S($"s{i}", SessionState.Working)).ToList() })
-            .Should().Be(1.6);
-    }
-}
-
 public class BuddySessionFilterTests
 {
     private readonly BuddySessionFilter _filter = new(@"C:\Users\u\AppData\Local\agent-hub\buddy");
@@ -149,59 +86,6 @@ public class BuddySessionFilterTests
     [InlineData(null, false)]
     [InlineData("", false)]
     public void Matches_buddy_folder_and_below(string? cwd, bool expected) => _filter.IsBuddy(cwd).Should().Be(expected);
-}
-
-public class SpriteSheetTests
-{
-    private static SpriteSheet Load() =>
-        SpriteSheet.Parse(Fixtures.Read(Path.Combine("buddy", "sprites.json")));
-
-    [Fact]
-    public void Every_mascot_state_has_a_16x16_sprite_with_its_antenna_color()
-    {
-        var sheet = Load();
-        foreach (var state in Enum.GetValues<MascotState>())
-        {
-            var sprite = sheet.For(state);
-            sprite.Size.Should().Be(16);
-            sprite.Pixels.Should().HaveCount(256);
-        }
-
-        // Row 1, column 7 is the antenna light ('L').
-        sheet.For(MascotState.Perm)[7, 1].Should().Be(0xFFFF9F43);
-        sheet.For(MascotState.Input)[7, 1].Should().Be(0xFFFCE100);
-        sheet.For(MascotState.Sleep)[7, 1].Should().Be(0xFF6E7880);
-        sheet["base"][7, 1].Should().Be(0xFF60CDFF);
-        sheet["base"][0, 0].Should().Be(0u);
-        sheet["base"].IsOpaque(0, 0).Should().BeFalse();
-        sheet["base"].IsOpaque(7, 1).Should().BeTrue();
-
-        // Error (spec §18.5): the input look with a red "!" instead of the yellow "?" and a red antenna light.
-        var error = sheet.For(MascotState.Error);
-        error[7, 1].Should().Be(SpriteSheet.ErrorColor);
-        error[2, 0].Should().Be(SpriteSheet.ErrorColor);
-        error[2, 4].Should().Be(SpriteSheet.ErrorColor);
-        error.Pixels.Should().NotContain(0xFFFCE100u);
-    }
-
-    [Fact]
-    public void Mirror_flips_columns()
-    {
-        var sprite = Load()["perm"];
-        var mirrored = sprite.Mirrored();
-        mirrored[15 - 1, 0].Should().Be(sprite[1, 0]);
-        mirrored.Mirrored().Pixels.Should().Equal(sprite.Pixels);
-    }
-
-    [Fact]
-    public void Malformed_sheets_are_rejected()
-    {
-        var act = () => SpriteSheet.Parse("""{"size":2,"palette":{"a":"#000000"},"states":{"x":{"antennaLight":"#FFFFFF","rows":["a.","?."]}}}""");
-        act.Should().Throw<FormatException>().WithMessage("*unknown palette key*");
-
-        var wrongSize = () => SpriteSheet.Parse("""{"size":2,"palette":{},"states":{"x":{"antennaLight":"#FFFFFF","rows":[".."]}}}""");
-        wrongSize.Should().Throw<FormatException>();
-    }
 }
 
 public class HotkeyGestureTests

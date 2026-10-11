@@ -8,6 +8,7 @@ pub mod fs;
 pub mod git;
 pub mod hooks;
 pub mod hub;
+pub mod mascot;
 pub mod settings;
 pub mod update;
 pub mod workspace;

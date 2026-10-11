@@ -203,6 +203,33 @@
   --checkerboard-b: #c6cad2;
 }
 
+/*
+ * M6 mascot tokens (D-052). The robot snail sits on the user's desktop or taskbar, not in the
+ * app, so these are fixed values that do NOT follow the app theme (no light override). Concept
+ * B: dark shell + metal, accent visor/spiral, status colours = the dark §2.3 values. Used only
+ * by features/mascot/mascot.css.
+ */
+:root {
+  --mascot-shell: #1b1e24;
+  --mascot-metal: #2a2e37;
+  --mascot-line: #7d8496;
+  --mascot-rivet: #9aa1b2;
+  --mascot-accent: #7c9cff;
+  --mascot-idle: #46c58a;
+  --mascot-working: #f2b440;
+  --mascot-blocked: #ff6b5a;
+  --mascot-done: #5aa9ff;
+  --mascot-sweat: #9cc8ff;
+  --mascot-sparkle: #f6c86b;
+  --mascot-zz: #8fe0b6;
+  /* Outline + shadow so the dark snail reads on dark and light backgrounds alike. */
+  --mascot-rim: rgba(231, 233, 238, 0.5);
+  --mascot-shadow: rgba(0, 0, 0, 0.45);
+  --mascot-bubble-bg: #f7f8fa;
+  --mascot-bubble-border: #1b1e24;
+  --mascot-bubble-alert: #d43b2a;
+}
+
 /* Tailwind utilities generated from the tokens (`bg-surface-2`, `text-muted`, `rounded-card`, …). */
 @theme inline {
   --font-sans: var(--font-ui);

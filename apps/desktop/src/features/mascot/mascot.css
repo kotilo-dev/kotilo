@@ -1,0 +1,366 @@
+/*
+ * Robot snail mascot (M6, D-052). Colours come from the fixed `--mascot-*` tokens in index.css
+ * (theme-independent: the snail sits on the desktop). `--mh` = snail height H (16 x scale px);
+ * the window is 2H x 2H, the snail (1.25H x H) sits bottom-centred, bubble and Zz above it.
+ * State = `data-state` on `.mascot`; `data-walking` adds the walk cycle. Transforms inside the
+ * SVG are in view-box units (px = user units there).
+ */
+
+html[data-view="mascot"],
+html[data-view="mascot"] body,
+html[data-view="mascot"] #root {
+  background: transparent;
+  overflow: hidden;
+}
+/* The app's dark `color-scheme` would give the page an opaque dark canvas in some hosts. */
+html[data-view="mascot"] {
+  color-scheme: normal;
+}
+
+.mascot {
+  --ms-led: var(--mascot-idle);
+  --ms-walk: 1s;
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  width: calc(var(--mh) * 2);
+  height: calc(var(--mh) * 2);
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mascot[data-state="work"] {
+  --ms-led: var(--mascot-working);
+}
+.mascot[data-state="sweat"] {
+  --ms-led: var(--mascot-working);
+  --ms-walk: 1.6s;
+}
+.mascot[data-state="input"],
+.mascot[data-state="perm"],
+.mascot[data-state="error"] {
+  --ms-led: var(--mascot-blocked);
+}
+.mascot[data-state="done"] {
+  --ms-led: var(--mascot-done);
+}
+
+/* Snail box: bottom edge on the window's bottom edge, horizontally centred. */
+.ms-body {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--mh) * 0.375);
+  width: calc(var(--mh) * 1.25);
+  height: var(--mh);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+}
+.mascot[data-state="sleep"] .ms-body {
+  opacity: 0.6;
+}
+
+.ms-snail {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 0.6px var(--mascot-rim)) drop-shadow(0 1px 1.2px var(--mascot-shadow));
+}
+.ms-snail * {
+  transform-box: fill-box;
+}
+
+/* Concept B shapes. */
+.ms-snail .m1 {
+  fill: var(--mascot-shell);
+  stroke: var(--mascot-line);
+  stroke-width: 3;
+}
+.ms-snail .m2 {
+  fill: var(--mascot-metal);
+  stroke: var(--mascot-line);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.ms-snail .ln {
+  fill: none;
+  stroke: var(--mascot-line);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.ms-snail .visor {
+  fill: var(--mascot-accent);
+}
+.ms-snail .sp {
+  fill: none;
+  stroke: var(--mascot-accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.ms-snail .dot {
+  fill: var(--mascot-rivet);
+}
+.ms-snail .led {
+  fill: var(--ms-led);
+}
+.ms-snail .ms-glow {
+  fill: var(--ms-led);
+  opacity: 0.3;
+}
+
+/* Walk-cycle foot wave: ridges that travel along the foot (only while walking). */
+.ms-snail .ms-ridge {
+  fill: none;
+  stroke: var(--mascot-line);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0;
+}
+.mascot[data-walking="true"] .ms-ridge {
+  opacity: 0.55;
+}
+
+/* perm: pulsing halo around the shell (a static ring under reduced motion). */
+.ms-snail .ms-halo {
+  fill: none;
+  stroke: var(--mascot-blocked);
+  stroke-width: 4;
+  opacity: 0;
+  transform-origin: center;
+}
+.mascot[data-state="perm"] .ms-halo {
+  opacity: 0.6;
+  animation: ms-halo 1.4s ease-out infinite;
+}
+
+/* sweat: drops next to the head. */
+.ms-snail .ms-drop {
+  fill: var(--mascot-sweat);
+  stroke: var(--mascot-shell);
+  stroke-width: 1.5;
+  display: none;
+}
+.mascot[data-state="sweat"] .ms-drop {
+  display: inline;
+  animation: ms-drop 1.6s ease-in infinite;
+}
+.mascot[data-state="sweat"] .ms-drop-2 {
+  animation-delay: 0.8s;
+}
+
+/* done + celebrate: one short hop with a sparkle. */
+.ms-snail .ms-sparkle {
+  fill: var(--mascot-sparkle);
+  stroke: var(--mascot-shell);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform-origin: center;
+}
+.mascot[data-state="done"][data-celebrate="true"] .ms-sparkle {
+  animation: ms-sparkle 1.2s ease-out 1 both;
+}
+.mascot[data-state="done"][data-celebrate="true"] .ms-sparkle-2 {
+  animation-delay: 0.12s;
+}
+.mascot[data-state="done"][data-celebrate="true"] .ms-sparkle-3 {
+  animation-delay: 0.24s;
+}
+.mascot[data-state="done"][data-celebrate="true"] .ms-hop {
+  animation: ms-hop 1.2s ease-out 1;
+}
+
+/* Walk cycle: shell bob, antenna sway, foot wave. */
+.ms-snail .ms-antennas {
+  transform-origin: 50% 100%;
+}
+.mascot[data-walking="true"] .ms-shell {
+  animation: ms-bob var(--ms-walk) ease-in-out infinite;
+}
+.mascot[data-walking="true"] .ms-antennas {
+  animation: ms-sway var(--ms-walk) ease-in-out infinite;
+}
+.mascot[data-walking="true"] .ms-ridges-move {
+  animation: ms-wave var(--ms-walk) linear infinite;
+}
+
+/* sleep: very slow breathing glow. */
+.mascot[data-state="sleep"] .ms-glow {
+  animation: ms-breathe 4s ease-in-out infinite;
+}
+
+@keyframes ms-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(-2deg);
+  }
+}
+@keyframes ms-sway {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+}
+@keyframes ms-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(18px);
+  }
+}
+@keyframes ms-halo {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.14);
+    opacity: 0;
+  }
+}
+@keyframes ms-drop {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@keyframes ms-hop {
+  0%,
+  45%,
+  75%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-18px);
+  }
+  60% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes ms-sparkle {
+  0% {
+    transform: scale(0.2) rotate(0deg);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1.1) rotate(20deg);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6) rotate(45deg);
+    opacity: 0;
+  }
+}
+@keyframes ms-breathe {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Speech bubble above the head ("!" perm/error, "?" input). Never mirrored: positioned by side. */
+.ms-bubble {
+  position: absolute;
+  bottom: calc(var(--mh) * 0.9);
+  left: calc(var(--mh) * 1.42);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--mh) * 0.56);
+  height: calc(var(--mh) * 0.46);
+  border: max(1.5px, calc(var(--mh) * 0.03)) solid var(--mascot-bubble-border);
+  border-radius: calc(var(--mh) * 0.16);
+  background: var(--mascot-bubble-bg);
+  box-shadow: 0 1px 2px var(--mascot-shadow);
+  color: var(--mascot-bubble-alert);
+  font-family: var(--font-ui);
+  font-size: max(11px, calc(var(--mh) * 0.36));
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+}
+.mascot[data-direction="left"] .ms-bubble {
+  left: calc(var(--mh) * 0.58);
+}
+/* Tail pointing down at the antennas. */
+.ms-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--mh) * -0.09);
+  width: calc(var(--mh) * 0.13);
+  height: calc(var(--mh) * 0.13);
+  background: var(--mascot-bubble-bg);
+  border-right: inherit;
+  border-bottom: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.ms-bubble-text {
+  position: relative;
+  z-index: 1;
+}
+
+/* sleep: small "zZ" above the shell. */
+.ms-zz {
+  position: absolute;
+  bottom: calc(var(--mh) * 0.84);
+  left: calc(var(--mh) * 0.5);
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--mh) * 0.02);
+  color: var(--mascot-zz);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0.85;
+  text-shadow:
+    0 0 1px var(--mascot-shell),
+    0 0 2px var(--mascot-shell);
+}
+.ms-zz span:first-child {
+  font-size: max(11px, calc(var(--mh) * 0.2));
+}
+.ms-zz span:last-child {
+  font-size: max(11px, calc(var(--mh) * 0.3));
+  transform: translateY(calc(var(--mh) * -0.12));
+}
+.mascot[data-direction="left"] .ms-zz {
+  left: auto;
+  right: calc(var(--mh) * 0.5);
+  flex-direction: row-reverse;
+}
+
+/* Reduced motion: state through colour, halo ring and bubble only. */
+@media (prefers-reduced-motion: reduce) {
+  .mascot *,
+  .mascot *::after {
+    animation: none !important;
+  }
+}

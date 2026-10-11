@@ -183,6 +183,28 @@ public sealed class AiApiTests(HubFixture hub) : IClassFixture<HubFixture>, IAsy
         (await PutSettingsAsync(settings)).StatusCode.Should().Be(HttpStatusCode.OK);
         (await SettingsAsync())["ai"]!.ToJsonString().Should().Be(before);
     }
+
+    [Fact]
+    public async Task Mascot_settings_round_trip_and_scale_is_validated()
+    {
+        var settings = await SettingsAsync();
+        var buddy = settings["buddy"]!.AsObject();
+        (buddy["mascotEnabled"]!.GetValue<bool>(), buddy["mascotOffered"]!.GetValue<bool>()).Should().Be((false, false));
+
+        buddy["mascotOffered"] = true;
+        buddy["mascotScale"] = 1;
+        using (var bad = await PutSettingsAsync(settings))
+        {
+            bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await bad.Content.ReadFromJsonAsync<JsonObject>())!["fields"]!.AsObject().Select(f => f.Key).Should().Equal("buddy.mascotScale");
+        }
+
+        buddy["mascotScale"] = 2;
+        (await PutSettingsAsync(settings)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var saved = (await SettingsAsync())["buddy"]!;
+        (saved["mascotOffered"]!.GetValue<bool>(), saved["mascotScale"]!.GetValue<int>()).Should().Be((true, 2));
+        hub.Host.Settings.Buddy.MascotOffered.Should().BeTrue();
+    }
 }
 
 public sealed class AppSettingsMigrationTests : IDisposable
@@ -227,6 +249,42 @@ public sealed class AppSettingsMigrationTests : IDisposable
         var saved = File.ReadAllText(path);
         saved.Should().NotContain("\"AiModel\"").And.NotContain("\"DailySummaryModel\"").And.Contain("\"Ai\"");
         AppSettings.Load(path).Ai.Should().BeEquivalentTo(settings.Ai);
+    }
+
+    [Fact]
+    public void Unversioned_files_turn_the_mascot_off_once_and_keep_the_users_later_choice()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "Language": "en-US",
+              "Buddy": { "Enabled": true, "MascotEnabled": true, "MascotScale": 4, "WalkArea": "corner" }
+            }
+            """);
+
+        var migrated = AppSettings.Load(path);
+        migrated.Version.Should().Be(AppSettings.CurrentVersion);
+        migrated.Buddy.MascotEnabled.Should().BeFalse();
+        migrated.Buddy.MascotOffered.Should().BeFalse();
+        (migrated.Buddy.MascotScale, migrated.Buddy.WalkArea, migrated.Language).Should().Be((4, "corner", "en-US"));
+
+        // The user turns it on later: a versioned file keeps that choice.
+        (migrated with { Buddy = migrated.Buddy with { MascotEnabled = true, MascotOffered = true } }).Save(path);
+        File.ReadAllText(path).Should().Contain("\"Version\": 1");
+        var reloaded = AppSettings.Load(path);
+        (reloaded.Buddy.MascotEnabled, reloaded.Buddy.MascotOffered).Should().Be((true, true));
+    }
+
+    [Fact]
+    public void New_installs_have_the_mascot_off_and_not_offered()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        var fresh = AppSettings.Load(path);
+        (fresh.Version, fresh.Buddy.MascotEnabled, fresh.Buddy.MascotOffered).Should().Be((AppSettings.CurrentVersion, false, false));
+
+        // A default file saved by a new install is versioned, so the migration never runs on it.
+        (fresh with { Buddy = fresh.Buddy with { MascotEnabled = true } }).Save(path);
+        AppSettings.Load(path).Buddy.MascotEnabled.Should().BeTrue();
     }
 
     [Fact]

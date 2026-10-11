@@ -19,9 +19,17 @@ interface HubState {
 
 let notificationHandler: ((n: NotificationDto) => void) | null = null;
 
+const notificationObservers = new Set<(n: NotificationDto) => void>();
+
 /** Who shows hub notifications (single owner, ARCHITECTURE §2.1). */
 export function setHubNotificationHandler(handler: ((n: NotificationDto) => void) | null): void {
   notificationHandler = handler;
+}
+
+/** Read-only observers that react to a notification without showing it (M6 mascot: burn warning). */
+export function observeHubNotifications(observer: (n: NotificationDto) => void): () => void {
+  notificationObservers.add(observer);
+  return () => notificationObservers.delete(observer);
 }
 
 export const useHubStore = create<HubState>((set) => ({
@@ -50,6 +58,7 @@ export const useHubStore = create<HubState>((set) => ({
         break;
       case "notification":
         notificationHandler?.(message.data);
+        for (const observer of notificationObservers) observer(message.data);
         break;
     }
   },

@@ -5,6 +5,7 @@ import { strings } from "../../app/strings";
 import { useHelpStore } from "../help/helpStore";
 import { DEFAULT_SETTINGS, hydrateSettingsStore, resetSettingsStoreForTest, useSettingsStore } from "../../stores/settingsStore";
 import type { AdapterDto, HubSettings } from "../../lib/hubTypes";
+import { useMascotSettingsStore } from "./mascotSettings";
 
 const ipc = vi.hoisted(() => ({
   appInfo: vi.fn(),
@@ -51,7 +52,7 @@ const HUB_SETTINGS: HubSettings = {
   quietHours: { enabled: false, start: "23:00:00", end: "08:00:00" },
   doNotDisturbUntil: null,
   suppressWhenTerminalFocused: true,
-  buddy: { enabled: false, mascotEnabled: false, hotkey: "Ctrl+Alt+B", mascotScale: 1, walkArea: "taskbar", celebrate: true, showBuddySessions: false, mascotHiddenUntil: null, mascotPosition: 0 },
+  buddy: { enabled: false, mascotEnabled: false, mascotOffered: false, hotkey: "Ctrl+Alt+B", mascotScale: 3, walkArea: "taskbar", celebrate: true, showBuddySessions: false, mascotHiddenUntil: null, mascotPosition: 0 },
   tasks: { hotkey: "Ctrl+Alt+N", reminders: true },
   dictation: {
     enabled: false,
@@ -223,6 +224,7 @@ describe("SettingsPage", () => {
     expect(sectionForField("insights.uncommittedThreshold")).toBe("projects");
     expect(sectionForField("tasksGlob")).toBe("projects");
     expect(sectionForField("dictation.model")).toBe("dictation");
+    expect(sectionForField("buddy.mascotScale")).toBe("mascot");
     expect(sectionForField("settings")).toBeNull();
   });
 
@@ -231,5 +233,60 @@ describe("SettingsPage", () => {
     useSettingsPageStore.setState({ section: "dictation" });
     render(<SettingsPage />);
     expect(await screen.findByText(strings.settingsPage.hubUnavailable)).toBeInTheDocument();
+  });
+
+  describe("Mascot (saved at once, only buddy)", () => {
+    beforeEach(() => useMascotSettingsStore.setState({ settings: null, offerVisible: false }));
+
+    it("saves a mascot change on the hub's current settings and keeps it in the draft", async () => {
+      // A hub that remembers what was saved, like the real one.
+      let stored = structuredClone(HUB_SETTINGS);
+      ipc.hubRequest.mockImplementation((m: string, p: string, b?: unknown) => {
+        if (p !== "/v1/settings") return routeHub(m, p, b);
+        if (m === "PUT") stored = structuredClone(b as HubSettings);
+        return Promise.resolve(structuredClone(stored));
+      });
+      useSettingsPageStore.setState({ section: "notifications" });
+      render(<SettingsPage />);
+      fireEvent.click(await screen.findByLabelText(strings.settingsPage.notifications.stale));
+
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.mascot }));
+      fireEvent.click(await screen.findByLabelText(strings.mascot.enabled, { exact: false }));
+      await waitFor(() =>
+        expect(ipc.hubRequest).toHaveBeenCalledWith(
+          "PUT",
+          "/v1/settings",
+          expect.objectContaining({ buddy: expect.objectContaining({ mascotEnabled: true, mascotOffered: true }), rules: expect.objectContaining({ staleEnabled: true }) }),
+        ),
+      );
+      fireEvent.click(screen.getByRole("radio", { name: strings.mascot.sizeLarge }));
+      await waitFor(() => expect(useMascotSettingsStore.getState().settings?.buddy.mascotScale).toBe(4));
+
+      // The unsaved notifications edit is still there, and saving it sends the mascot values along.
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.notifications }));
+      expect(screen.getByLabelText(strings.settingsPage.notifications.stale)).not.toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.save }));
+      await waitFor(() =>
+        expect(ipc.hubRequest).toHaveBeenLastCalledWith(
+          "PUT",
+          "/v1/settings",
+          expect.objectContaining({ buddy: expect.objectContaining({ mascotEnabled: true, mascotScale: 4 }), rules: expect.objectContaining({ staleEnabled: false }) }),
+        ),
+      );
+    });
+
+    it("shows when the mascot is hidden and brings it back", async () => {
+      const hidden = { ...HUB_SETTINGS, buddy: { ...HUB_SETTINGS.buddy, mascotEnabled: true, mascotHiddenUntil: new Date(Date.now() + 1_800_000).toISOString() } };
+      ipc.hubRequest.mockImplementation((m: string, p: string, b?: unknown) =>
+        m === "GET" && p === "/v1/settings" ? Promise.resolve(structuredClone(hidden)) : routeHub(m, p, b),
+      );
+      useSettingsPageStore.setState({ section: "mascot" });
+      render(<SettingsPage />);
+      fireEvent.click(await screen.findByRole("button", { name: strings.mascot.showNow }));
+      await waitFor(() =>
+        expect(ipc.hubRequest).toHaveBeenCalledWith("PUT", "/v1/settings", expect.objectContaining({ buddy: expect.objectContaining({ mascotHiddenUntil: null }) })),
+      );
+      expect(screen.queryByRole("button", { name: strings.mascot.showNow })).not.toBeInTheDocument();
+    });
   });
 });

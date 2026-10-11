@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mascot",
+  "description": "M6: the mascot window only listens to `mascot:state` and calls the app's own mascot_* commands (app commands need no permission entry).",
+  "windows": ["mascot"],
+  "permissions": ["core:default", "core:event:default"]
+}

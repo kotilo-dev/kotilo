@@ -133,7 +133,8 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 // M2b: the dictation overlay places itself; never restore it (it would reappear).
-                .with_denylist(&[platform::dictation::OVERLAY_LABEL])
+                // M6: the mascot window places itself too.
+                .with_denylist(&[platform::dictation::OVERLAY_LABEL, platform::mascot::MASCOT_LABEL])
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
@@ -148,6 +149,7 @@ pub fn run() {
         .manage(QuickOpenIndex::default())
         .manage(GitignoreTreeCache::default())
         .manage(hub::supervisor::HubSupervisor::default())
+        .manage(platform::mascot::Mascot::default())
         .on_page_load(move |webview, payload| {
             if webview.label() != "main" || payload.event() != tauri::webview::PageLoadEvent::Started {
                 return;
@@ -181,6 +183,9 @@ pub fn run() {
                 if let Some(overlay) = window.app_handle().get_webview_window(platform::dictation::OVERLAY_LABEL) {
                     let _ = overlay.destroy();
                 }
+                // M6: stop the mascot's threads and close its window.
+                let app = window.app_handle();
+                app.state::<platform::mascot::Mascot>().shutdown(app);
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -215,6 +220,13 @@ pub fn run() {
             commands::dictation::dictation_status,
             commands::dictation::dictation_start_composer,
             commands::dictation::dictation_stop_composer,
+            commands::mascot::mascot_set_config,
+            commands::mascot::mascot_update,
+            commands::mascot::mascot_ready,
+            commands::mascot::mascot_clicked,
+            commands::mascot::mascot_context_menu,
+            commands::mascot::mascot_drag,
+            commands::mascot::mascot_drag_end,
             commands::app::app_info,
             commands::update::update_check,
             commands::update::update_install,

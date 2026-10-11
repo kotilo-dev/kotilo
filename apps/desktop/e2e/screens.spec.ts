@@ -232,3 +232,19 @@ for (const theme of ["dark", "light"] as const) {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 }
+
+// M6 — Settings → Mascot (saved at once; the fixture has the mascot off and already offered).
+for (const { theme, lang } of VARIANTS) {
+  test(`settings mascot · ${theme} · ${lang}`, async ({ page }) => {
+    const errors = await openApp(page, theme, lang);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole("navigation").first().getByRole("button", { name: lang === "tr" ? "Ayarlar" : "Settings", exact: true }).click();
+    await page.getByRole("button", { name: lang === "tr" ? "Maskot" : "Mascot", exact: true }).click();
+    await expect(page.getByTestId("mascot-preview")).toBeVisible();
+    await page.getByRole("radio", { name: lang === "tr" ? "Büyük" : "Large" }).click();
+    await expect(page.getByRole("radio", { name: lang === "tr" ? "Büyük" : "Large" })).toHaveAttribute("aria-checked", "true");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `test-results/screens/settings-mascot-${theme}-${lang}.png` });
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+}
