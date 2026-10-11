@@ -152,8 +152,13 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         pending.GetProperty("command").GetString().Should().Be("rm -rf build");
         pending.GetProperty("risk").GetString().Should().Be("deletesFiles");
 
-        var transitions = await GetJsonAsync($"/v1/sessions/codex/{id}/transitions");
-        transitions.EnumerateArray().Select(t => t.GetProperty("to").GetString()).Should().Contain("WaitingPermission");
+        // The transition is stored after the live state changes; wait for it instead of reading once.
+        var transition = await WaitForAsync(async () =>
+        {
+            var transitions = await GetJsonAsync($"/v1/sessions/codex/{id}/transitions");
+            return transitions.EnumerateArray().FirstOrDefault(t => t.GetProperty("to").GetString() == "WaitingPermission");
+        });
+        transition.GetProperty("to").GetString().Should().Be("WaitingPermission");
 
         (await Http.GetAsync("/v1/sessions/codex/nope/transitions")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await Http.GetAsync("/v1/sessions?includeEnded=true")).StatusCode.Should().Be(HttpStatusCode.OK);
