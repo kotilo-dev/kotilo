@@ -104,6 +104,13 @@ public static class SessionStateMachine
 
             case HookEventKind.Notification:
                 var kind = NotificationClassifier.Classify(e.NotificationType, e.Message);
+                if (kind == NotificationKind.Input && IsIdleReminder(s, e))
+                {
+                    // Claude Code (and Droid/Qwen) send idle_prompt ~60 s after a turn that already ended normally:
+                    // a reminder, not a question. The session stays Idle; the "completed" toast already fired (D-054).
+                    break;
+                }
+
                 if (kind != NotificationKind.Other)
                 {
                     target = kind == NotificationKind.Permission ? SessionState.WaitingPermission : SessionState.WaitingInput;
@@ -213,6 +220,16 @@ public static class SessionStateMachine
         };
         return (next, new SessionStateChanged(s.SessionId, from, to, at, detail, trigger, next, turnDuration));
     }
+
+    /// <summary>
+    /// An idle reminder (<c>idle_prompt</c>, or an untyped "waiting for your input" message) for a session whose last
+    /// turn ended normally and that has been idle since. Questions asked during a turn (elicitation) and a cancelled
+    /// turn that never got a Stop (Droid: state still Working) keep moving the session to WaitingInput.
+    /// </summary>
+    private static bool IsIdleReminder(SessionInfo s, HookEvent e) =>
+        s.State == SessionState.Idle
+        && s.LastCompletedAt is not null
+        && (e.NotificationType is null || string.Equals(e.NotificationType, "idle_prompt", StringComparison.OrdinalIgnoreCase));
 
     private static PermissionPrompt PendingFrom(HookEvent e, string? tool, DateTimeOffset at) =>
         new(tool, e.ToolCommand, e.ToolPath, e.Risk ?? PermissionRiskClassifier.Classify(e.ToolCommand), at);

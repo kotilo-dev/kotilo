@@ -44,7 +44,7 @@ public class DroidAdapterTests
             SessionState.Working,           // SubagentStop: no change
             SessionState.Working,           // PreCompact: context reset only
             SessionState.Idle,              // Stop
-            SessionState.WaitingInput,      // Notification idle_prompt
+            SessionState.Idle,              // Notification idle_prompt after a finished turn: a reminder (D-054)
             SessionState.Ended);            // SessionEnd
         pending.Should().NotBeNull();
         pending!.Tool.Should().Be("Execute");

@@ -82,7 +82,7 @@ public class QwenAdapterTests
             ("PreToolUse", SessionState.Working),
             ("PostToolUseFailure", SessionState.Working),
             ("Stop", SessionState.Idle),
-            ("Notification", SessionState.WaitingInput),
+            ("Notification", SessionState.Idle), // idle_prompt after a finished turn: a reminder (D-054)
             ("StopFailure", SessionState.Error),
             ("SessionEnd", SessionState.Ended));
         s!.Model.Should().Be("qwen3-coder-plus");

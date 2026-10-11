@@ -156,12 +156,14 @@ public sealed class EventPipeline : IAsyncDisposable
                 {
                     _lastSessionCheck = now;
                     var before = _tracker.Snapshot.Count;
-                    foreach (var change in _tracker.Tick(now))
+                    var ticked = _tracker.Tick(now);
+                    foreach (var change in ticked)
                     {
                         Record(change);
                     }
 
-                    changed = _tracker.Snapshot.Count != before || changed;
+                    // A process exit (→ Ended) or a stale turn keeps the count; clients still need the new state.
+                    changed = ticked.Count > 0 || _tracker.Snapshot.Count != before || changed;
                     var pruned = Activity.Prune(now, (agent, id) => _tracker.Get(agent, id) is { } s ? s.EndedAt : DateTimeOffset.MinValue);
                     if (pruned > 0)
                     {

@@ -77,10 +77,20 @@ public class RuleEngineTests
     [Fact]
     public void Waiting_input_fires()
     {
-        Event(HookEventKind.Stop, T0);
-        Event(HookEventKind.Notification, T0.AddSeconds(60), type: "idle_prompt", message: "Claude is waiting for your input");
+        Event(HookEventKind.UserPromptSubmit, T0);
+        Event(HookEventKind.Notification, T0.AddSeconds(5), type: "elicitation_dialog", message: "Claude needs your input");
 
-        Poll(T0.AddSeconds(62)).Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.WaitingInput);
+        Poll(T0.AddSeconds(7)).Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.WaitingInput);
+    }
+
+    [Fact]
+    public void Idle_reminder_after_a_finished_turn_does_not_fire()
+    {
+        Event(HookEventKind.UserPromptSubmit, T0);
+        Event(HookEventKind.Stop, T0.AddSeconds(10));
+        Event(HookEventKind.Notification, T0.AddSeconds(70), type: "idle_prompt", message: "Claude is waiting for your input");
+
+        Poll(T0.AddSeconds(72)).Should().NotContain(r => r.RuleId == RuleIds.WaitingInput);
     }
 
     [Fact]

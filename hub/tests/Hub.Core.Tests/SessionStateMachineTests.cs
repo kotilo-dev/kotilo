@@ -89,6 +89,30 @@ public class SessionStateMachineTests
     }
 
     [Theory]
+    [InlineData("idle_prompt", "Claude is waiting for your input")]
+    [InlineData(null, "Claude is waiting for your input")]
+    public void Idle_reminder_after_a_finished_turn_keeps_the_session_idle(string? type, string message)
+    {
+        var (s, change) = SessionStateMachine.Apply(
+            Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.Stop, T0.AddSeconds(5))),
+            Hook(HookEventKind.Notification, T0.AddSeconds(65), notificationType: type, message: message));
+
+        s.State.Should().Be(SessionState.Idle);
+        change.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_question_after_a_finished_turn_still_waits_for_input()
+    {
+        var s = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            Hook(HookEventKind.Stop, T0.AddSeconds(5)),
+            Hook(HookEventKind.Notification, T0.AddSeconds(6), notificationType: "elicitation_dialog", message: "Pick one"));
+
+        s.State.Should().Be(SessionState.WaitingInput);
+    }
+
+    [Theory]
     [InlineData("auth_success", "Signed in")]
     [InlineData(null, "Something unrelated happened")]
     public void Other_notifications_do_not_change_state(string? type, string message)

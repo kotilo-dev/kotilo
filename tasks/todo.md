@@ -1,3 +1,24 @@
+# Next – Finished work you have not looked at (recorded 2026-10-11)
+
+User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar başında değilse ya da bildirimi pas geçtiyse bir süre sonra unutabilir". Fixed already (D-054, uncommitted at the time): `idle_prompt` after a finished turn no longer means "waiting for input"; process exits found by the periodic check reach the desktop.
+
+- [ ] "Done, not looked at" for hub sessions too (today only own panes have Done vs Idle via `agentAck`): stays blue until the user opens the session or sends a prompt; a count badge on the Kotilo taskbar icon; the mascot keeps a calm "done" look instead of the 3 s hop only
+- [ ] Back-at-the-desk summary: user idle time (`GetLastInputInfo`, platform layer); when input resumes after ≥ N minutes away, one toast "While you were away: 2 agents finished, 1 needs permission" instead of a pile; respects DND/quiet hours
+- [ ] Optional single reminder for finished-but-unseen work after X minutes (setting, default off), like the existing waiting reminder
+
+---
+
+# Next – Terminal look closer to Windows Terminal (recorded 2026-10-11)
+
+User report: a PowerShell tab in Kotilo does not look like their usual PowerShell. Kotilo starts `pwsh -NoLogo` (profile loads), so the differences come from the terminal itself. The user's setup: oh-my-posh prompt (needs a Nerd Font; Windows Terminal uses `MesloLGM Nerd Font`), `fastfetch --logo-type sixel` in the profile, Windows Terminal scheme "One Half Dark" with 80 % opacity + acrylic. Workaround today: Settings → Terminal → font family `MesloLGM Nerd Font`.
+
+- [ ] Sixel images: add `@xterm/addon-image` (licence → THIRD_PARTY_NOTICES); first verify that ConPTY passes sixel sequences through to xterm.js on the supported Windows builds; keep memory limits sane
+- [ ] Font: if a Nerd Font is installed, put it first in the default terminal font list (or offer it in Settings); keep Geist Mono as fallback
+- [ ] Colour schemes: built-in choices (Kotilo default, One Half Dark/Light, Campbell, …) in Settings → Terminal, and optionally import the default profile's scheme from Windows Terminal's `settings.json` (read-only; never write it); tokens stay the source for the app chrome
+- [ ] Tests (scheme mapping, font detection), e2e screenshot of a pane with each scheme, manual test with oh-my-posh + fastfetch
+
+---
+
 # M6 – Robot snail mascot (v0.2, planned 2026-10-11)
 
 Goal: the robot snail from D-049 (concept B: spiral shell, core and antennas in the status colour) lives on the desktop and shows the agents' combined state at a glance; clicking it takes you to the agent that needs you.
