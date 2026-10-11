@@ -8,6 +8,8 @@
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Version>0.1.0</Version>
+    <!-- ProductVersion is exactly $(Version) (no "+<commit>"): code signing enforces the same version on every exe (D-051). -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <!-- Product identity from the repo's brand.json (single source, M5); Hub.Core embeds the whole file (Brand.Current). -->
   <PropertyGroup>

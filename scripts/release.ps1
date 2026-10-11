@@ -45,6 +45,14 @@ $brand = Get-Content (Join-Path $root 'brand.json') -Raw | ConvertFrom-Json
 $tauriConf = Get-Content (Join-Path $tauriDir 'tauri.conf.json') -Raw | ConvertFrom-Json
 $prefix = $brand.exePrefix
 
+# Every exe of a release carries the app version (code signing enforces it, D-051); the hook
+# reads it from tauri.conf.json, the hub has its own <Version>.
+$hubVersion = ([xml](Get-Content (Join-Path $root 'hub\Directory.Build.props') -Raw)).Project.PropertyGroup.Version |
+    Where-Object { $_ } | Select-Object -First 1
+if ($hubVersion -ne $tauriConf.version) {
+    throw "version mismatch: tauri.conf.json $($tauriConf.version), hub/Directory.Build.props $hubVersion"
+}
+
 switch ($Arch) {
     'x64' { $triple = 'x86_64-pc-windows-msvc'; $rid = 'win-x64' }
     'arm64' { $triple = 'aarch64-pc-windows-msvc'; $rid = 'win-arm64' }

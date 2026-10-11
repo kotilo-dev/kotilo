@@ -37,6 +37,9 @@ Wave 3 local checks (2026-10-11, after the brand switch): hub 707 + 214 + 61, Ru
 
 Public release (2026-10-11): repo `kotilo-dev/kotilo` (initial commit 11795a7 + README screenshots 4099704), CI green, tag `v0.1.0`, Release run green (x64 48 MB + ARM64 39 MB, `.sig` + `latest.json`), published as "Kotilo 0.1.0 (beta)" (unsigned, D-050); `releases/latest/download/latest.json` answers 200.
 
+- [x] SignPath readiness (D-051): hook exe version resource, hub product version without commit hash, release script version check, README code signing policy with roles and the required statement
+- [ ] SignPath Foundation application (user submits); after acceptance: GitHub integration, artifact configuration (5 own binaries, metadata enforced), signing step in `release.yml`, first signed release
+
 ## Needs the user (outside the repo)
 - Register the `kotilo.dev` domain (GitHub org `kotilo-dev` created 2026-10-11; `kotilo-app` was taken); trademark check done 2026-10-11 (TMview: only an expired 2007 Finnish KOTILO in 20/35/36; TÜRKPATENT: only "Kotiloğulları" food marks, none in 9/42); enable Discussions and create the `bug`, `enhancement`, `new agent` labels
 - Before v0.1.0: Claude Code plan limits need the status line helper (deferred since D-005, never built) – build it or keep the docs' "not shown yet"

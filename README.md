@@ -135,11 +135,15 @@ Bug reports, fixes and new agent adapters are welcome. Read [CONTRIBUTING.md](CO
 
 ## Code signing policy
 
-Kotilo intends to sign its Windows releases through the [SignPath Foundation](https://signpath.org/) once the project is accepted: free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). Until then, release binaries are unsigned or self-signed, and this section will be updated when signing starts.
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
-- **Builds:** release binaries are built by GitHub Actions from this repository ([`.github/workflows/release.yml`](.github/workflows/release.yml)); nothing is built or signed on a personal machine for a release.
-- **Committers and reviewers:** the repository maintainers.
-- **Approvers:** the project owner approves each release before it is signed and published.
+Kotilo is applying to the SignPath Foundation. Until the project is accepted, release binaries are unsigned (`v0.1.0` is an unsigned beta); this section will say from which version on releases are signed.
+
+- **What is signed:** Kotilo's own binaries, built from this repository: the installer and uninstaller, `kotilo.exe`, `kotilo-hub.exe` and `kotilo-hook.exe`. Third-party libraries shipped with the app (for example `e_sqlite3.dll` and the Whisper runtime) are not signed by this project.
+- **Builds:** release binaries are built by GitHub Actions from this repository ([`.github/workflows/release.yml`](.github/workflows/release.yml), [`scripts/release.ps1`](scripts/release.ps1)); nothing is built or signed on a personal machine for a release.
+- **Committers and reviewers:** [@xmsadik](https://github.com/xmsadik). Changes from other contributors are reviewed by a committer before they are merged.
+- **Approvers:** [@xmsadik](https://github.com/xmsadik) approves each signing request manually.
+- **Team security:** everyone with write access to the repository or access to the signing project uses multi-factor authentication.
 
 **Privacy:** this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The exceptions, all of which you control:
 
