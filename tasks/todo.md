@@ -33,7 +33,9 @@ Wave 2 checks (2026-10-09): hub 707 + 214 + 61, Rust 527 + 67 + 11 + 3 + 1 + 1 +
 
 Wave 3 local checks (2026-10-11, after the brand switch): hub 707 + 214 + 61, Rust 527 + 67 + 11 + 3 + 1 + 1 + clippy, UI 770 (`ProjectsPage` "opens a todo file" failed once under load, passes alone), e2e 40; About screenshot shows the Kotilo icon, all-agents description and repo links. CI on GitHub (private repo, draft PR #1): first run found four machine-dependent tests (culture-dependent vocabulary dedupe – a real bug, a pooled connection broken by the 413 test, an AI test needing an installed agent CLI, a slow update-prompt e2e), a later run a flaky F1 e2e; all fixed, CI green (216201f). Release dry run (tag `v0.1.0` on the private repo): x64 48 MB + ARM64 39 MB installers, both `.sig` made with key `10C0FDD1B970F4AB`, `latest.json` with both platforms, draft release created. Install test by the user on that x64 build (2026-10-11): per-user install without admin, SmartScreen "Run anyway", working-name data migrated to `kotilo`, hook repair rewrote entries to `kotilo-hook.exe`, live Claude Code status, About 0.1.0, uninstall left agent configs clean. Dry-run release, tag and PR #1 deleted afterwards.
 
-- [ ] Create the public repo from the scrubbed tree as one initial commit (user approves first), push, first release `v0.1.0` (beta)
+- [x] Create the public repo from the scrubbed tree as one initial commit (user approves first), push, first release `v0.1.0` (beta)
+
+Public release (2026-10-11): repo `kotilo-dev/kotilo` (initial commit 11795a7 + README screenshots 4099704), CI green, tag `v0.1.0`, Release run green (x64 48 MB + ARM64 39 MB, `.sig` + `latest.json`), published as "Kotilo 0.1.0 (beta)" (unsigned, D-050); `releases/latest/download/latest.json` answers 200.
 
 ## Needs the user (outside the repo)
 - Register the `kotilo.dev` domain (GitHub org `kotilo-dev` created 2026-10-11; `kotilo-app` was taken); trademark check done 2026-10-11 (TMview: only an expired 2007 Finnish KOTILO in 20/35/36; TÜRKPATENT: only "Kotiloğulları" food marks, none in 9/42); enable Discussions and create the `bug`, `enhancement`, `new agent` labels
