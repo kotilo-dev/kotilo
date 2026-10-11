@@ -48,13 +48,13 @@ export const gitChanges: GitChanges = {
 
 const HEAD: Record<string, string> = {
   "src/approval/approval.ts": [
-    "import { ApprovalState, GibStatus } from './types';",
+    "import { ApprovalState, ProviderStatus } from './types';",
     "",
-    "export function mapGibStatus(status: GibStatus): ApprovalState {",
+    "export function mapProviderStatus(status: ProviderStatus): ApprovalState {",
     "  switch (status) {",
-    "    case GibStatus.Onay:",
+    "    case ProviderStatus.Approved:",
     "      return ApprovalState.Approved;",
-    "    case GibStatus.Red:",
+    "    case ProviderStatus.Rejected:",
     "      return ApprovalState.Rejected;",
     "    default:",
     "      return ApprovalState.Pending;",
@@ -66,17 +66,17 @@ const HEAD: Record<string, string> = {
 
 const WORKING: Record<string, string> = {
   "src/approval/approval.ts": [
-    "import { ApprovalState, GibStatus } from './types';",
+    "import { ApprovalState, ProviderStatus } from './types';",
     "",
     "/** Maps the provider answer to our approval state; CANCELLED counts as rejected. */",
-    "export function mapGibStatus(status: GibStatus): ApprovalState {",
+    "export function mapProviderStatus(status: ProviderStatus): ApprovalState {",
     "  switch (status) {",
-    "    case GibStatus.Onay:",
+    "    case ProviderStatus.Approved:",
     "      return ApprovalState.Approved;",
-    "    case GibStatus.Red:",
+    "    case ProviderStatus.Rejected:",
     "    case ProviderStatus.Cancelled:",
     "      return ApprovalState.Rejected;",
-    "    case GibStatus.Beklemede:",
+    "    case ProviderStatus.Pending:",
     "      return ApprovalState.Pending;",
     "    default:",
     "      throw new Error(`Unknown provider status: ${status}`);",

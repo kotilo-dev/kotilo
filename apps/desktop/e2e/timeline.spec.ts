@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startAtFixtureTime } from "./clock";
+
+startAtFixtureTime(test);
 
 // M4 timeline rail against the fake hub (src/e2e/timelineFixtures.ts): plan, activity, changed
 // files, a live `activity` delta, the HEAD ↔ working copy diff tab and the collapsed rail.

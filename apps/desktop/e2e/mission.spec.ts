@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startAtFixtureTime } from "./clock";
+
+startAtFixtureTime(test);
 
 // Mission control (M4, DESIGN_SYSTEM §7.8) against the fake hub: two agent panes in the app
 // (Claude working, Codex waiting for permission) with invented terminal output, plus the

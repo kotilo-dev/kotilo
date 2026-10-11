@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startAtFixtureTime } from "./clock";
+
+startAtFixtureTime(test);
 
 // M4 composer (§7.6) and split pane (§7.3) against the mocked IPC: `@` suggestions, an image
 // chip, composer dictation (the `dictation:composer` event Rust sends), saved prompts, send

@@ -131,8 +131,8 @@ export const usageCurrent: UsageCurrent = {
 };
 
 export const limits: LimitDto[] = [
-  { agent: "claude-code", window: "fiveHour", usedPercent: 62, resetsAt: iso(-120) },
-  { agent: "claude-code", window: "weekly", usedPercent: 38, resetsAt: iso(-4000) },
+  // Codex only: Claude Code plan limits need the status line helper, which is not built yet.
+  { agent: "codex", window: "fiveHour", usedPercent: 62, resetsAt: iso(-120) },
   { agent: "codex", window: "weekly", usedPercent: 31, resetsAt: iso(-3000) },
 ];
 

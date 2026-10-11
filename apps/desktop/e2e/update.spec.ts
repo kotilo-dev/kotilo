@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startAtFixtureTime } from "./clock";
+
+startAtFixtureTime(test);
 
 // M5 About + updates against the mocked IPC (src/e2e/setup.ts): `update=available` makes
 // `update_check` find 0.2.0 and `update_install` stream progress then `update://ready`;

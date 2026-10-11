@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { startAtFixtureTime } from "./clock";
+
+startAtFixtureTime(test);
 
 // Every route in dark/light × EN/TR against the fake hub; fails on uncaught page errors.
 const ROUTES = ["workspace", "overview", "mission", "usage", "reports", "projects", "tasks", "dictation", "settings"] as const;

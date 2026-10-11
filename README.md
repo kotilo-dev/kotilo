@@ -10,7 +10,26 @@ Kotilo is a Windows desktop workspace for people who run several AI coding agent
 
 Kotilo does not replace or wrap the agents. It does not include them, does not talk to their services on your behalf and never touches their login or token files.
 
-<!-- screenshots: docs/images/*.png -->
+![An agent asks for permission: the card shows the command and its risk; allow once, always allow or deny](docs/images/permission.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/mission-control.png" alt="Mission control: every agent session with its state, latest output, plan limits and cost"></td>
+    <td width="50%"><img src="docs/images/timeline-diff.png" alt="Timeline: the agent's plan and tool calls next to a diff of the files it changed"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Mission control</b>: every session at a glance</td>
+    <td align="center"><b>Timeline and diff</b>: what the agent did and changed</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/usage.png" alt="Usage: daily tokens, 5-hour blocks and a breakdown by project, model or agent"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Usage and cost</b>: tokens and estimated cost by day, block, project, model and agent</td>
+  </tr>
+</table>
+
+<sub>Screenshots use invented demo data from the end-to-end tests.</sub>
 
 ## Features
 
