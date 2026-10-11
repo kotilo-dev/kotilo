@@ -19,7 +19,8 @@ User report: a PowerShell tab in Kotilo does not look like their usual PowerShel
 - [x] Font: `platform::fonts` (registry font families, Windows Terminal faces read-only), `terminal_font_suggestion`, default terminal font gets the Nerd Font in front; Settings hint; tests
 - [x] Docs: D-055, user guide EN/TR, manual tests T-1…T-6, README build note
 - [x] All checks green (UI 855, Rust 588 + clippy, hub 694 + 222 + 76, e2e 64); user ran T-1…T-5 ("testler ok", 2026-10-11)
-- [ ] Version 0.2.1, release notes, tag, publish; T-6 on the installer
+- [x] Version 0.2.1 (c28466f), tag, release run 38161858934 green, published 2026-10-11 18:16Z
+- [x] T-6 (user confirmed both files after updating, 2026-10-11): after the user updates, `%LOCALAPPDATA%\Kotilo\conpty\` holds conpty.dll + OpenConsole.exe (build log and installer size +~430 KB say yes; NSIS content not inspected – no 7-Zip)
 
 ## Later (recorded)
 - [ ] Colour schemes: built-in choices (Kotilo default, One Half Dark/Light, Campbell, …) for the terminal area only, and optionally import Windows Terminal's scheme (read-only); app chrome keeps the design tokens
