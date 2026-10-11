@@ -34,7 +34,7 @@ Each JSON text frame is `{ "type": "…", "data": … }`. On connect the hub sen
 
 Fields:
 - `title` and `body` are ready to show in the hub language (`settings.language`). The title follows the pattern `<project>: <state>`.
-- `severity` is `attention` (waiting for permission or input, reminder, error), `warning` (stale, context, usage) or `info` (completed, todo).
+- `severity` is `attention` (waiting for permission or input, reminder, error), `warning` (stale, context, usage) or `info` (completed, finished work not looked at, todo).
 - The structured fields (`ruleId`, `agent`, `sessionId`, `paneId`, `projectName`, `projectRoot`, `state`, `at`) let a client write its own text.
 
 ## Ingest and adapters
@@ -63,8 +63,12 @@ Fields:
 | `GET /v1/sessions[?includeEnded=true]` | `SessionDto[]`. By default this is the live tracker view, which includes sessions that ended in the last 30 minutes. `includeEnded=true` adds persisted sessions from the last 7 days (up to 200). |
 | `GET /v1/sessions/{agent}/{id}/transitions` | `TransitionDto[]`, oldest first; `404` for an unknown session |
 | `GET /v1/sessions/{agent}/{id}/activity` | `ActivityDto` `{ entries, plan }` (memory only, see below); `404` for a session the hub does not track |
+| `POST /v1/sessions/{agent}/{id}/seen` | `204`: the user looked at the session's finished work; `404 notFound` for a session the hub does not track |
+| `POST /v1/sessions/seen` | `204`: marks the finished work of every tracked session as seen |
 
 `pendingPermission` is set only while `state` is `WaitingPermission`. It holds `{ tool, command, path, risk, since }`. `risk` is one of `deletesFiles`, `writesDatabase`, `network`, `installsPackages`, `gitPush` or `other`, and is `null` when there is no command (file edits).
+
+**Seen state (0.3, D-056).** `lastCompletedAt` is when the session's last turn finished, or `null`. `unseen` is `true` when a turn finished after the user last looked and `state` is `Idle`, `Ended` or `Stale`; an `Error` session is never unseen. The user "looks" through one of the `seen` routes above or by sending a new prompt (the session goes `Working`). The seen time is persisted, so it survives a hub restart, and both routes push a fresh `sessions` frame. Sessions that come only from the 7-day history (`includeEnded=true`) always have `unseen: false`.
 
 ### Activity (memory only)
 
@@ -180,6 +184,8 @@ Model download progress is not on the stream yet; poll `GET /v1/dictation/models
 |---|---|
 | `GET /v1/settings` | `HubSettings` |
 | `PUT /v1/settings` | Send back the whole object from GET with your changes (every section is required, except `ai`: left out, it stays unchanged). Returns `200 HubSettings`, or `400` with `fields` keyed by dotted path (`rules.contextThresholdPercent`, `dictation.hotkey`, `ai.providers[0].baseUrl`, …). `buddy.hotkey` (default `Ctrl+Alt+Space`) must differ from `dictation.hotkey`, `dictation.pasteLastHotkey` and `tasks.hotkey` (compared after parsing, so `alt+ctrl+d` = `Ctrl+Alt+D`): `fields["buddy.hotkey"]` = `already used by <field>`. |
+
+**Finished work reminder** (rule `session.unseen_reminder`, 0.3, D-056): `rules.unseenReminderEnabled` (default `false`) and `rules.unseenReminderAfter` (default `00:30:00`; outside `00:01:00`–`1.00:00:00` → `fields["rules.unseenReminderAfter"]`). It fires once per finished turn that is still unseen after that time, also across a hub restart; quiet hours and do-not-disturb apply. Title `<project>: Finished work waiting for you` (Turkish `Bakmadığın bitmiş iş var`), body "Finished … ago".
 
 The hub's internal bookkeeping (last scheduled summary, seen Claude versions, health toast days, the wrapped statusLine command) is not part of the API. No secrets live in these settings.
 

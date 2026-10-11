@@ -165,6 +165,47 @@ public sealed class SessionTracker(ISessionEnvironment environment, SessionOptio
         return true;
     }
 
+    /// <summary>The user looked at one session's finished work.</summary>
+    /// <returns>Known: the tracker has the session; Changed: its new value when it had unseen finished work.</returns>
+    public (bool Known, SessionInfo? Changed) MarkSeen(string agent, string sessionId, DateTimeOffset at)
+    {
+        if (Get(agent, sessionId) is not { } s)
+        {
+            return (false, null);
+        }
+
+        if (SessionStateMachine.MarkSeen(s, at) is not { } next)
+        {
+            return (true, null);
+        }
+
+        _sessions[SessionKey.Of(s)] = next;
+        Publish();
+        return (true, next);
+    }
+
+    /// <summary>"Mark all as seen": every session that shows unseen finished work.</summary>
+    /// <returns>The sessions that changed.</returns>
+    public IReadOnlyList<SessionInfo> MarkAllSeen(DateTimeOffset at)
+    {
+        var changed = new List<SessionInfo>();
+        foreach (var s in _sessions.Values.Where(s => s.IsUnseen).ToList())
+        {
+            if (SessionStateMachine.MarkSeen(s, at) is { } next)
+            {
+                _sessions[SessionKey.Of(s)] = next;
+                changed.Add(next);
+            }
+        }
+
+        if (changed.Count > 0)
+        {
+            Publish();
+        }
+
+        return changed;
+    }
+
     /// <summary>Runs stale / process-exit checks and drops Ended sessions past their visibility window.</summary>
     public IReadOnlyList<SessionStateChanged> Tick(DateTimeOffset now)
     {

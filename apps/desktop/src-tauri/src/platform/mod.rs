@@ -7,8 +7,11 @@ pub mod conpty;
 pub mod dictation;
 pub mod fonts;
 pub mod hotkeys;
+pub mod idle;
 pub mod mascot;
+pub mod taskbar;
 pub mod webview;
+pub mod wt_settings;
 #[cfg(windows)]
 pub(crate) mod overlay_window;
 

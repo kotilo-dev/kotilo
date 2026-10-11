@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PALETTES } from "../../app/theme/palette";
+import { resolveTerminalColors } from "../../app/theme/terminalScheme";
 
 // `Channel`'ın gerçek implementasyonu `window.__TAURI_INTERNALS__` ister (jsdom'da yok) —
 // `terminalStore.test.ts`'teki desenin aynısı: sahte, yalnızca `onmessage` taşıyan bir sınıf.
@@ -76,16 +77,12 @@ describe("disposeTerminal (LOW #6)", () => {
   });
 });
 
-describe("xtermThemeFor (DESIGN_SYSTEM §8)", () => {
-  afterEach(() => {
-    for (const name of ["--terminal-bg", "--text", "--accent", "--ansi-red"]) {
-      document.documentElement.style.removeProperty(name);
-    }
-  });
+describe("xtermThemeFor (DESIGN_SYSTEM §8, D-057)", () => {
+  const kotilo = (kind: "dark" | "light") => resolveTerminalColors("app", [], `kotilo-${kind}`);
 
   it("returns a distinct, full ANSI palette per theme", () => {
-    const dark = xtermThemeFor("dark");
-    const light = xtermThemeFor("light");
+    const dark = xtermThemeFor(kotilo("dark"));
+    const light = xtermThemeFor(kotilo("light"));
     expect(dark.red).toBeDefined();
     expect(light.red).toBeDefined();
     expect(dark.brightYellow).toBeDefined();
@@ -93,31 +90,19 @@ describe("xtermThemeFor (DESIGN_SYSTEM §8)", () => {
     expect(dark.red).not.toBe(light.red);
   });
 
-  it("reads background/foreground/cursor/ANSI from the CSS tokens when set", () => {
-    document.documentElement.style.setProperty("--terminal-bg", "#123456");
-    document.documentElement.style.setProperty("--text", "#abcdef");
-    document.documentElement.style.setProperty("--accent", "#fedcba");
-    document.documentElement.style.setProperty("--ansi-red", "#aa0000");
-
-    const theme = xtermThemeFor("dark");
-
-    expect(theme.background).toBe("#123456");
-    expect(theme.foreground).toBe("#abcdef");
-    expect(theme.cursor).toBe("#fedcba");
-    expect(theme.red).toBe("#aa0000");
-  });
-
-  it("falls back to theme-appropriate defaults when CSS custom properties are unset", () => {
-    const light = xtermThemeFor("light");
+  it("Kotilo themes use today's tokens (palette.ts mirrors index.css)", () => {
+    const light = xtermThemeFor(kotilo("light"));
     expect(light.background).toBe(PALETTES.light.terminalBg);
-    const dark = xtermThemeFor("dark");
+    const dark = xtermThemeFor(kotilo("dark"));
     expect(dark.background).toBe(PALETTES.dark.terminalBg);
+    expect(dark.foreground).toBe(PALETTES.dark.text);
+    expect(dark.cursor).toBe(PALETTES.dark.accent);
     expect(dark.red).toBe(PALETTES.dark.ansi.red);
   });
 
   it("sets a visible, distinct selection background per theme (#9: light selection was invisible)", () => {
-    const dark = xtermThemeFor("dark");
-    const light = xtermThemeFor("light");
+    const dark = xtermThemeFor(kotilo("dark"));
+    const light = xtermThemeFor(kotilo("light"));
     expect(dark.selectionBackground).toBeDefined();
     expect(light.selectionBackground).toBeDefined();
     expect(dark.selectionBackground).not.toBe(light.selectionBackground);
@@ -127,18 +112,18 @@ describe("xtermThemeFor (DESIGN_SYSTEM §8)", () => {
   });
 
   it("sets a distinct inactive selection background per theme", () => {
-    const dark = xtermThemeFor("dark");
-    const light = xtermThemeFor("light");
+    const dark = xtermThemeFor(kotilo("dark"));
+    const light = xtermThemeFor(kotilo("light"));
     expect(dark.selectionInactiveBackground).toBeDefined();
     expect(light.selectionInactiveBackground).toBeDefined();
     expect(dark.selectionInactiveBackground).not.toBe(dark.selectionBackground);
     expect(light.selectionInactiveBackground).not.toBe(light.selectionBackground);
   });
 
-  it("sets cursorAccent to the (possibly CSS-derived) background so cursor text stays readable", () => {
-    document.documentElement.style.setProperty("--terminal-bg", "#123456");
-    const theme = xtermThemeFor("dark");
-    expect(theme.cursorAccent).toBe("#123456");
+  it("sets cursorAccent to the scheme background so cursor text stays readable", () => {
+    const theme = xtermThemeFor(resolveTerminalColors("campbell", [], "kotilo-dark"));
+    expect(theme.background).toBe("#0c0c0c");
+    expect(theme.cursorAccent).toBe("#0c0c0c");
   });
 });
 

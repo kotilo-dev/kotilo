@@ -522,6 +522,11 @@ export async function terminalFontSuggestion(): Promise<string | null> {
   return invoke<string | null>("terminal_font_suggestion");
 }
 
+/** D-057: colour schemes found in Windows Terminal's settings (read only; empty when none). */
+export async function terminalWtSchemes(): Promise<TerminalScheme[]> {
+  return invoke<TerminalScheme[]>("terminal_wt_schemes");
+}
+
 // ---------------------------------------------------------------------------
 // M5 — Updater (tauri-plugin-updater behind the app's own commands, D-047)
 // ---------------------------------------------------------------------------
@@ -736,9 +741,40 @@ export async function hooksUninstall(adapterId?: string): Promise<void> {
 
 export type ThemeName = "dark" | "light" | "system";
 
+/**
+ * D-057: a terminal colour scheme as stored in settings (copied from Windows Terminal on
+ * import). Colours are `#rrggbb`.
+ */
+export interface TerminalScheme {
+  name: string;
+  background: string;
+  foreground: string;
+  cursor: string;
+  selection: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+}
+
 export interface Settings {
   v: 1;
+  /** Mode: which of `appearance.darkTheme` / `appearance.lightTheme` applies. */
   theme: ThemeName;
+  /** D-057: colour theme ids (built-in catalogue in `app/theme`); unknown ids fall back to Kotilo. */
+  appearance: { darkTheme: string; lightTheme: string };
   editor: { fontFamily: string; fontSize: number };
   terminal: {
     fontFamily: string;
@@ -749,8 +785,18 @@ export interface Settings {
     warnMultilinePaste: boolean;
     /** D-055: Microsoft's bundled ConPTY (sixel images); read by Rust at startup. */
     bundledConpty: boolean;
+    /** D-057: "app" (follow the app theme), a built-in theme id, or "imported:<name>". */
+    colorScheme: string;
+    /** D-057: schemes copied from Windows Terminal (read-only import). */
+    importedSchemes: TerminalScheme[];
   };
-  agents: { commands: string[]; notifications: boolean };
+  agents: {
+    commands: string[];
+    notifications: boolean;
+    /** D-056: one "while you were away" toast when input resumes after `awaySummaryMinutes`. */
+    awaySummary: boolean;
+    awaySummaryMinutes: number;
+  };
   files: { hiddenPatterns: string[]; respectGitignore: boolean };
   clipboard: { copyPathAfterImageSave: boolean };
   /** faz7-spec §5/§6: `false` by default; backend applies the resulting log level itself. */

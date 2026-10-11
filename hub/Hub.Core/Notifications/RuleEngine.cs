@@ -15,6 +15,9 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
     /// <summary>Attention episodes (session + StateSince) that already got their reminder.</summary>
     private readonly HashSet<(string SessionId, DateTimeOffset Since)> _reminded = [];
 
+    /// <summary>Finished turns (session + LastCompletedAt) that already got their unseen reminder.</summary>
+    private readonly HashSet<(string SessionId, DateTimeOffset CompletedAt)> _unseenReminded = [];
+
     /// <summary>Sessions whose context warning fired, with the compact / clear marker it fired under.</summary>
     private readonly Dictionary<string, DateTimeOffset?> _contextWarned = new(StringComparer.Ordinal);
 
@@ -77,9 +80,24 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
                 if (s.State.NeedsAttention()
                     && now - s.StateSince >= Options.ReminderAfter
                     && _reminded.Add((s.SessionId, s.StateSince))
-                    && !AlreadyReminded(s, now))
+                    && !AlreadyFired(RuleIds.WaitingReminder, s.SessionId, s.StateSince, now))
                 {
                     TryFire(RuleIds.WaitingReminder, s, now, now - s.StateSince, result);
+                }
+            }
+        }
+
+        if (Options.UnseenReminderEnabled)
+        {
+            foreach (var s in sessions)
+            {
+                if (s.IsUnseen
+                    && s.LastCompletedAt is { } done
+                    && now - done >= Options.UnseenReminderAfter
+                    && _unseenReminded.Add((s.SessionId, done))
+                    && !AlreadyFired(RuleIds.UnseenReminder, s.SessionId, done, now))
+                {
+                    TryFire(RuleIds.UnseenReminder, s, now, now - done, result);
                 }
             }
         }
@@ -90,6 +108,7 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
         }
 
         _reminded.RemoveWhere(r => !byId.TryGetValue(r.SessionId, out var s) || s.StateSince != r.Since);
+        _unseenReminded.RemoveWhere(r => !byId.TryGetValue(r.SessionId, out var s) || s.LastCompletedAt != r.CompletedAt);
         foreach (var gone in _contextWarned.Keys.Where(id => !byId.ContainsKey(id)).ToList())
         {
             _contextWarned.Remove(gone);
@@ -124,23 +143,23 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
     }
 
     /// <summary>
-    /// Reminder episodes are persisted (key: session + episode start), so a restart during a long wait does not remind
-    /// again. Marks the episode as handled on first sight.
+    /// Reminder episodes are persisted (key: session + episode start: the waiting state's start, or the finished turn's
+    /// end), so a restart during a long wait does not remind again. Marks the episode as handled on first sight.
     /// </summary>
-    private bool AlreadyReminded(SessionInfo s, DateTimeOffset now)
+    private bool AlreadyFired(string ruleId, string sessionId, DateTimeOffset episode, DateTimeOffset now)
     {
         if (state is null)
         {
             return false;
         }
 
-        var key = s.SessionId + "|" + s.StateSince.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
-        if (state.HasFired(RuleIds.WaitingReminder, key))
+        var key = sessionId + "|" + episode.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (state.HasFired(ruleId, key))
         {
             return true;
         }
 
-        state.MarkFired(RuleIds.WaitingReminder, key, now);
+        state.MarkFired(ruleId, key, now);
         return false;
     }
 

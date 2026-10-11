@@ -244,6 +244,84 @@ public class SessionStateMachineTests
         s.ProjectName.Should().Be("beta");
     }
 
+    [Fact]
+    public void Finished_turn_is_unseen_until_marked_seen()
+    {
+        var s = Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.Stop, T0.AddMinutes(2)));
+
+        s.IsUnseen.Should().BeTrue();
+        s.LastCompletedAt.Should().Be(T0.AddMinutes(2));
+
+        var seen = SessionStateMachine.MarkSeen(s, T0.AddMinutes(3))!;
+        seen.SeenAt.Should().Be(T0.AddMinutes(3));
+        seen.IsUnseen.Should().BeFalse();
+        SessionStateMachine.MarkSeen(seen, T0.AddMinutes(4)).Should().BeNull("nothing new to see");
+    }
+
+    [Fact]
+    public void New_prompt_marks_finished_work_seen()
+    {
+        var s = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            Hook(HookEventKind.Stop, T0.AddMinutes(1)),
+            Hook(HookEventKind.UserPromptSubmit, T0.AddMinutes(5)));
+
+        s.SeenAt.Should().Be(T0.AddMinutes(1), "everything that finished before the prompt is seen");
+        s.HasUnseenCompletion.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Turn_finishing_in_the_same_instant_as_its_prompt_is_still_unseen()
+    {
+        var s = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            Hook(HookEventKind.Stop, T0.AddMinutes(1)),
+            Hook(HookEventKind.UserPromptSubmit, T0.AddMinutes(2)),
+            Hook(HookEventKind.Stop, T0.AddMinutes(2)));
+
+        s.IsUnseen.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Interrupt_without_completion_is_not_unseen()
+    {
+        var s = Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.Interrupt, T0.AddMinutes(1)));
+
+        s.State.Should().Be(SessionState.Idle);
+        s.IsUnseen.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Interrupted_next_turn_keeps_earlier_finished_work_seen()
+    {
+        var s = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            Hook(HookEventKind.Stop, T0.AddMinutes(1)),
+            Hook(HookEventKind.UserPromptSubmit, T0.AddMinutes(2)),
+            Hook(HookEventKind.Interrupt, T0.AddMinutes(3)));
+
+        s.IsUnseen.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(HookEventKind.SessionEnd, true)]
+    [InlineData(HookEventKind.PermissionRequest, false)]
+    public void Unseen_only_while_not_waiting(HookEventKind next, bool unseen)
+    {
+        var s = Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.Stop, T0.AddMinutes(1)), Hook(next, T0.AddMinutes(2)));
+
+        s.IsUnseen.Should().Be(unseen);
+    }
+
+    [Fact]
+    public void Error_turn_needs_attention_and_is_not_unseen()
+    {
+        var s = Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.StopFailure, T0.AddMinutes(1)) with { ErrorType = "rate_limit" });
+
+        s.State.Should().Be(SessionState.Error);
+        s.IsUnseen.Should().BeFalse();
+    }
+
     public class Timer
     {
         private readonly FakeEnvironment _env = new();

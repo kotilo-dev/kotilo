@@ -202,6 +202,10 @@ public static class SessionStateMachine
         return (s, null);
     }
 
+    /// <summary>The user looked at the session. Returns null when there was no finished work left to see.</summary>
+    public static SessionInfo? MarkSeen(SessionInfo s, DateTimeOffset at) =>
+        s.HasUnseenCompletion ? s with { SeenAt = at > s.LastCompletedAt!.Value ? at : s.LastCompletedAt.Value } : null;
+
     private static (SessionInfo, SessionStateChanged?) Transition(
         SessionInfo s, SessionState to, DateTimeOffset at, string? detail, TransitionTrigger trigger, TimeSpan? turnDuration)
     {
@@ -217,6 +221,10 @@ public static class SessionStateMachine
             StateSince = at,
             Error = to == SessionState.Error ? s.Error : null,
             PendingPermission = to == SessionState.WaitingPermission ? s.PendingPermission : null,
+
+            // New work started: the user is at the session, so whatever finished before has been seen.
+            // (SeenAt moves to that finish, not to `at`, so a turn ending within the same millisecond still counts as new.)
+            SeenAt = to == SessionState.Working && s.HasUnseenCompletion ? s.LastCompletedAt : s.SeenAt,
         };
         return (next, new SessionStateChanged(s.SessionId, from, to, at, detail, trigger, next, turnDuration));
     }

@@ -21,4 +21,6 @@ export const missionEn = {
   tokens: (count: string) => `${count} tok`,
   outsideApp: `Running outside ${APP_NAME}`,
   open: "Open mission control",
+  markAllSeen: "Mark all as seen",
+  markSeen: "Mark as seen",
 };

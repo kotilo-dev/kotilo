@@ -51,6 +51,8 @@ const baseSession = {
   error: null,
   tasks: null,
   pendingPermission: null,
+  lastCompletedAt: null,
+  unseen: false,
 } satisfies Partial<SessionDto>;
 
 export const sessions: SessionDto[] = [
@@ -110,6 +112,9 @@ export const sessions: SessionDto[] = [
     tokens: 41_000,
     costUsd: 0.31,
     contextUsedPercent: 12,
+    // D-056: finished while nobody looked (Mission "Done", taskbar badge).
+    lastCompletedAt: iso(6),
+    unseen: true,
   },
 ];
 
@@ -376,6 +381,8 @@ export const hubSettings: HubSettings = {
     errorDebounce: "00:00:30",
     minTurnForCompleted: "00:00:20",
     reminderAfter: "00:05:00",
+    unseenReminderEnabled: false,
+    unseenReminderAfter: "00:30:00",
     debounce: "00:00:05",
     settle: "00:00:02",
   },

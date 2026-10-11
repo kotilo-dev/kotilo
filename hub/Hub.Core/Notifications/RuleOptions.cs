@@ -32,6 +32,12 @@ public sealed record RuleOptions
 
     public TimeSpan ReminderAfter { get; init; } = TimeSpan.FromMinutes(10);
 
+    /// <summary>One reminder per finished turn the user has not looked at (off by default).</summary>
+    public bool UnseenReminderEnabled { get; init; }
+
+    /// <summary>How long a finished turn stays unseen before <see cref="RuleIds.UnseenReminder"/> fires.</summary>
+    public TimeSpan UnseenReminderAfter { get; init; } = TimeSpan.FromMinutes(30);
+
     /// <summary>Per (session, rule) quiet period after a toast (spec §11.2).</summary>
     public TimeSpan Debounce { get; init; } = TimeSpan.FromSeconds(5);
 
@@ -48,6 +54,7 @@ public sealed record RuleOptions
         RuleIds.TodoCompleted => TodoCompletedEnabled,
         RuleIds.ContextHigh => ContextHighEnabled,
         RuleIds.Error => ErrorEnabled,
+        RuleIds.UnseenReminder => UnseenReminderEnabled,
         _ => false,
     };
 }

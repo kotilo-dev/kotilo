@@ -39,6 +39,7 @@ import { useQuickPickStore } from "../stores/quickPickStore";
 import { nextBlockedTarget, sortAgents } from "../features/agents/agentLogic";
 import { navigateToAgent } from "../features/agents/navigate";
 import { installLaunchCommands } from "../features/agents/launch";
+import { installUnseenWork } from "../features/agents/unseenWork";
 import { useDefinitionsStore } from "../stores/definitionsStore";
 
 const WORKSPACE_SHORTCUT_COUNT = 9;
@@ -115,6 +116,8 @@ export function App() {
   // M6: combined agent state → the desktop mascot; its clicks and menu come back here.
   useMascotBridge();
   useAssistantBridge();
+  // D-056: taskbar badge, "while you were away" toast, hub seen state of own panes.
+  useEffect(() => installUnseenWork(), []);
 
   // D18 (second half): WebView2 accelerator keys are disabled in Rust (src-tauri/src/lib.rs);
   // the right-click context menu is blocked here in the frontend.

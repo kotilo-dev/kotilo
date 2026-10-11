@@ -45,6 +45,8 @@ const HUB_SETTINGS: HubSettings = {
     errorDebounce: "00:00:05",
     minTurnForCompleted: "00:00:30",
     reminderAfter: "00:05:00",
+    unseenReminderEnabled: false,
+    unseenReminderAfter: "00:30:00",
     debounce: "00:00:02",
     settle: "00:00:01",
   },

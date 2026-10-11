@@ -3,8 +3,8 @@
  * combines its own agents (Rust tracker) and the hub's sessions into one list, resolves one
  * mascot state from it and sends that to the mascot window (`useMascotBridge.ts`).
  *
- * Priority: perm > error > input > sweat > work > done (3 s after a finished turn) > sleep.
- * Do not disturb / quiet hours always sleep.
+ * Priority: perm > error > input > sweat > work > done (3 s after a finished turn, then calm
+ * while unseen finished work exists – D-056) > sleep. Do not disturb / quiet hours always sleep.
  */
 import type { Agent } from "../../lib/ipc";
 import type { BuddySettings, QuietHours, SessionDto, SessionState, UsageCurrent } from "../../lib/hubTypes";
@@ -22,6 +22,8 @@ export interface MascotEntry {
   sinceMs: number;
   /** Start of the current turn when known (hub `turnStartedAt`), for the "finished a long turn" check. */
   turnStartedMs: number | null;
+  /** D-056: idle with a finished turn nobody looked at yet (desktop `done` or hub `unseen`). */
+  unseen: boolean;
   agent: Agent | null;
   session: SessionDto | null;
 }
@@ -96,11 +98,13 @@ export function mergeEntries(agents: readonly Agent[], sessions: readonly Sessio
     const own = agentEntryState(agent.state);
     const hub = session ? sessionEntryState(session.state) : null;
     const useHub = hub !== null && (hub === "permission" || hub === "input" || hub === "error" || RANK[hub] < RANK[own]);
+    const state = useHub ? hub : own;
     entries.push({
       key: agent.paneId,
-      state: useHub ? hub : own,
+      state,
       sinceMs: useHub ? (parseMs(session?.stateSince) ?? agent.sinceMs) : agent.sinceMs,
       turnStartedMs: parseMs(session?.turnStartedAt),
+      unseen: state === "idle" && (agent.state === "done" || (session?.state === "Idle" && session.unseen === true)),
       agent,
       session: session ?? null,
     });
@@ -115,6 +119,7 @@ export function mergeEntries(agents: readonly Agent[], sessions: readonly Sessio
       state,
       sinceMs: parseMs(session.stateSince) ?? 0,
       turnStartedMs: parseMs(session.turnStartedAt),
+      unseen: state === "idle" && session.unseen === true,
       agent: null,
       session,
     });
@@ -133,6 +138,8 @@ export function resolveMascotState(inputs: MascotInputs, nowMs: number): MascotS
   if (working) return "work";
   const done = inputs.lastCompletedAt;
   if (inputs.celebrate && done !== null && nowMs >= done && nowMs - done < DONE_DURATION_MS) return "done";
+  // Calm "done" (no walk; the hop only plays when the state changes) while finished work waits to be seen.
+  if (inputs.entries.some((e) => e.unseen)) return "done";
   return "sleep";
 }
 
@@ -153,11 +160,18 @@ export function oldestIn(entries: readonly MascotEntry[], state: EntryState): Ma
 
 export type ClickTarget = { kind: "entry"; entry: MascotEntry } | { kind: "usage" } | { kind: "none" };
 
-/** What a click on the mascot in `state` opens. */
+/** What a click on the mascot in `state` opens. Done: the finished work waiting longest to be seen. */
 export function clickTarget(state: MascotState, entries: readonly MascotEntry[]): ClickTarget {
   const entryState: EntryState | null = state === "perm" ? "permission" : state === "input" ? "input" : state === "error" ? "error" : null;
   if (entryState) {
     const entry = oldestIn(entries, entryState);
+    return entry ? { kind: "entry", entry } : { kind: "none" };
+  }
+  if (state === "done") {
+    const entry = oldestIn(
+      entries.filter((e) => e.unseen),
+      "idle",
+    );
     return entry ? { kind: "entry", entry } : { kind: "none" };
   }
   return state === "sweat" ? { kind: "usage" } : { kind: "none" };

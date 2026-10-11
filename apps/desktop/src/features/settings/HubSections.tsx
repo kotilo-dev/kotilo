@@ -103,6 +103,18 @@ export function NotificationsSection({ draft, update, errors }: HubSectionProps)
             <SpanField label={t.reminderAfter} value={rules.reminderAfter} unit={60} error={errors["rules.reminderAfter"]} onChange={(reminderAfter) => setRules({ reminderAfter })} />
           </div>
         )}
+        <Checkbox checked={rules.unseenReminderEnabled} onChange={(v) => setRules({ unseenReminderEnabled: v })} label={t.unseenReminder} />
+        {rules.unseenReminderEnabled && (
+          <div className="pl-6">
+            <SpanField
+              label={t.unseenReminderAfter}
+              value={rules.unseenReminderAfter}
+              unit={60}
+              error={errors["rules.unseenReminderAfter"]}
+              onChange={(unseenReminderAfter) => setRules({ unseenReminderAfter })}
+            />
+          </div>
+        )}
         <Checkbox checked={rules.errorEnabled} onChange={(v) => setRules({ errorEnabled: v })} label={t.error} />
         <Checkbox checked={rules.todoCompletedEnabled} onChange={(v) => setRules({ todoCompletedEnabled: v })} label={t.todoCompleted} />
         <Checkbox checked={rules.contextHighEnabled} onChange={(v) => setRules({ contextHighEnabled: v })} label={t.contextHigh} />

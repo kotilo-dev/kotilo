@@ -164,6 +164,72 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         (await Http.GetAsync("/v1/sessions?includeEnded=true")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task Finished_work_stays_unseen_until_marked_seen_and_changes_are_streamed()
+    {
+        var id = "seen-" + Guid.NewGuid().ToString("N");
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "UserPromptSubmit"));
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "Stop"));
+        var session = await WaitForAsync(async () => (await SessionAsync(id)) is { } s && s.GetProperty("unseen").GetBoolean() ? s : default);
+        session.GetProperty("state").GetString().Should().Be("Idle");
+        session.GetProperty("lastCompletedAt").ValueKind.Should().Be(JsonValueKind.String);
+
+        using var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader(HubApi.TokenHeader, hub.Port.Token);
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{hub.Port.Port}/v1/stream"), CancellationToken.None);
+        for (var i = 0; i < 5; i++)
+        {
+            await ReceiveAsync(socket);
+        }
+
+        using (var seen = await Http.PostAsync($"/v1/sessions/codex/{id}/seen", null))
+        {
+            seen.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        }
+
+        var streamed = false;
+        for (var i = 0; i < 10 && !streamed; i++)
+        {
+            var frame = await ReceiveAsync(socket);
+            streamed = frame.GetProperty("type").GetString() == "sessions"
+                && frame.GetProperty("data").EnumerateArray().Any(s => s.GetProperty("sessionId").GetString() == id && !s.GetProperty("unseen").GetBoolean());
+        }
+
+        streamed.Should().BeTrue("marking seen republishes the sessions snapshot");
+        (await SessionAsync(id))!.Value.GetProperty("unseen").GetBoolean().Should().BeFalse();
+
+        // Again (nothing left to see) is fine; an unknown session is not.
+        (await Http.PostAsync($"/v1/sessions/codex/{id}/seen", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await Http.PostAsync("/v1/sessions/codex/nope/seen", null)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Mark all: a second finished session.
+        var other = "seen-all-" + Guid.NewGuid().ToString("N");
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(other, "UserPromptSubmit"));
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(other, "Stop"));
+        await WaitForAsync(async () => (await SessionAsync(other)) is { } s && s.GetProperty("unseen").GetBoolean() ? s : default);
+
+        (await Http.PostAsync("/v1/sessions/seen", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await GetJsonAsync("/v1/sessions")).EnumerateArray().Should().NotContain(s => s.GetProperty("unseen").GetBoolean());
+        hub.Host.Repository.LoadRecent(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(30))
+            .Single(s => s.SessionId == other).SeenAt.Should().NotBeNull("seen is persisted");
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
+
+    [Fact]
+    public void Unseen_reminder_notification_has_titles_in_both_languages()
+    {
+        var request = new Hub.Core.Notifications.NotificationRequest(
+            Hub.Core.Notifications.RuleIds.UnseenReminder, "s1", "alpha", @"C:\src\alpha", Hub.Core.Sessions.SessionState.Idle, null,
+            TimeSpan.FromMinutes(31), DateTimeOffset.UtcNow);
+
+        var en = NotificationFeed.From(request, null, "en-US");
+        en.RuleId.Should().Be("session.unseen_reminder");
+        en.Title.Should().Be("alpha: Finished work waiting for you");
+        en.Body.Should().Be("Finished 31m 0s ago");
+        en.Severity.Should().Be(NotificationSeverity.Info);
+        NotificationFeed.From(request, null, "tr-TR").Title.Should().Be("alpha: Bakmadığın bitmiş iş var");
+    }
+
     // ---- activity ----
 
     [Fact]
@@ -477,6 +543,32 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await bad.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("fields").TryGetProperty("rules.contextThresholdPercent", out _).Should().BeTrue();
 
+        // Unseen reminder: off by default, 30 minutes, 1 minute..1 day.
+        var rules = current.GetProperty("rules");
+        rules.GetProperty("unseenReminderEnabled").GetBoolean().Should().BeFalse();
+        rules.GetProperty("unseenReminderAfter").GetString().Should().Be("00:30:00");
+        foreach (var (value, ok) in new[] { ("00:00:30", false), ("00:01:00", true), ("1.00:00:00", true), ("1.00:01:00", false) })
+        {
+            var text = current.GetRawText().Replace("\"unseenReminderAfter\":\"00:30:00\"", $"\"unseenReminderAfter\":\"{value}\"", StringComparison.Ordinal)
+                .Replace("\"unseenReminderEnabled\":false", "\"unseenReminderEnabled\":true", StringComparison.Ordinal);
+            using var put = await Http.PutAsync("/v1/settings", new StringContent(text, Encoding.UTF8, "application/json"));
+            put.StatusCode.Should().Be(ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest, value);
+            if (ok)
+            {
+                hub.Host.Settings.Rules.UnseenReminderEnabled.Should().BeTrue();
+                hub.Host.Settings.Rules.UnseenReminderAfter.Should().Be(TimeSpan.Parse(value, CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                (await put.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("fields").TryGetProperty("rules.unseenReminderAfter", out _).Should().BeTrue();
+            }
+        }
+
+        using (var restore = await Http.PutAsync("/v1/settings", new StringContent(current.GetRawText(), Encoding.UTF8, "application/json")))
+        {
+            restore.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
         (await Http.PutAsync("/v1/settings", new StringContent("{", Encoding.UTF8, "application/json"))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await GetJsonAsync("/v1/pricing")).TryGetProperty("models", out _).Should().BeTrue();
     }
@@ -487,6 +579,9 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         response.StatusCode.Should().Be(HttpStatusCode.OK, path);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
+
+    private async Task<JsonElement?> SessionAsync(string id) =>
+        (await GetJsonAsync("/v1/sessions")).EnumerateArray().Cast<JsonElement?>().FirstOrDefault(s => s!.Value.GetProperty("sessionId").GetString() == id);
 
     private static async Task<JsonElement> WaitForAsync(Func<Task<JsonElement>> probe)
     {

@@ -11,9 +11,10 @@
 import { Terminal, type ITerminalOptions } from "@xterm/xterm";
 import type { WebglAddon } from "@xterm/addon-webgl";
 import { Channel } from "../../lib/ipc";
-import { useResolvedTheme, type ResolvedTheme } from "../../app/theme/resolvedTheme";
+import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { useSettingsStore } from "../../stores/settingsStore";
-import { ansiVar, PALETTES, type ThemePalette } from "../../app/theme/palette";
+import type { TerminalColors } from "../../app/theme/catalogue";
+import { resolveTerminalColors } from "../../app/theme/terminalScheme";
 
 /** Store + registry'nin ihtiyaç duyduğu asgari yüzey — gerçek `Terminal` bunu karşılar. */
 export interface TermLike {
@@ -50,35 +51,27 @@ export function setWindowsPtyBuildNumber(buildNumber: number): void {
 }
 
 /**
- * Terminal theme from the design tokens (DESIGN_SYSTEM §8): background `--terminal-bg`,
- * accent bar cursor, ANSI palette `--ansi-*`, selection `--terminal-selection`. Read live from
- * the computed CSS so a theme switch applies to open terminals; `PALETTES` (kept in sync with
- * `index.css` by `palette.test.ts`) is the fallback when CSS isn't available (jsdom).
+ * xterm theme from the resolved terminal colours (DESIGN_SYSTEM §8, D-057): the app theme's
+ * terminal colours, a chosen catalogue scheme or an imported Windows Terminal scheme
+ * (`resolveTerminalColors`). Kotilo themes carry today's tokens (`palette.ts`, kept in sync with
+ * `index.css` by `palette.test.ts`).
  */
-export function xtermThemeFor(themeName: ResolvedTheme): NonNullable<ITerminalOptions["theme"]> {
-  const fallback = PALETTES[themeName];
-  let read = (_name: string, fb: string) => fb;
-  if (typeof document !== "undefined" && typeof getComputedStyle === "function") {
-    try {
-      const root = getComputedStyle(document.documentElement);
-      read = (name: string, fb: string) => root.getPropertyValue(name).trim() || fb;
-    } catch {
-      // keep the fallback reader
-    }
-  }
-  const ansi = Object.fromEntries(
-    (Object.keys(fallback.ansi) as Array<keyof ThemePalette["ansi"]>).map((key) => [key, read(ansiVar(key), fallback.ansi[key])]),
-  );
-  const background = read("--terminal-bg", fallback.terminalBg);
+export function xtermThemeFor(colors: TerminalColors): NonNullable<ITerminalOptions["theme"]> {
   return {
-    ...ansi,
-    background,
-    foreground: read("--text", fallback.text),
-    cursor: read("--accent", fallback.accent),
-    cursorAccent: background,
-    selectionBackground: read("--terminal-selection", fallback.terminalSelection),
-    selectionInactiveBackground: read("--terminal-selection-inactive", fallback.terminalSelectionInactive),
+    ...colors.ansi,
+    background: colors.background,
+    foreground: colors.foreground,
+    cursor: colors.cursor,
+    cursorAccent: colors.background,
+    selectionBackground: colors.selection,
+    selectionInactiveBackground: colors.selectionInactive ?? colors.selection,
   };
+}
+
+/** The terminal colours for the current settings and app theme. */
+export function currentTerminalColors(): TerminalColors {
+  const { terminal } = useSettingsStore.getState().settings;
+  return resolveTerminalColors(terminal.colorScheme, terminal.importedSchemes, useResolvedTheme.getState().id);
 }
 
 const SCROLLBACK = 10000;
@@ -116,7 +109,7 @@ function defaultCreateTerminal(): TermLike {
     cursorBlink: true,
     cursorStyle: "bar",
     allowProposedApi: true,
-    theme: xtermThemeFor(useResolvedTheme.getState().theme),
+    theme: xtermThemeFor(currentTerminalColors()),
     windowsPty: windowsPtyBuildNumber ? { backend: "conpty", buildNumber: windowsPtyBuildNumber } : undefined,
   });
 }
@@ -144,6 +137,8 @@ export function getOrCreateEntry(tabId: string): TermEntry {
   const host = document.createElement("div");
   host.style.width = "100%";
   host.style.height = "100%";
+  // D-057: FitAddon leaves a strip of less than one cell; it shows the terminal background.
+  host.style.background = currentTerminalColors().background;
 
   const entry: TermEntry = {
     tabId,

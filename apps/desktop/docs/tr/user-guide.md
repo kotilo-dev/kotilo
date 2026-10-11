@@ -266,6 +266,14 @@ başka birine geçtiğinizde arka planda açık kalır.
   konsol katmanını (ConPTY) yanında getirir. Bir terminal sorun çıkarırsa Ayarlar →
   Terminal'de **Paketle gelen konsol katmanını (ConPTY) kullan** seçeneğini kapatıp Kotilo'yu
   yeniden başlatın.
+- **Renkler:** Terminaller varsayılan olarak uygulamanın temasını kullanır (bkz.
+  [Temalar ve dil](#temalar-ve-dil)). Ayarlar → Terminal → **Renk şeması** ile onlara ayrı
+  bir şema verebilirsiniz: listedeki temalardan biri, Campbell ya da Windows Terminal'dan
+  aldığınız bir şema. **Windows Terminal'dan içe aktar…** Windows Terminal'in bildiği şemaları
+  (kendi şemalarınızı ve One Half Dark gibi hazır gelenleri) listeler; istediklerinizi
+  işaretleyin. Renkleri Kotilo'ya kopyalanır; Windows Terminal'in ayarları yalnızca okunur,
+  hiç değiştirilmez. İçe aktarılan şemalar düğmenin üstünde **Kaldır** ile birlikte listelenir.
+  Değişiklik açık sekmelere hemen yansır.
 
 ### Yan yana iki bölme
 
@@ -311,6 +319,11 @@ hareketle de ayrılır; renge bakmadan da ayırt edilebilir:
 
 "Cevap bekliyor" ve "Hata" arka plan servisinden gelir; bu yüzden ajanın
 entegrasyonu gerekir (aşağıya bakın).
+
+**Bitti** durumu Kotilo dışında başlatılan oturumlarda da çalışır: arka plan servisi her
+oturuma en son ne zaman baktığınızı, yeniden başlatmalardan sonra da hatırlar. Ajanın
+sekmesini açtığınızda, [Görev kontrol](#görev-kontrol)'deki kutucuğuna tıkladığınızda ya da
+ona yeni bir istem gönderdiğinizde iş görülmüş sayılır.
 
 ### Ajanlar paneli
 
@@ -522,6 +535,20 @@ kullanır. Uygulama Windows bildirimini gösterir ve görev çubuğu simgesini y
 söndürür. O ajanın terminali odaktaki pencerede görünüyorsa bildirim gösterilmez.
 **Ayarlar → Ajanlar → Bildirimler** tüm ajan bildirimlerini kapatır.
 
+- **Biten iş hatırlatması:** **Bakmadığım biten işleri hatırlat** açıksa (Ayarlar →
+  Bildirimler, varsayılan kapalı), biten bir tura belirlenen süre (varsayılan 30 dakika)
+  boyunca bakmadığınızda bir bildirim daha gelir: "<proje>: Bakmadığın bitmiş iş var". Her
+  tur için yalnızca bir kez gelir, yeniden başlatmadan sonra da tekrarlanmaz.
+- **Döndüğünüzde özet:** Fare ve klavyeye en az 10 dakika dokunmadıktan sonra bilgisayara
+  döndüğünüzde, olanları tek bir bildirim özetler; örneğin "Sen yokken: 2 iş bitti, 1 iş seni
+  bekliyor". Yalnızca bekleyen bir şey varsa gelir; Rahatsız etme ya da sessiz saatlerde
+  gelmez. Siz yokken gelen tek tek bildirimler yine de gösterilir. Ayarlar → Ajanlar'daki
+  **Döndüğümde özet göster** ile kapatabilir ya da süreyi (1–240 dakika) değiştirebilirsiniz.
+- **Görev çubuğu rozeti:** Kotilo'nun görev çubuğu düğmesi, henüz bakmadığınız biten işlerle
+  sizi bekleyen ajanların (izin, cevap ya da hata) toplamını gösterir; her ajan bir kez
+  sayılır. Bekleyen bir şey varken turuncu, yalnızca biten iş varken mavidir; sayı sıfıra
+  inince kaybolur.
+
 Arka plan servisi çalışmıyorsa uygulama kendi kuralına döner: pencere odakta değilken
 bir ajan `İzin bekliyor` ya da `Bitti` durumuna geçince bildirim gösterir. Bildirime
 tıklamak panele götürmez (Windows bildirimleri burada bunu desteklemiyor); bunun
@@ -580,9 +607,11 @@ tahmin olarak gösterilir.
 Görev kontrol (`Alt+3`) canlı her ajan oturumunu bir kutucuk olarak gösterir; böylece
 birkaç ajanı aynı anda izleyebilirsiniz. Başlık ajanları ve kaçının sizi beklediğini,
 çalıştığını ya da bittiğini sayar; yanındaki süzgeç **Tümü**, **Sizi bekliyor** (izin
-ya da cevabınızı bekleyen veya hatayla biten), **Çalışıyor** ya da **Bitti** (bitmiş,
-boşta) gösterir. Arka plan servisinin bayat saydığı oturumlar yalnızca **Tümü**
-altında görünür. Plan limitleri şeridi Genel bakış'takiyle aynıdır.
+ya da cevabınızı bekleyen veya hatayla biten), **Çalışıyor** ya da **Bitti** (bitmiş ama
+henüz bakmadığınız işler) gösterir. Arka plan servisinin bayat saydığı oturumlar ve zaten
+gördüğünüz boştaki oturumlar yalnızca **Tümü** altında görünür. Başlıktaki **Tümünü görüldü
+say** (bakılmamış iş varken görünür) bütün Bitti'leri tek seferde temizler. Plan limitleri
+şeridi Genel bakış'takiyle aynıdır.
 
 Her kutucuk projeyi, ajanı ve çalışma alanını (ya da modeli), durumu ve ne kadar
 sürdüğünü, bir de önizleme gösterir: o ajanın terminalinin boş olmayan son beş satırı;
@@ -592,10 +621,11 @@ kadar süredir beklediğini (ya da context kullanımını veya çalışan aracı
 ajanları ve maliyeti (model fiyatı yoksa token'ları) gösterir. Sizi bekleyen
 kutucukların çerçevesi belirgindir.
 
-Bir kutucuğa tıklamak o ajanın çalışma alanına ve terminal sekmesine geçer. Kotilo
-dışında başlatılan oturumlar **Kotilo dışında çalışıyor** diye işaretlenir;
-önizlemeleri yoktur ve açılamazlar; kutucukları bunun yerine arka plan servisinin
-bildiklerini gösterir (bekleyen bir izin, ajanın son bildirimi ya da çalışan aracı).
+Bir kutucuğa tıklamak o ajanın çalışma alanına ve terminal sekmesine geçer (biten işini
+de görüldü sayar). Kotilo dışında başlatılan oturumlar **Kotilo dışında çalışıyor** diye
+işaretlenir; önizlemeleri yoktur ve açılamazlar; kutucukları bunun yerine arka plan
+servisinin bildiklerini gösterir (bekleyen bir izin, ajanın son bildirimi ya da çalışan
+aracı). Böyle bir oturumun Bitti kutucuğuna tıklamak onu görüldü sayar.
 
 ## Kullanım
 
@@ -763,10 +793,12 @@ arasındaki en acil durumun rengini alır:
 | Kehribar, ter damlalarıyla | Ajanlar çalışıyor ve bu 5 saatlik bloğun kullanım eşiğinizi aşacağı öngörülüyor |
 | Kehribar, yürüyor | Ajanlar çalışıyor |
 | Mavi, kısa bir zıplama | Bir ajan uzun bir turu bitirdi (yalnızca "Biten işi kutlasın" açıksa) |
+| Mavi, sakin duruyor | Henüz bakmadığınız biten iş var |
 | Soluk, "Zz" | Çalışan bir şey yok ya da rahatsız etme / sessiz saatler açık |
 
 Salyangoza **tıklayınca** Kotilo öne gelir: bekleyen bir izin, cevap ya da hata varsa en
-uzun süredir bekleyen ajan açılır; terlerken Kullanım sayfası açılır. **Sağ tıkla** **1 saat
+uzun süredir bekleyen ajan açılır; terlerken Kullanım sayfası açılır; sakin maviyken en uzun
+süredir bakılmayı bekleyen biten iş açılır. **Sağ tıkla** **1 saat
 gizle**, **Maskotu kapat**, **Maskot ayarları…** ve asistan açıksa **Asistanı aç** seçenekleri
 gelir. Görev çubuğu boyunca
 **sürükleyerek** yerini değiştirebilirsiniz; yeri hatırlanır.
@@ -815,15 +847,15 @@ Bölüm listesi soldadır.
 
 | Bölüm | Ayarlar |
 |---|---|
-| Görünüm | Tema (Koyu, Açık, Sistem), Dil (Windows ile aynı, English, Türkçe) |
+| Görünüm | Tema (Koyu, Açık, Sistem), Koyu tema ve Açık tema (bkz. [Temalar ve dil](#temalar-ve-dil)), Dil (Windows ile aynı, English, Türkçe) |
 | Editör | Monaco için editör yazı tipi ailesi ve boyutu (8–32) |
-| Terminal | Terminal yazı tipi ailesi (varsayılan Geist Mono) ve boyutu (8–32), açık tüm terminallere anında uygulanır; varsayılan kabuk ("Otomatik" sırasıyla pwsh → Windows PowerShell → cmd → Git Bash → WSL seçer); seçince kopyala; çok satırlı yapıştırmadan önce uyar |
+| Terminal | Terminal yazı tipi ailesi (varsayılan Geist Mono) ve boyutu (8–32), açık tüm terminallere anında uygulanır; varsayılan kabuk ("Otomatik" sırasıyla pwsh → Windows PowerShell → cmd → Git Bash → WSL seçer); seçince kopyala; çok satırlı yapıştırmadan önce uyar; renk şeması (Uygulamayla aynı, bir tema ya da içe aktarılmış bir şema), Windows Terminal'dan içe aktar… |
 | Dosyalar | Gizlenen desenler (yalnızca ada bakan glob'lar; `/`, `\` içeren ya da `!` ile başlayan desen reddedilir), .gitignore'a uy, panodaki görsel kaydedilince yolu kopyala |
-| Ajanlar | "Yeni ajan ▶" için ajan komutları, ajan bildirimlerini aç/kapat, [Ajan entegrasyonları](#ajan-entegrasyonları), [özel ajanlar](#özel-ajanlar) |
+| Ajanlar | "Yeni ajan ▶" için ajan komutları, ajan bildirimlerini aç/kapat, Döndüğümde özet göster (varsayılan açık) ve süresi (varsayılan 10 dakika), [Ajan entegrasyonları](#ajan-entegrasyonları), [özel ajanlar](#özel-ajanlar) |
 | Hakkında ve tanılama | Sürüm ve derleme, lisans (Apache-2.0), proje bağlantıları (kaynak kod, sorunlar, tartışmalar – derlemede bir depo varsa), iletişim, **Güncellemeleri denetle**, **Açılışta güncellemeleri denetle** (varsayılan açık: açılıştan birkaç saniye sonra bir kez denetler; bulunan güncelleme **Yükle ve yeniden başlat** / **Sonra** seçenekli bir bildirim gösterir), aranabilir açık kaynak lisansları listesi, **Tanılama topla**, **Sürüm bilgisini kopyala**, **Yardımı aç**, **Ayrıntılı günlük** (günlük düzeyini `info`'dan `debug`'a çevirir; ara sıra olan bir sorunu yeniden oluşturmadan önce açın), **Günlük klasörünü aç** |
 
 **Arka plan servisi bölümleri — Değişiklikleri kaydet ile kaydedilir:** Bildirimler
-(kurallar, sessiz saatler, Rahatsız etme, bildirim dili), Kullanım ve maliyet
+(kurallar, biten iş hatırlatması ve süresi, sessiz saatler, Rahatsız etme, bildirim dili), Kullanım ve maliyet
 (kullanım uyarıları, fiyat tablosu, günlük özet saati), Projeler (todo dosyası deseni,
 proje klasörleri, git durumu), Görevler (bitiş hatırlatmaları), Dikte (model, dil,
 temizleme, çıktılar, geçmiş) ve Yapay zekâ (özellik başına sağlayıcı ve model, bkz.
@@ -838,10 +870,22 @@ göndermez.
 
 ## Temalar ve dil
 
-**Tema:** Koyu (varsayılan), Açık ya da Sistem (Windows'un uygulama kipini izler).
-Değiştirmek (Ayarlar → Görünüm ya da komut paletinde varsayılan kısayolu olmayan
-**Temayı değiştir**) tüm arayüzü, Monaco'nun editör temasını ve açık her terminalin
-renk paletini birlikte günceller; yeniden başlatma gerekmez.
+**Tema:** Kip Koyu (varsayılan), Açık ya da Sistem (Windows'un uygulama kipini izler)
+olabilir. Altında koyu kipte ve açık kipte kullanılacak temayı ayrı ayrı seçersiniz; Sistem
+kipi Windows değiştikçe bu iki seçiminiz arasında geçer. Temalar:
+
+- **Koyu:** Kotilo Dark (varsayılan), Catppuccin Mocha, Macchiato ve Frappé, Tokyo Night,
+  Tokyo Night Storm ve Moon, Rosé Pine ve Rosé Pine Moon, Dracula, Nord, One Dark, Gruvbox
+  Dark, Solarized Dark, GitHub Dark, Kanagawa Wave ve Dragon, Everforest Dark.
+- **Açık:** Kotilo Light (varsayılan), Catppuccin Latte, Tokyo Night Day, Rosé Pine Dawn, One
+  Light, Gruvbox Light, Solarized Light, GitHub Light, Kanagawa Lotus, Everforest Light.
+
+Tema tüm uygulamayı, editörün arka planını ve [kendi şemaları](#terminaller) yoksa
+terminalleri renklendirir. Kotilo, uygulamadaki metin ve durum renklerini okunur kalsınlar
+diye gerektiğinde biraz ayarlar; terminal renkleri ise temanın tanımladığı gibi kullanılır.
+Ajan renkleri ve maskot kendi renklerini korur. Değiştirmek (Ayarlar → Görünüm ya da komut
+paletinde varsayılan kısayolu olmayan **Temayı değiştir**) hemen uygulanır; yeniden başlatma
+gerekmez.
 
 **Dil:** İngilizce ya da Türkçe; "Windows ile aynı", Windows Türkçeyi tercih ediyorsa
 Türkçe, değilse İngilizce kullanır. Tüm arayüz ve bu yardım bir anda değişir.

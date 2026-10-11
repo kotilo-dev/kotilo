@@ -216,6 +216,8 @@ pub fn run() {
             commands::assistant::assistant_stop,
             commands::app::app_info,
             commands::app::terminal_font_suggestion,
+            commands::app::terminal_wt_schemes,
+            commands::app::taskbar_set_badge,
             commands::update::update_check,
             commands::update::update_install,
             commands::workspace::workspace_list,
@@ -274,6 +276,8 @@ pub fn run() {
             app.manage(state_store);
             app.manage(workspace_store);
             app.manage(settings_store);
+            // D-056: emits `user:returned` when input resumes after a long absence.
+            platform::idle::start_watcher(app.handle().clone());
 
             // D18 (moved to `platform::webview` in M7, shared with the assistant popup).
             if let Some(window) = app.get_webview_window("main") {

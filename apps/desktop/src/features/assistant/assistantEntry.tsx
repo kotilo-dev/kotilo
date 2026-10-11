@@ -7,15 +7,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { applyOverlayAppearance } from "../dictation/overlay/overlayEntry";
-import { useResolvedTheme, type ResolvedTheme } from "../../app/theme/resolvedTheme";
 import { AssistantView } from "./AssistantView";
 
 export const ASSISTANT_VIEW = "assistant";
 
 async function applyAppearance(): Promise<void> {
+  // Also publishes `useResolvedTheme` (code highlighting follows it).
   await applyOverlayAppearance();
-  // Code highlighting follows `useResolvedTheme`.
-  useResolvedTheme.setState({ theme: (document.documentElement.dataset.theme as ResolvedTheme | undefined) ?? "dark" });
 }
 
 export async function bootstrapAssistant(): Promise<void> {

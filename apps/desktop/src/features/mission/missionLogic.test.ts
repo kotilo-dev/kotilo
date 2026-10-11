@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SessionDto, SessionState } from "../../lib/hubTypes";
-import { countGroups, fallbackLines, filterSessions, groupOf, lastNonBlankLines, liveSessions, sameLines } from "./missionLogic";
+import { countGroups, fallbackLines, filterSessions, groupOf, hasUnseen, lastNonBlankLines, liveSessions, sameLines } from "./missionLogic";
 
 function session(partial: Partial<SessionDto>): SessionDto {
   return {
@@ -17,6 +17,8 @@ function session(partial: Partial<SessionDto>): SessionDto {
     tokens: 0,
     costUsd: null,
     contextUsedPercent: null,
+    lastCompletedAt: null,
+    unseen: false,
     turnStartedAt: null,
     endedAt: null,
     activeSubagents: 0,
@@ -28,16 +30,30 @@ function session(partial: Partial<SessionDto>): SessionDto {
   };
 }
 
-const byState = (...states: SessionState[]) => states.map((state, i) => session({ sessionId: `s${i}`, state }));
+// Idle ones are unseen finished work ("done") unless a test says otherwise.
+const byState = (...states: SessionState[]) => states.map((state, i) => session({ sessionId: `s${i}`, state, unseen: state === "Idle" }));
 
 describe("missionLogic", () => {
   it("groups states into needs-you / working / done", () => {
-    expect(groupOf("WaitingPermission")).toBe("attention");
-    expect(groupOf("WaitingInput")).toBe("attention");
-    expect(groupOf("Error")).toBe("attention");
-    expect(groupOf("Working")).toBe("working");
-    expect(groupOf("Idle")).toBe("done");
-    expect(groupOf("Stale")).toBeNull();
+    const g = (state: SessionState, unseen = false) => groupOf({ state, unseen });
+    expect(g("WaitingPermission")).toBe("attention");
+    expect(g("WaitingInput")).toBe("attention");
+    expect(g("Error")).toBe("attention");
+    expect(g("Working")).toBe("working");
+    expect(g("Idle", true)).toBe("done");
+    expect(g("Stale")).toBeNull();
+  });
+
+  it("counts only unseen finished work as done; seen idle sessions sort after it (D-056)", () => {
+    expect(groupOf({ state: "Idle", unseen: false })).toBeNull();
+    const seen = session({ sessionId: "seen", state: "Idle" });
+    const unseen = session({ sessionId: "unseen", state: "Idle", unseen: true });
+    const stale = session({ sessionId: "stale", state: "Stale" });
+    expect(liveSessions([stale, seen, unseen]).map((s) => s.sessionId)).toEqual(["unseen", "seen", "stale"]);
+    expect(countGroups([seen, unseen])).toEqual({ all: 2, attention: 0, working: 0, done: 1 });
+    expect(hasUnseen([seen])).toBe(false);
+    expect(hasUnseen([seen, unseen])).toBe(true);
+    expect(hasUnseen([session({ state: "Ended", unseen: true })])).toBe(false);
   });
 
   it("drops ended sessions and orders needs-you, working, done, rest (stable)", () => {

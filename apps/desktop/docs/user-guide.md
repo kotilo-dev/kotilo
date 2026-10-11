@@ -262,6 +262,13 @@ when you switch away.
   console host (ConPTY, the one Windows Terminal uses) for this, because the one built
   into Windows drops images. If a terminal misbehaves, turn off **Use the bundled console
   host (ConPTY)** in Settings → Terminal and restart Kotilo.
+- **Colours:** terminals use the app's theme by default (see
+  [Themes and language](#themes-and-language)). Settings → Terminal → **Color scheme** gives
+  them a scheme of their own: any theme from the list, Campbell, or one imported from Windows
+  Terminal. **Import from Windows Terminal…** lists the schemes Windows Terminal knows (your
+  own and its built-in ones such as One Half Dark); tick the ones you want. Their colours are
+  copied into Kotilo; Windows Terminal's settings are only read, never changed. Imported
+  schemes are listed above the button with **Remove**. A change applies to open tabs at once.
 
 ### Split pane
 
@@ -307,6 +314,11 @@ color, so they can be told apart without relying on color alone:
 
 "Waiting for input" and "Error" come from the background service, so they need the
 agent's integration (see below).
+
+**Done** also covers sessions started outside Kotilo: the background service remembers
+when you last looked at each session, also across restarts. Work counts as seen when you
+open the agent's tab, click its tile in [Mission control](#mission-control), or send it a
+new prompt.
 
 ### The Agents panel
 
@@ -516,6 +528,21 @@ almost full), quiet hours and **Do not disturb**. The app shows the Windows toas
 flashes the taskbar. No toast is shown when that agent's terminal is visible in the
 focused window. **Settings → Agents → Notifications** turns all agent toasts off.
 
+- **Finished work reminder:** with **Remind me about finished work I haven't looked at**
+  (Settings → Notifications, off by default) you get one more toast, "<project>: Finished
+  work waiting for you", when a finished turn is still unseen after the set time (default
+  30 minutes). It comes once per turn, also after a restart.
+- **Summary when you're back:** when you return to the computer after at least 10 minutes
+  without mouse or keyboard input, one toast sums up what happened, for example "While you
+  were away: 2 finished, 1 needs you". It only appears when something is waiting, and not
+  during Do not disturb or quiet hours. The single toasts while you were away still go out.
+  Turn it off or change the minutes (1–240) with **Summary when I'm back** in Settings →
+  Agents.
+- **Taskbar badge:** Kotilo's taskbar button shows a count of finished work you haven't
+  looked at plus agents that wait for you (permission, an answer or an error), each agent
+  counted once. It is orange while something waits, blue when it is only finished work,
+  and disappears at 0.
+
 If the background service isn't running, the app falls back to its own rule: a toast
 when an agent becomes `blocked` or `done` while the window isn't focused. Clicking a
 toast doesn't jump to the pane (Windows notifications don't support that here) — use
@@ -571,9 +598,11 @@ estimate.
 Mission control (`Alt+3`) shows every live agent session as a tile, so you can watch
 several agents at once. The header counts the agents and how many need you, are working
 or are done; the filter next to it shows **All**, **Needs you** (waiting for permission
-or for your answer, or ended with an error), **Working** or **Done** (finished, idle).
-Sessions the background service considers stale appear only under **All**. The plan
-limits strip is the same as on the Overview.
+or for your answer, or ended with an error), **Working** or **Done** (finished work you
+haven't looked at yet). Sessions the background service considers stale, and idle ones you
+have already seen, appear only under **All**. **Mark all as seen** in the header (shown
+while there is unseen work) clears every Done at once. The plan limits strip is the same as
+on the Overview.
 
 Each tile shows the project, agent and workspace (or model), the state and how long it
 has lasted, and a preview: the last five non-empty lines of that agent's terminal,
@@ -583,10 +612,11 @@ footer shows how long it has been waiting (or the context use, or the running to
 active subagents, and the cost (or tokens, when the model has no price). Tiles that need
 you are outlined.
 
-Click a tile to jump to that agent's workspace and terminal tab. Sessions started
-outside Kotilo are marked **Running outside Kotilo**; they have no preview and
-can't be opened — their tile shows what the background service knows instead (a pending
-permission, the agent's last notification or its current tool).
+Click a tile to jump to that agent's workspace and terminal tab (this also marks its
+finished work as seen). Sessions started outside Kotilo are marked **Running outside
+Kotilo**; they have no preview and can't be opened — their tile shows what the background
+service knows instead (a pending permission, the agent's last notification or its current
+tool). Clicking a Done tile of such a session marks it as seen.
 
 ## Usage
 
@@ -746,10 +776,12 @@ including sessions started outside Kotilo:
 | Amber, with sweat drops | Agents are working and the current 5-hour block is projected to cross your usage threshold |
 | Amber, walking | Agents are working |
 | Blue, a short hop | An agent finished a longer turn (only with "Celebrate finished work") |
+| Blue, standing calmly | Finished work you haven't looked at yet |
 | Dimmed, "Zz" | Nothing is running, or do not disturb / quiet hours are on |
 
 **Click** the snail to bring Kotilo up: with a permission, an answer or an error waiting it
-opens the agent that has waited longest; while sweating it opens Usage. **Right-click** for
+opens the agent that has waited longest; while sweating it opens Usage; while it is calm
+blue it opens the finished work that has waited longest to be seen. **Right-click** for
 **Hide for 1 hour**, **Turn off mascot**, **Mascot settings…** and, while the assistant is
 on, **Open assistant**. **Drag** it along the
 taskbar to move it; the place is remembered.
@@ -800,15 +832,15 @@ command palette. The section list is on the left.
 
 | Section | Settings |
 |---|---|
-| Appearance | Theme (Dark, Light, System), Language (Same as Windows, English, Türkçe) |
+| Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe) |
 | Editor | Editor font family and size (8–32) for Monaco |
-| Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines |
+| Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal… |
 | Files | Hidden patterns (name-only globs; a pattern with `/`, `\` or a leading `!` is rejected), respect `.gitignore`, copy the path after saving a clipboard image |
-| Agents | Agent commands for "New agent ▶", agent notifications on/off, [Agent integrations](#agent-integrations), [custom agents](#custom-agents) |
+| Agents | Agent commands for "New agent ▶", agent notifications on/off, Summary when I'm back (on by default) and its minutes (default 10), [Agent integrations](#agent-integrations), [custom agents](#custom-agents) |
 | About & diagnostics | Version and build, license (Apache-2.0), project links (source, issues, discussions – when the build has a repository), contact, **Check for updates**, **Check for updates on start** (on by default: one check a few seconds after launch; a found update shows a prompt with **Install and restart** / **Later**), the open-source licenses list (searchable), **Collect diagnostics**, **Copy version info**, **Open help**, **Verbose logging** (switches the log level from `info` to `debug` — turn it on before reproducing an intermittent problem), **Open logs folder** |
 
 **Background service sections — saved with Save changes:** Notifications (rules,
-quiet hours, Do not disturb, notification language), Usage & costs (usage alerts,
+finished work reminder and its minutes, quiet hours, Do not disturb, notification language), Usage & costs (usage alerts,
 price table, daily summary time), Projects (todo file pattern, project folders, git
 status), Tasks (due reminders), Dictation (model, language, cleanup, outputs,
 history) and AI (provider and model per feature, see [AI providers](#ai-providers); endpoints
@@ -820,10 +852,22 @@ Logs stay on this computer — nothing is sent automatically by any of the above
 
 ## Themes and language
 
-**Theme:** Dark (default), Light, or System (follows Windows' app mode). Switching
-(Settings → Appearance, or the command palette's **Toggle theme**, which has no
-default keybinding) updates the whole UI, Monaco's editor theme, and every open
-terminal's color palette together — nothing needs a restart.
+**Theme:** the mode is Dark (default), Light, or System (follows Windows' app mode).
+Below it, pick the theme used in dark mode and the one used in light mode, so System
+switches between your two picks with Windows. Themes:
+
+- **Dark:** Kotilo Dark (default), Catppuccin Mocha, Macchiato and Frappé, Tokyo Night,
+  Tokyo Night Storm and Moon, Rosé Pine and Rosé Pine Moon, Dracula, Nord, One Dark, Gruvbox
+  Dark, Solarized Dark, GitHub Dark, Kanagawa Wave and Dragon, Everforest Dark.
+- **Light:** Kotilo Light (default), Catppuccin Latte, Tokyo Night Day, Rosé Pine Dawn, One
+  Light, Gruvbox Light, Solarized Light, GitHub Light, Kanagawa Lotus, Everforest Light.
+
+A theme colours the whole app, the editor background and, unless they have a
+[scheme of their own](#terminals), the terminals. Kotilo adjusts the app's text and status
+colours where needed so they stay readable; terminal colours are used exactly as the theme
+defines them. Agent colours and the mascot keep their own colours. Switching (Settings →
+Appearance, or the command palette's **Toggle theme**, which has no default keybinding)
+applies at once — nothing needs a restart.
 
 **Language:** English or Turkish; "Same as Windows" uses Turkish when Windows prefers
 it, English otherwise. The whole UI and this help switch at once. Toasts use the

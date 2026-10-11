@@ -11,4 +11,5 @@ public static class RuleIds
     public const string TodoCompleted = "todo.completed";
     public const string ContextHigh = "session.context_high";
     public const string Error = "session.error";
+    public const string UnseenReminder = "session.unseen_reminder";
 }

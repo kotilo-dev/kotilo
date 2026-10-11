@@ -40,6 +40,12 @@ describe("paneVisualState", () => {
     expect(paneVisualState(makeSession({ state: "Idle" }), agent({ state: "idle" }))).toBe("idle");
   });
 
+  it("shows the hub's unseen finished work as done, with or without a pane record (D-056)", () => {
+    expect(paneVisualState(makeSession({ state: "Idle", unseen: true }), undefined)).toBe("done");
+    expect(paneVisualState(makeSession({ state: "Idle", unseen: true }), agent({ state: "idle" }))).toBe("done");
+    expect(paneVisualState(makeSession({ state: "Idle", unseen: false }), undefined)).toBe("idle");
+  });
+
   it("falls back to the desktop record, and is null without any agent", () => {
     expect(paneVisualState(null, agent({ state: "blocked" }))).toBe("permission");
     expect(paneVisualState(null, undefined)).toBeNull();

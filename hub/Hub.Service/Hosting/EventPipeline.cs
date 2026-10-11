@@ -90,6 +90,18 @@ public sealed class EventPipeline : IAsyncDisposable
 
     public bool EnqueueStatusLine(byte[] json) => _channel.Writer.TryWrite(new StatusLineItem(json));
 
+    /// <summary>
+    /// The user looked at a session's finished work; persisted and published like any session change.
+    /// Completes with false when the tracker does not know the session.
+    /// </summary>
+    public Task<bool> MarkSeenAsync(string agent, string sessionId) => EnqueueSeen(new SeenItem(agent, sessionId));
+
+    /// <summary>"Mark all as seen": every session with unseen finished work.</summary>
+    public Task MarkAllSeenAsync() => EnqueueSeen(new SeenItem(null, null));
+
+    private Task<bool> EnqueueSeen(SeenItem item) =>
+        _channel.Writer.TryWrite(item) ? item.Done.Task : Task.FromException<bool>(new InvalidOperationException("The pipeline is stopped."));
+
     /// <summary>API errors found by the transcript scanner (spec §18.5 fallback to the StopFailure hook).</summary>
     public void EnqueueTranscriptErrors(IReadOnlyList<TranscriptError> errors)
     {
@@ -182,6 +194,10 @@ public sealed class EventPipeline : IAsyncDisposable
 
             case CommandItem command:
                 changed = command.Action(_tracker, _rules);
+                break;
+
+            case SeenItem seen:
+                changed = ApplySeen(seen, now);
                 break;
 
             case TranscriptErrorsItem errors:
@@ -284,6 +300,36 @@ public sealed class EventPipeline : IAsyncDisposable
         return true;
     }
 
+    private bool ApplySeen(SeenItem seen, DateTimeOffset now)
+    {
+        IReadOnlyList<SessionInfo> changed;
+        var known = true;
+        if (seen.Agent is { } agent && seen.SessionId is { } id)
+        {
+            var (isKnown, session) = _tracker.MarkSeen(agent, id, now);
+            known = isKnown;
+            changed = session is null ? [] : [session];
+        }
+        else
+        {
+            changed = _tracker.MarkAllSeen(now);
+        }
+
+        try
+        {
+            foreach (var s in changed)
+            {
+                _repository.Upsert(s);
+            }
+        }
+        finally
+        {
+            seen.Done.TrySetResult(known);
+        }
+
+        return changed.Count > 0;
+    }
+
     private void Record(SessionStateChanged change, bool notify = true)
     {
         Log.Information(
@@ -306,6 +352,12 @@ public sealed class EventPipeline : IAsyncDisposable
     private sealed record CommandItem(Func<SessionTracker, RuleEngine, bool> Action) : Item;
 
     private sealed record StatusLineItem(byte[] Json) : Item;
+
+    /// <summary>Null agent and id: every session.</summary>
+    private sealed record SeenItem(string? Agent, string? SessionId) : Item
+    {
+        public TaskCompletionSource<bool> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
 
     private sealed record TranscriptErrorsItem(IReadOnlyList<TranscriptError> Errors) : Item;
 }

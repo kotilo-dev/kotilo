@@ -190,3 +190,27 @@ mod tests {
 pub fn terminal_font_suggestion() -> Option<String> {
     crate::platform::fonts::nerd_font_suggestion()
 }
+
+/// D-057: every colour scheme in Windows Terminal's settings, fragments and built-in
+/// defaults (read-only), for "Import from Windows Terminal…".
+#[tauri::command(async)]
+pub fn terminal_wt_schemes() -> Vec<crate::settings::TerminalScheme> {
+    crate::platform::wt_settings::schemes()
+}
+
+/// D-056: the count on the main window's taskbar button; `count` 0 clears it. `description`
+/// is the translated screen-reader text (English default when missing).
+#[tauri::command]
+pub fn taskbar_set_badge(
+    app: tauri::AppHandle,
+    count: u32,
+    tone: crate::platform::taskbar::Tone,
+    description: Option<String>,
+) -> AppResult<()> {
+    use tauri::Manager;
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    crate::platform::taskbar::set_badge(&window, count, tone, description)
+        .map_err(|e| crate::error::AppError::io(e.to_string()))
+}

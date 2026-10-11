@@ -108,6 +108,13 @@ pub struct TerminalSettings {
     /// built into Windows; read once at startup, so a change applies after a restart.
     #[serde(default = "default_true")]
     pub bundled_conpty: bool,
+    /// D-057: `"app"` (follow the app theme), a built-in theme id, or `"imported:<name>"`.
+    #[serde(default = "default_color_scheme")]
+    pub color_scheme: String,
+    /// D-057: schemes copied from Windows Terminal (read-only import, see
+    /// `platform::wt_settings`).
+    #[serde(default)]
+    pub imported_schemes: Vec<TerminalScheme>,
 }
 
 impl Default for TerminalSettings {
@@ -119,6 +126,8 @@ impl Default for TerminalSettings {
             copy_on_select: false,
             warn_multiline_paste: true,
             bundled_conpty: true,
+            color_scheme: default_color_scheme(),
+            imported_schemes: Vec::new(),
         }
     }
 }
@@ -130,6 +139,12 @@ pub struct AgentsSettings {
     pub commands: Vec<String>,
     #[serde(default = "default_true")]
     pub notifications: bool,
+    /// D-056: one "while you were away" summary when input resumes after
+    /// `away_summary_minutes` without input (`platform::idle`).
+    #[serde(default = "default_true")]
+    pub away_summary: bool,
+    #[serde(default = "default_away_summary_minutes")]
+    pub away_summary_minutes: u32,
 }
 
 impl Default for AgentsSettings {
@@ -137,7 +152,101 @@ impl Default for AgentsSettings {
         Self {
             commands: default_agent_commands(),
             notifications: true,
+            away_summary: true,
+            away_summary_minutes: default_away_summary_minutes(),
         }
+    }
+}
+
+fn default_away_summary_minutes() -> u32 {
+    10
+}
+
+fn default_color_scheme() -> String {
+    "app".to_string()
+}
+
+fn default_dark_theme() -> String {
+    "kotilo-dark".to_string()
+}
+
+fn default_light_theme() -> String {
+    "kotilo-light".to_string()
+}
+
+/// D-057: the colour theme used in dark and in light mode (`theme` picks the mode). Ids come
+/// from the UI's built-in catalogue; an unknown id falls back to Kotilo there.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppearanceSettings {
+    #[serde(default = "default_dark_theme")]
+    pub dark_theme: String,
+    #[serde(default = "default_light_theme")]
+    pub light_theme: String,
+}
+
+impl Default for AppearanceSettings {
+    fn default() -> Self {
+        Self {
+            dark_theme: default_dark_theme(),
+            light_theme: default_light_theme(),
+        }
+    }
+}
+
+/// D-057: a terminal colour scheme (copied from Windows Terminal on import). Colours are
+/// `#rrggbb`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TerminalScheme {
+    pub name: String,
+    pub background: String,
+    pub foreground: String,
+    pub cursor: String,
+    pub selection: String,
+    pub black: String,
+    pub red: String,
+    pub green: String,
+    pub yellow: String,
+    pub blue: String,
+    pub magenta: String,
+    pub cyan: String,
+    pub white: String,
+    pub bright_black: String,
+    pub bright_red: String,
+    pub bright_green: String,
+    pub bright_yellow: String,
+    pub bright_blue: String,
+    pub bright_magenta: String,
+    pub bright_cyan: String,
+    pub bright_white: String,
+}
+
+impl TerminalScheme {
+    /// Every colour field, for validation.
+    fn colors_mut(&mut self) -> [&mut String; 20] {
+        [
+            &mut self.background,
+            &mut self.foreground,
+            &mut self.cursor,
+            &mut self.selection,
+            &mut self.black,
+            &mut self.red,
+            &mut self.green,
+            &mut self.yellow,
+            &mut self.blue,
+            &mut self.magenta,
+            &mut self.cyan,
+            &mut self.white,
+            &mut self.bright_black,
+            &mut self.bright_red,
+            &mut self.bright_green,
+            &mut self.bright_yellow,
+            &mut self.bright_blue,
+            &mut self.bright_magenta,
+            &mut self.bright_cyan,
+            &mut self.bright_white,
+        ]
     }
 }
 
@@ -221,6 +330,8 @@ pub struct Settings {
     #[serde(default)]
     pub theme: ThemeName,
     #[serde(default)]
+    pub appearance: AppearanceSettings,
+    #[serde(default)]
     pub editor: EditorSettings,
     #[serde(default)]
     pub terminal: TerminalSettings,
@@ -243,6 +354,7 @@ impl Default for Settings {
         Self {
             v: default_v(),
             theme: ThemeName::default(),
+            appearance: AppearanceSettings::default(),
             editor: EditorSettings::default(),
             terminal: TerminalSettings::default(),
             agents: AgentsSettings::default(),
@@ -322,6 +434,66 @@ fn normalize_saved_prompts(prompts: Vec<SavedPrompt>) -> Vec<SavedPrompt> {
         .collect()
 }
 
+const MAX_ID_CHARS: usize = 64;
+const MAX_SCHEME_NAME_CHARS: usize = 64;
+const MAX_IMPORTED_SCHEMES: usize = 50;
+const MIN_AWAY_SUMMARY_MINUTES: u32 = 1;
+const MAX_AWAY_SUMMARY_MINUTES: u32 = 240;
+
+/// A theme id: `[a-z0-9-]{1,64}`.
+fn is_theme_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= MAX_ID_CHARS
+        && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// `"app"`, a theme id or `"imported:<name>"` (name 1–64 chars); anything else → `"app"`.
+fn normalize_color_scheme(scheme: &str) -> String {
+    let scheme = scheme.trim();
+    let valid = match scheme.strip_prefix("imported:") {
+        Some(name) => (1..=MAX_SCHEME_NAME_CHARS).contains(&name.chars().count()),
+        None => is_theme_id(scheme),
+    };
+    if valid {
+        scheme.to_string()
+    } else {
+        default_color_scheme()
+    }
+}
+
+/// `#rrggbb` (any case) → lowercase; anything else → `None`.
+pub fn normalize_hex_color(color: &str) -> Option<String> {
+    let hex = color.trim().strip_prefix('#')?;
+    (hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
+        .then(|| format!("#{}", hex.to_ascii_lowercase()))
+}
+
+/// A scheme with a trimmed 1–64 char name and every colour a valid `#rrggbb`, or `None`.
+pub fn normalize_scheme(mut scheme: TerminalScheme) -> Option<TerminalScheme> {
+    scheme.name = scheme.name.trim().to_string();
+    if !(1..=MAX_SCHEME_NAME_CHARS).contains(&scheme.name.chars().count()) {
+        return None;
+    }
+    for color in scheme.colors_mut() {
+        *color = normalize_hex_color(color)?;
+    }
+    Some(scheme)
+}
+
+/// Invalid schemes dropped; a duplicate name keeps the last one (at the first one's
+/// position); at most [`MAX_IMPORTED_SCHEMES`].
+fn normalize_imported_schemes(schemes: Vec<TerminalScheme>) -> Vec<TerminalScheme> {
+    let mut out: Vec<TerminalScheme> = Vec::new();
+    for scheme in schemes.into_iter().filter_map(normalize_scheme) {
+        match out.iter_mut().find(|s| s.name == scheme.name) {
+            Some(existing) => *existing = scheme,
+            None => out.push(scheme),
+        }
+    }
+    out.truncate(MAX_IMPORTED_SCHEMES);
+    out
+}
+
 /// The settings as they go into a diagnostics zip: saved prompt texts (user-authored
 /// content) are replaced by their count.
 pub fn settings_for_diagnostics(settings: &Settings) -> serde_json::Value {
@@ -378,6 +550,20 @@ pub fn validate_and_normalize(mut settings: Settings) -> AppResult<Settings> {
 
     settings.composer.saved_prompts =
         normalize_saved_prompts(std::mem::take(&mut settings.composer.saved_prompts));
+
+    if !is_theme_id(&settings.appearance.dark_theme) {
+        settings.appearance.dark_theme = default_dark_theme();
+    }
+    if !is_theme_id(&settings.appearance.light_theme) {
+        settings.appearance.light_theme = default_light_theme();
+    }
+    settings.agents.away_summary_minutes = settings
+        .agents
+        .away_summary_minutes
+        .clamp(MIN_AWAY_SUMMARY_MINUTES, MAX_AWAY_SUMMARY_MINUTES);
+    settings.terminal.color_scheme = normalize_color_scheme(&settings.terminal.color_scheme);
+    settings.terminal.imported_schemes =
+        normalize_imported_schemes(std::mem::take(&mut settings.terminal.imported_schemes));
 
     Ok(settings)
 }
@@ -633,6 +819,135 @@ mod tests {
         assert!(s.diagnostics.verbose_logging);
         let back = serde_json::to_value(&s).unwrap();
         assert_eq!(back["diagnostics"]["verboseLogging"], serde_json::json!(true));
+    }
+
+    fn scheme(name: &str, bg: &str) -> TerminalScheme {
+        let c = || "#AABBCC".to_string();
+        TerminalScheme {
+            name: name.to_string(),
+            background: bg.to_string(),
+            foreground: c(),
+            cursor: c(),
+            selection: c(),
+            black: c(),
+            red: c(),
+            green: c(),
+            yellow: c(),
+            blue: c(),
+            magenta: c(),
+            cyan: c(),
+            white: c(),
+            bright_black: c(),
+            bright_red: c(),
+            bright_green: c(),
+            bright_yellow: c(),
+            bright_blue: c(),
+            bright_magenta: c(),
+            bright_cyan: c(),
+            bright_white: c(),
+        }
+    }
+
+    #[test]
+    fn appearance_away_summary_and_scheme_defaults() {
+        let s: Settings =
+            serde_json::from_value(serde_json::json!({ "terminal": {}, "agents": {} })).unwrap();
+        assert_eq!(s.appearance.dark_theme, "kotilo-dark");
+        assert_eq!(s.appearance.light_theme, "kotilo-light");
+        assert!(s.agents.away_summary);
+        assert_eq!(s.agents.away_summary_minutes, 10);
+        assert_eq!(s.terminal.color_scheme, "app");
+        assert!(s.terminal.imported_schemes.is_empty());
+        let back = serde_json::to_value(&s).unwrap();
+        assert_eq!(back["appearance"]["darkTheme"], "kotilo-dark");
+        assert_eq!(back["appearance"]["lightTheme"], "kotilo-light");
+        assert_eq!(back["agents"]["awaySummary"], true);
+        assert_eq!(back["agents"]["awaySummaryMinutes"], 10);
+        assert_eq!(back["terminal"]["colorScheme"], "app");
+        assert_eq!(back["terminal"]["importedSchemes"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn validate_resets_invalid_theme_ids() {
+        let mut s = Settings::default();
+        s.appearance.dark_theme = "catppuccin-mocha".into();
+        s.appearance.light_theme = "Bad Id".into();
+        let out = validate_and_normalize(s).unwrap();
+        assert_eq!(out.appearance.dark_theme, "catppuccin-mocha");
+        assert_eq!(out.appearance.light_theme, "kotilo-light");
+
+        let mut s = Settings::default();
+        s.appearance.dark_theme = "a".repeat(65);
+        s.appearance.light_theme = String::new();
+        let out = validate_and_normalize(s).unwrap();
+        assert_eq!(out.appearance.dark_theme, "kotilo-dark");
+        assert_eq!(out.appearance.light_theme, "kotilo-light");
+    }
+
+    #[test]
+    fn validate_clamps_away_summary_minutes() {
+        let mut s = Settings::default();
+        s.agents.away_summary_minutes = 0;
+        assert_eq!(validate_and_normalize(s).unwrap().agents.away_summary_minutes, 1);
+        let mut s = Settings::default();
+        s.agents.away_summary_minutes = 1000;
+        assert_eq!(validate_and_normalize(s).unwrap().agents.away_summary_minutes, 240);
+    }
+
+    #[test]
+    fn validate_normalizes_color_scheme() {
+        for (input, expected) in [
+            ("app", "app"),
+            ("gruvbox-dark", "gruvbox-dark"),
+            ("imported:One Half Dark", "imported:One Half Dark"),
+            ("imported:", "app"),
+            ("Gruvbox Dark", "app"),
+            ("", "app"),
+        ] {
+            let mut s = Settings::default();
+            s.terminal.color_scheme = input.into();
+            assert_eq!(validate_and_normalize(s).unwrap().terminal.color_scheme, expected, "{input}");
+        }
+        let mut s = Settings::default();
+        s.terminal.color_scheme = format!("imported:{}", "x".repeat(65));
+        assert_eq!(validate_and_normalize(s).unwrap().terminal.color_scheme, "app");
+    }
+
+    #[test]
+    fn validate_normalizes_imported_schemes() {
+        let mut s = Settings::default();
+        s.terminal.imported_schemes = vec![
+            scheme("  One Half Dark ", "#282C34"),
+            scheme("Bad colour", "#28C34"),
+            scheme("Not hex", "#zzzzzz"),
+            scheme("   ", "#000000"),
+            scheme(&"n".repeat(65), "#000000"),
+            scheme("Campbell", "#0C0C0C"),
+            scheme("One Half Dark", "#111111"),
+        ];
+        let out = validate_and_normalize(s).unwrap().terminal.imported_schemes;
+        let names: Vec<&str> = out.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["One Half Dark", "Campbell"]);
+        assert_eq!(out[0].background, "#111111", "duplicate name keeps the last");
+        assert_eq!(out[0].foreground, "#aabbcc", "colours are lowercased");
+        assert_eq!(out[1].background, "#0c0c0c");
+    }
+
+    #[test]
+    fn validate_caps_imported_schemes() {
+        let mut s = Settings::default();
+        s.terminal.imported_schemes = (0..60).map(|i| scheme(&format!("s{i}"), "#000000")).collect();
+        assert_eq!(validate_and_normalize(s).unwrap().terminal.imported_schemes.len(), 50);
+    }
+
+    #[test]
+    fn imported_scheme_round_trips_in_camel_case() {
+        let mut s = Settings::default();
+        s.terminal.imported_schemes = vec![scheme("X", "#000000")];
+        let back = serde_json::to_value(&s).unwrap();
+        assert_eq!(back["terminal"]["importedSchemes"][0]["brightMagenta"], "#AABBCC");
+        let again: Settings = serde_json::from_value(back).unwrap();
+        assert_eq!(again, s);
     }
 
     #[test]

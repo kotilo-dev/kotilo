@@ -1,10 +1,48 @@
-# Next – Finished work you have not looked at (recorded 2026-10-11)
+# 0.3 – Unseen finished work + terminal colour schemes (planned 2026-10-11)
 
-User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar başında değilse ya da bildirimi pas geçtiyse bir süre sonra unutabilir". Fixed already (D-054, uncommitted at the time): `idle_prompt` after a finished turn no longer means "waiting for input"; process exits found by the periodic check reach the desktop.
+User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar başında değilse ya da bildirimi pas geçtiyse bir süre sonra unutabilir". Second track: terminal colour schemes for the terminal area only (app chrome keeps the design tokens).
 
-- [ ] "Done, not looked at" for hub sessions too (today only own panes have Done vs Idle via `agentAck`): stays blue until the user opens the session or sends a prompt; a count badge on the Kotilo taskbar icon; the mascot keeps a calm "done" look instead of the 3 s hop only
-- [ ] Back-at-the-desk summary: user idle time (`GetLastInputInfo`, platform layer); when input resumes after ≥ N minutes away, one toast "While you were away: 2 agents finished, 1 needs permission" instead of a pile; respects DND/quiet hours
-- [ ] Optional single reminder for finished-but-unseen work after X minutes (setting, default off), like the existing waiting reminder
+User decisions (2026-10-11):
+- **Seen** for hub sessions is stored in the hub (survives restarts; mascot, Mission and badge agree). It clears when: an in-app session is opened (existing `navigateToAgent`/set_focus path) or gets a new prompt; an outside session's Mission card is clicked; "Mark all as seen" in Mission.
+- **Taskbar badge** = unseen finished + waiting (permission/input/error); orange when something waits, blue when only finished work; no badge at 0.
+- **Back-at-the-desk summary**: on by default, away threshold 10 min (setting); single toasts while away still go out (they stay in the Windows notification centre); respects DND/quiet hours.
+- **Windows Terminal schemes**: copy-import (the chosen scheme's colours are copied into Kotilo settings; WT's file is only read).
+- Unseen reminder: one reminder per finished turn after X min (default **off**, 30 min), like the waiting reminder.
+
+## Findings that shape the plan
+- Own panes: Rust `AgentState::Done` vs `Idle` (`agents/mod.rs` `seen`/`set_focus`/`ack`). Hub has no seen concept; `SessionInfo.LastCompletedAt` exists and is persisted but not in `SessionDto`. `paneSession.ts` notes "the hub has no done, not yet seen"; `missionLogic.groupOf` shows every hub Idle as done.
+- No taskbar overlay/tray code; `windows` crate already has `Win32_UI_Shell`. No idle detection anywhere; `Win32_UI_Input_KeyboardAndMouse` is enabled.
+- Terminal theme: `xtermThemeFor` (`terminalRegistry.ts`) reads `--terminal-bg`/`--ansi-*` CSS vars; live update in `TerminalView.tsx` `apply()`. Containers have no background, so FitAddon's leftover strip shows `--bg`. WT settings paths exist in `platform/fonts.rs` (private, not JSONC-aware). Terminal settings live in Rust `settings/mod.rs` (`TerminalSettings`), not the hub.
+
+## Track A – Hub (C#) · owns `hub/**`
+- [x] `SessionInfo.SeenAt` (persisted, migration); `Unseen` = `LastCompletedAt > SeenAt` and state is Idle/Ended; a new prompt (Working) marks seen
+- [x] `SessionDto`: `lastCompletedAt`, `unseen`; `POST /v1/sessions/{agent}/{id}/seen`, `POST /v1/sessions/seen` (all); changes published on the `sessions` stream
+- [x] Rule `session.unseen_reminder`: `RuleOptions.UnseenReminderEnabled` (false) + `UnseenReminderAfter` (30 min), once per completion (rule state store), DND/quiet hours as usual; settings DTO/validation; schema + contract tests
+
+## Track B – Rust (desktop core + platform) · owns `apps/desktop/src-tauri/**`
+- [x] `platform/idle` (`GetLastInputInfo`, stub elsewhere) + a 5 s watcher emitting `user:returned { awayMs }` when input resumes after ≥ `agents.awaySummaryMinutes`
+- [x] `platform/taskbar`: overlay icon with a drawn count (1–9, 9+) and tone (attention/done), cleared at 0; command `taskbar_set_badge { count, tone }`
+- [x] WT scheme import: shared WT settings reader (move out of `fonts.rs`), small JSONC stripper (comments, trailing commas), parse `schemes[]`; command `terminal_wt_schemes` → name + 16 ANSI + bg/fg/cursor/selection; never writes
+- [x] Settings: `appearance.darkTheme`/`lightTheme` (ids `[a-z0-9-]{1,64}`, else default), `agents.awaySummary` (true), `agents.awaySummaryMinutes` (10, 1–240), `terminal.colorScheme` ("app"), `terminal.importedSchemes` (≤ 50, colours `#rrggbb`, invalid entries dropped); tests
+
+## Track C1 – Frontend: unseen work · owns `features/agents|mission|mascot|workspace/paneSession*`, `stores/agentStore|hubStore`, `lib/hubTypes`
+- [x] Hub sessions with `unseen` render as Done (blue) in Mission, tree/pane status; Mission card click marks seen; "Mark all as seen" button; opening an in-app pane marks its hub session seen too
+- [x] Badge: count unseen + waiting across own agents and hub sessions (deduped by pane/session) → `taskbar_set_badge`
+- [x] Back-at-the-desk: on `user:returned`, one toast "While you were away: N finished, M waiting" if anything is unseen/waiting and not DND/quiet; skip when 0
+- [x] Mascot: calm "done" look while unseen finished work exists (after the 3 s hop), lower priority than work/input/perm
+- [x] Settings UI: unseen reminder (hub Notifications section), away summary toggle + minutes (agents section); i18n EN/TR
+
+## Track C2 – Frontend: app themes + terminal schemes · owns `app/theme/**`, `features/terminal/**`, `index.css`, Settings `AppearanceSection`/`TerminalSection`
+User (2026-10-11, after a Catppuccin mockup of the whole app): "Dahil et" – themes for the **whole app** in Appearance, with the best-known dev themes. Terminal follows the app theme by default; Settings → Terminal can pick a separate scheme or an imported WT scheme. "System" mode uses the chosen dark and light theme.
+Settings (shared types already added in `ipc.ts`/`settingsStore.ts`): `theme` = mode (system/dark/light), `appearance.darkTheme` ("kotilo-dark"), `appearance.lightTheme` ("kotilo-light"), `terminal.colorScheme` ("app" | theme id | "imported:<name>"), `terminal.importedSchemes`.
+- [x] Catalogue (values from each project's official palette, licences in THIRD_PARTY_NOTICES): Kotilo Dark/Light (today's tokens), Catppuccin Mocha/Macchiato/Frappé/Latte, Tokyo Night Night/Storm/Moon/Day, Rosé Pine Main/Moon/Dawn, Dracula, Nord, One Dark/One Light, Gruvbox Dark/Light, Solarized Dark/Light, GitHub Dark/Light, Kanagawa Wave/Dragon/Lotus, Everforest Dark/Light; terminal-only: Campbell
+- [x] Token derivation: surfaces, borders, text steps, accent and status colours from the theme palette, applied as CSS variables on `<html>`; `data-theme` = the variant's kind (dark/light); agent identity and mascot colours stay; a contrast test over the whole catalogue (text ≥ 4.5:1, status/accent ≥ 3:1 on bg) with fallback to Kotilo tokens
+- [x] Terminal: `xtermThemeFor` resolves app theme / chosen scheme / imported scheme; host container background = terminal background; live switch without reopening tabs
+- [x] Settings → Appearance: mode + dark theme + light theme pickers with swatch previews; Settings → Terminal: scheme picker ("Same as app" default) + "Import from Windows Terminal…" (hidden when none found), imported ones removable; i18n EN/TR
+- [x] Unit tests (catalogue, derivation, contrast, resolution, import mapping); e2e screenshots of Appearance and a few themes (Catppuccin Mocha, Latte, Gruvbox Dark)
+
+## Integration
+- [x] All checks (UI 916, Rust desktop 613 + clippy, hub 709 + 224 + 78, e2e 70); D-056 (unseen work + badge + away summary), D-057 (terminal colour schemes); user guide EN/TR; manual tests U-1… (badge, away summary, WT import) for the user
 
 ---
 
@@ -23,7 +61,7 @@ User report: a PowerShell tab in Kotilo does not look like their usual PowerShel
 - [x] T-6 (user confirmed both files after updating, 2026-10-11): after the user updates, `%LOCALAPPDATA%\Kotilo\conpty\` holds conpty.dll + OpenConsole.exe (build log and installer size +~430 KB say yes; NSIS content not inspected – no 7-Zip)
 
 ## Later (recorded)
-- [ ] Colour schemes: built-in choices (Kotilo default, One Half Dark/Light, Campbell, …) for the terminal area only, and optionally import Windows Terminal's scheme (read-only); app chrome keeps the design tokens
+- Colour schemes → moved to 0.3 (top of this file)
 
 ---
 

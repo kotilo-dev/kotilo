@@ -16,6 +16,9 @@ import "monaco-editor/language/json/monaco.contribution";
 import "monaco-editor/language/css/monaco.contribution";
 import "monaco-editor/language/html/monaco.contribution";
 import { PALETTES } from "../../../app/theme/palette";
+import { themeTokensById } from "../../../app/theme/derive";
+import { useResolvedTheme } from "../../../app/theme/resolvedTheme";
+import { monacoThemeFor } from "./textEditorSupport";
 
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import JsonWorker from "monaco-editor/language/json/json.worker?worker";
@@ -47,23 +50,37 @@ self.MonacoEnvironment = {
   },
 };
 
-monaco.editor.defineTheme("agenthub-dark", {
-  base: "vs-dark",
-  inherit: true,
-  rules: [],
-  colors: {
-    "editor.background": PALETTES.dark.terminalBg,
-  },
-});
+/**
+ * Faz 6 §2/§10.8: dark/light editor themes on the `--terminal-bg` token of the active colour
+ * theme (D-057: Kotilo values from `palette.ts`, other themes from their derived tokens);
+ * redefined when the app theme changes so open editors follow it.
+ */
+function defineEditorThemes(): void {
+  const { theme, id } = useResolvedTheme.getState();
+  const derived = themeTokensById(id)?.["--terminal-bg"];
+  monaco.editor.defineTheme("agenthub-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [],
+    colors: {
+      "editor.background": theme === "dark" && derived ? derived : PALETTES.dark.terminalBg,
+    },
+  });
+  monaco.editor.defineTheme("agenthub-light", {
+    base: "vs",
+    inherit: true,
+    rules: [],
+    colors: {
+      "editor.background": theme === "light" && derived ? derived : PALETTES.light.terminalBg,
+    },
+  });
+}
 
-/** Faz 6 §2/§10.8: light theme — matches the `[data-theme="light"]` tokens in `index.css`. */
-monaco.editor.defineTheme("agenthub-light", {
-  base: "vs",
-  inherit: true,
-  rules: [],
-  colors: {
-    "editor.background": PALETTES.light.terminalBg,
-  },
+defineEditorThemes();
+useResolvedTheme.subscribe((state, prev) => {
+  if (state.id === prev.id) return;
+  defineEditorThemes();
+  monaco.editor.setTheme(monacoThemeFor(state.theme));
 });
 
 export { monaco };

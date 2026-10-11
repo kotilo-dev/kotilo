@@ -7,11 +7,16 @@
  * xterm buffer (`readBufferTail`), read about once a second while this page is mounted and the
  * window is visible. Plain text only; it stays in this component's state (rule 5: never logged
  * or persisted). Sessions outside the app show their pending permission / notification / tool.
+ *
+ * D-056: "Done" is finished work nobody looked at yet (hub `unseen`). Opening an in-app tile, or
+ * clicking an outside session's tile (it has no pane to open), marks it seen; so does
+ * "Mark all as seen".
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStrings } from "../../app/i18n";
 import {
   AgentAvatar,
+  Button,
   Card,
   EmptyState,
   Page,
@@ -30,7 +35,7 @@ import {
 import type { SessionDto } from "../../lib/hubTypes";
 import type { Agent } from "../../lib/ipc";
 import { useAgentStore } from "../../stores/agentStore";
-import { useHubStore } from "../../stores/hubStore";
+import { markAllSessionsSeen, markSessionSeen, useHubStore } from "../../stores/hubStore";
 import { findTabByPaneIdInMap, useTerminalStore } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { navigateToAgent } from "../agents/navigate";
@@ -43,6 +48,7 @@ import {
   fallbackLines,
   filterSessions,
   groupOf,
+  hasUnseen,
   lastNonBlankLines,
   liveSessions,
   sameLines,
@@ -61,6 +67,7 @@ interface PaneTarget {
 
 /** Workspace route, the session's workspace, its tab, focus the terminal. */
 export function goToSession(session: SessionDto): void {
+  if (session.unseen) void markSessionSeen(session);
   const paneId = session.paneId;
   if (!paneId) return;
   const known = useAgentStore.getState().agents.find((a) => a.paneId === paneId);
@@ -157,7 +164,18 @@ export function MissionControlPage() {
       <PageHeader
         title={s.nav.mission}
         subtitle={unavailable ? undefined : s.mission.summary(counts.all, counts.attention, counts.working, counts.done)}
-        actions={unavailable ? undefined : <Segmented options={options} value={filter} onChange={setFilter} ariaLabel={s.mission.filterLabel} />}
+        actions={
+          unavailable ? undefined : (
+            <div className="flex flex-wrap items-center gap-2">
+              {hasUnseen(live) && (
+                <Button variant="ghost" onClick={() => void markAllSessionsSeen()}>
+                  {s.mission.markAllSeen}
+                </Button>
+              )}
+              <Segmented options={options} value={filter} onChange={setFilter} ariaLabel={s.mission.filterLabel} />
+            </div>
+          )
+        }
       />
 
       {unavailable ? (
@@ -215,7 +233,8 @@ function MissionTile({
 }) {
   const s = useStrings();
   const stateLabel = useStateLabel();
-  const attention = groupOf(session.state) === "attention";
+  const attention = groupOf(session) === "attention";
+  const unseen = session.unseen && session.state === "Idle";
   const since = formatDuration(secondsSince(session.stateSince, now));
   const sub = [agentDisplayName(session.agent), workspaceName ?? session.model].filter(Boolean).join(" · ");
   const fallback = preview.length === 0 ? fallbackLines(session) : [];
@@ -238,7 +257,7 @@ function MissionTile({
           <span className="truncate font-semibold text-text">{session.projectName}</span>
           <span className="truncate text-meta text-muted">{sub}</span>
         </div>
-        <StatusPill state={session.state} suffix={since} />
+        <StatusPill state={session.state} suffix={since} unseen={unseen} />
       </div>
       {/* Not a live region: a once-a-second terminal echo would flood screen readers. */}
       <div
@@ -271,12 +290,20 @@ function MissionTile({
   const cls = `flex flex-col overflow-hidden rounded-sheet bg-surface-2 text-left ${
     attention ? "border border-blocked/50 shadow-[var(--halo-blocked)]" : "border border-border-subtle"
   }`;
+  const label = unseen ? s.status.done : stateLabel(session.state);
+  const button = `${cls} cursor-pointer hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent`;
   return inApp ? (
+    <button type="button" aria-label={`${session.projectName} · ${sub} · ${label} ${since}`} className={button} onClick={() => goToSession(session)}>
+      {body}
+    </button>
+  ) : unseen ? (
+    // No pane to open: the click only acknowledges the finished work.
     <button
       type="button"
-      aria-label={`${session.projectName} · ${sub} · ${stateLabel(session.state)} ${since}`}
-      className={`${cls} cursor-pointer hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent`}
-      onClick={() => goToSession(session)}
+      aria-label={`${session.projectName} · ${sub} · ${label} ${since} · ${s.mission.markSeen}`}
+      title={s.mission.markSeen}
+      className={button}
+      onClick={() => void markSessionSeen(session)}
     >
       {body}
     </button>

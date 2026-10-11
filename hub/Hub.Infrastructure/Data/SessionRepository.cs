@@ -29,16 +29,16 @@ public sealed class SessionRepository(Database db) : ISessionRepository
             """
             INSERT INTO sessions (session_id, agent, pane_id, project_root, transcript_path, state, state_since, last_event_at,
                                   current_tool, last_notification, model, parent_pid, turn_started_at,
-                                  last_completed_at, ended_at, end_reason, error_kind, error_resets_at, context_reset_at)
+                                  last_completed_at, seen_at, ended_at, end_reason, error_kind, error_resets_at, context_reset_at)
             VALUES (@SessionId, @Agent, @PaneId, @ProjectRoot, @TranscriptPath, @State, @StateSince, @LastEventAt,
                     @CurrentTool, @LastNotification, @Model, @ParentPid, @TurnStartedAt,
-                    @LastCompletedAt, @EndedAt, @EndReason, @ErrorKind, @ErrorResetsAt, @ContextResetAt)
+                    @LastCompletedAt, @SeenAt, @EndedAt, @EndReason, @ErrorKind, @ErrorResetsAt, @ContextResetAt)
             ON CONFLICT(session_id) DO UPDATE SET
                 agent = excluded.agent, pane_id = excluded.pane_id, project_root = excluded.project_root, transcript_path = excluded.transcript_path,
                 state = excluded.state, state_since = excluded.state_since, last_event_at = excluded.last_event_at,
                 current_tool = excluded.current_tool, last_notification = excluded.last_notification,
                 model = excluded.model, parent_pid = excluded.parent_pid, turn_started_at = excluded.turn_started_at,
-                last_completed_at = excluded.last_completed_at, ended_at = excluded.ended_at, end_reason = excluded.end_reason,
+                last_completed_at = excluded.last_completed_at, seen_at = excluded.seen_at, ended_at = excluded.ended_at, end_reason = excluded.end_reason,
                 error_kind = excluded.error_kind, error_resets_at = excluded.error_resets_at, context_reset_at = excluded.context_reset_at
             """,
             new
@@ -57,6 +57,7 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                 s.ParentPid,
                 TurnStartedAt = Ms(s.TurnStartedAt),
                 LastCompletedAt = Ms(s.LastCompletedAt),
+                SeenAt = Ms(s.SeenAt),
                 EndedAt = Ms(s.EndedAt),
                 s.EndReason,
                 ErrorKind = s.Error?.Kind.ToString(),
@@ -90,7 +91,7 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                        state AS State, state_since AS StateSince, last_event_at AS LastEventAt,
                        current_tool AS CurrentTool, last_notification AS LastNotification, model AS Model,
                        parent_pid AS ParentPid, turn_started_at AS TurnStartedAt,
-                       last_completed_at AS LastCompletedAt, ended_at AS EndedAt, end_reason AS EndReason,
+                       last_completed_at AS LastCompletedAt, seen_at AS SeenAt, ended_at AS EndedAt, end_reason AS EndReason,
                        error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt
                 FROM sessions
                 WHERE state <> 'Ended' OR COALESCE(ended_at, state_since) >= @cutoff
@@ -110,7 +111,7 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                        state AS State, state_since AS StateSince, last_event_at AS LastEventAt,
                        current_tool AS CurrentTool, last_notification AS LastNotification, model AS Model,
                        parent_pid AS ParentPid, turn_started_at AS TurnStartedAt,
-                       last_completed_at AS LastCompletedAt, ended_at AS EndedAt, end_reason AS EndReason,
+                       last_completed_at AS LastCompletedAt, seen_at AS SeenAt, ended_at AS EndedAt, end_reason AS EndReason,
                        error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt
                 FROM sessions
                 WHERE last_event_at >= @since
@@ -225,6 +226,8 @@ public sealed class SessionRepository(Database db) : ISessionRepository
 
         public long? LastCompletedAt { get; set; }
 
+        public long? SeenAt { get; set; }
+
         public long? EndedAt { get; set; }
 
         public string? EndReason { get; set; }
@@ -244,6 +247,7 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                 PaneId = PaneId,
                 TurnStartedAt = TurnStartedAt is { } t ? FromMs(t) : null,
                 LastCompletedAt = LastCompletedAt is { } l ? FromMs(l) : null,
+                SeenAt = SeenAt is { } seen ? FromMs(seen) : null,
                 EndedAt = EndedAt is { } e ? FromMs(e) : null,
                 EndReason = EndReason,
                 Error = ErrorKind is not null && Enum.TryParse<SessionErrorKind>(ErrorKind, out var kind)

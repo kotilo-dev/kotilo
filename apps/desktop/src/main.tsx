@@ -1,5 +1,6 @@
 import "./lib/frontendErrors"; // faz7-spec §9.3: MUST be the first import (catches module-eval errors below too)
-import { resolveTheme, systemPrefersDark, useResolvedTheme } from "./app/theme/resolvedTheme";
+import { systemPrefersDark } from "./app/theme/resolvedTheme";
+import { applyAppearance } from "./app/theme/applyTheme";
 import React from "react";
 import ReactDOM from "react-dom/client";
 // NOTE: a throw during THESE modules' own evaluation (`ErrorBoundary` and everything it
@@ -57,9 +58,8 @@ async function bootstrap() {
     } catch {
       settings = DEFAULT_SETTINGS;
     }
-    const theme = resolveTheme(settings.theme, systemPrefersDark());
-    document.documentElement.dataset.theme = theme;
-    useResolvedTheme.setState({ theme });
+    // D-057: mode + colour theme (CSS variables, `data-theme`, `useResolvedTheme`) before the first render.
+    applyAppearance(settings, systemPrefersDark());
     hydrateSettingsStore(settings);
     // M2: UI language (frontend preference in the `ui` slice of state.json), before the first render.
     try {

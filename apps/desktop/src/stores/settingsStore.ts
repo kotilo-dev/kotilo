@@ -31,6 +31,7 @@ export type DeepPartial<T> = T extends (infer U)[]
 export const DEFAULT_SETTINGS: Settings = {
   v: 1,
   theme: "dark",
+  appearance: { darkTheme: "kotilo-dark", lightTheme: "kotilo-light" },
   editor: { fontFamily: "Cascadia Code, Consolas, monospace", fontSize: 13 },
   terminal: {
     fontFamily: '"Geist Mono", "Cascadia Code", Consolas, monospace',
@@ -41,8 +42,10 @@ export const DEFAULT_SETTINGS: Settings = {
     copyOnSelect: false,
     warnMultilinePaste: true,
     bundledConpty: true,
+    colorScheme: "app",
+    importedSchemes: [],
   },
-  agents: { commands: ["claude", "codex"], notifications: true },
+  agents: { commands: ["claude", "codex"], notifications: true, awaySummary: true, awaySummaryMinutes: 10 },
   files: { hiddenPatterns: [".git", "node_modules", "dist", "target", ".DS_Store"], respectGitignore: false },
   clipboard: { copyPathAfterImageSave: true },
   diagnostics: { verboseLogging: false },

@@ -16,13 +16,17 @@ import { useDefinitionsStore } from "../../stores/definitionsStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useHelpStore } from "../help/helpStore";
-import { Button, Card, Checkbox, Notice, SectionLabel } from "./controls";
+import { Button, Card, Checkbox, DebouncedNumber, Field, Notice, SectionLabel } from "./controls";
 import { CodeBlock, CustomAgentWizard, userAdapterPath } from "./CustomAgentWizard";
 import { protocolExample } from "./customAgent";
 import { EditableList } from "./EditableList";
 import { asAppError, useHubResource } from "./hubData";
 
 type WizardState = { editing: UserAdapterDefinition | null } | null;
+
+/** D-056: "Summary when I'm back" threshold, same range as the Rust setting. */
+const AWAY_MINUTES_MIN = 1;
+const AWAY_MINUTES_MAX = 240;
 
 function Badge({ tone, children }: { tone: "ok" | "warn" | "neutral" | "error"; children: string }) {
   const cls =
@@ -270,6 +274,29 @@ export function AgentsSection() {
         />
       </div>
       <Checkbox checked={agents.notifications} onChange={(v) => update({ agents: { notifications: v } })} label={s.settings.agents.notifications} />
+      <div className="flex max-w-lg flex-col gap-3">
+        <Checkbox
+          checked={agents.awaySummary}
+          onChange={(v) => update({ agents: { awaySummary: v } })}
+          label={s.settings.agents.awaySummary}
+          hint={s.settings.agents.awaySummaryHint}
+        />
+        {agents.awaySummary && (
+          <div className="max-w-xs pl-6">
+            <Field label={s.settings.agents.awaySummaryMinutes}>
+              {({ id }) => (
+                <DebouncedNumber
+                  id={id}
+                  value={agents.awaySummaryMinutes}
+                  min={AWAY_MINUTES_MIN}
+                  max={AWAY_MINUTES_MAX}
+                  onCommit={(v) => update({ agents: { awaySummaryMinutes: v } })}
+                />
+              )}
+            </Field>
+          </div>
+        )}
+      </div>
 
       <section aria-labelledby="settings-integrations" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">

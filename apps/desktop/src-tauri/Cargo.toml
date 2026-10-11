@@ -111,6 +111,10 @@ windows = { version = "0.62", features = [
     # M6 mascot: taskbar edge (`SHAppBarMessage`) and full-screen state
     # (`SHQueryUserNotificationState`).
     "Win32_UI_Shell",
+    # D-056: taskbar overlay badge (`ITaskbarList3` via `CoCreateInstance`) and idle time
+    # (`GetTickCount` next to `GetLastInputInfo`).
+    "Win32_System_Com",
+    "Win32_System_SystemInformation",
 ] }
 
 [dev-dependencies]

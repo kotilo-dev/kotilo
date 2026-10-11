@@ -3,6 +3,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 const navigateToAgent = vi.fn();
 vi.mock("../agents/navigate", () => ({ navigateToAgent: (...a: unknown[]) => navigateToAgent(...a) }));
+const hubRequest = vi.fn(async (..._a: unknown[]) => null);
+vi.mock("../../lib/ipc", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/ipc")>()),
+  hubRequest: (...a: unknown[]) => hubRequest(...a),
+}));
 
 import { MissionControlPage } from "./MissionControlPage";
 import { useHubStore } from "../../stores/hubStore";
@@ -28,6 +33,8 @@ function session(partial: Partial<SessionDto>): SessionDto {
     tokens: 1200,
     costUsd: 1.24,
     contextUsedPercent: 41,
+    lastCompletedAt: null,
+    unseen: false,
     turnStartedAt: null,
     endedAt: null,
     activeSubagents: 0,
@@ -60,6 +67,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   useI18nStore.setState({ preference: "en", language: "en" });
   navigateToAgent.mockReset();
+  hubRequest.mockClear();
   paneLines = ["$ claude", "● Edit src/approval.ts", "", "  + case Cancelled: return Rejected;", "● Bash npm test", "  PASS approval.test.ts", "✻ Running the full suite…", "", ""];
   setCreateTerminalFactory(() => fakeTerm(paneLines));
   getOrCreateEntry("tab-1");
@@ -82,7 +90,7 @@ beforeEach(() => {
         tokens: 88_000,
         pendingPermission: { tool: "Bash", command: "dotnet ef database update", path: null, risk: "writesDatabase", since: new Date().toISOString() },
       }),
-      session({ sessionId: "c", projectName: "docs-site", state: "Idle", lastNotification: "Claude is waiting for your input" }),
+      session({ sessionId: "c", projectName: "docs-site", state: "Idle", unseen: true, lastNotification: "Claude is waiting for your input" }),
       session({ sessionId: "d", projectName: "old", state: "Ended" }),
     ],
   });
@@ -135,6 +143,7 @@ describe("MissionControlPage", () => {
   it("shows metadata for sessions outside the app and does not make them links", () => {
     render(<MissionControlPage />);
     expect(screen.queryByRole("button", { name: /payments-gateway/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /docs-site/ })).toHaveAccessibleName(/Mark as seen/);
     expect(screen.getByText("Asks permission for Bash")).toBeInTheDocument();
     expect(screen.getByText("dotnet ef database update")).toBeInTheDocument();
     expect(screen.getByText("Claude is waiting for your input")).toBeInTheDocument();
@@ -158,6 +167,33 @@ describe("MissionControlPage", () => {
     render(<MissionControlPage />);
     fireEvent.click(screen.getByRole("button", { name: /orders-service/ }));
     expect(navigateToAgent).toHaveBeenCalledWith(expect.objectContaining({ paneId: "p1", workspaceId: "w1" }));
+  });
+
+  it("shows unseen finished work as Done and marks an outside session seen on click (D-056)", () => {
+    render(<MissionControlPage />);
+    const tile = screen.getByRole("button", { name: /docs-site/ });
+    expect(within(tile).getByText("Done")).toBeInTheDocument();
+    fireEvent.click(tile);
+    expect(hubRequest).toHaveBeenCalledWith("POST", "/v1/sessions/claude-code/c/seen");
+    // Cleared locally right away: now a seen, idle session (not a button, not in "Done").
+    expect(screen.queryByRole("button", { name: /docs-site/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Idle")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Done · 0" })).toBeInTheDocument();
+  });
+
+  it("marks an in-app session seen when its tile opens the pane", () => {
+    useHubStore.setState({ sessions: [session({ sessionId: "b", projectName: "orders-service", state: "Idle", unseen: true, paneId: "p1" })] });
+    render(<MissionControlPage />);
+    fireEvent.click(screen.getByRole("button", { name: /orders-service · .* · Done/ }));
+    expect(navigateToAgent).toHaveBeenCalled();
+    expect(hubRequest).toHaveBeenCalledWith("POST", "/v1/sessions/claude-code/b/seen");
+  });
+
+  it("offers Mark all as seen only while something is unseen", () => {
+    render(<MissionControlPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark all as seen" }));
+    expect(hubRequest).toHaveBeenCalledWith("POST", "/v1/sessions/seen");
+    expect(screen.queryByRole("button", { name: "Mark all as seen" })).not.toBeInTheDocument();
   });
 
   it("readBufferTail joins soft-wrapped rows and right-trims", () => {

@@ -63,6 +63,8 @@ export function validateHubSettings(s: HubSettings, t: Strings["settingsPage"]):
     errors["rules.contextRearmPercent"] = t.notifications.rearmBelowThreshold;
   }
   span("rules.reminderAfter", s.rules.reminderAfter, 60, 240 * 60, 60);
+  // D-056: checked while on (the field is hidden otherwise); the hub accepts up to one day.
+  if (s.rules.unseenReminderEnabled) span("rules.unseenReminderAfter", s.rules.unseenReminderAfter, 60, 24 * 3_600, 60);
   span("rules.minTurnForCompleted", s.rules.minTurnForCompleted, 0, 3_600, 1);
   range("usageRules.dailyCostThresholdUsd", s.usageRules.dailyCostThresholdUsd, 0, 100_000);
   if (!isTimeOfDay(s.quietHours.start)) errors["quietHours.start"] = t.timeError;

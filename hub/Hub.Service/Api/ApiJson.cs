@@ -59,7 +59,10 @@ public sealed record SessionErrorDto(SessionErrorKind Kind, DateTimeOffset? Rese
 
 public sealed record TaskProgressDto(int Completed, int InProgress, int Total);
 
-/// <summary>One session as seen by <c>/v1/sessions</c> and the <c>sessions</c> stream message. <c>state</c> keeps the C# names (M1 wire format).</summary>
+/// <summary>
+/// One session as seen by <c>/v1/sessions</c> and the <c>sessions</c> stream message. <c>state</c> keeps the C# names (M1 wire format).
+/// <c>unseen</c>: a turn finished after the user last looked and the session is Idle, Ended or Stale.
+/// </summary>
 public sealed record SessionDto(
     string SessionId,
     string Agent,
@@ -80,7 +83,9 @@ public sealed record SessionDto(
     string? LastNotification,
     SessionErrorDto? Error,
     TaskProgressDto? Tasks,
-    PendingPermissionDto? PendingPermission)
+    PendingPermissionDto? PendingPermission,
+    DateTimeOffset? LastCompletedAt,
+    bool Unseen)
 {
     public static SessionDto From(SessionInfo s) => new(
         s.SessionId,
@@ -104,7 +109,9 @@ public sealed record SessionDto(
         s.Tasks is { } t ? new TaskProgressDto(t.Completed, t.InProgress, t.Total) : null,
         s.State == SessionState.WaitingPermission && s.PendingPermission is { } p
             ? new PendingPermissionDto(p.Tool, p.Command, p.Path, p.Risk, p.Since)
-            : null);
+            : null,
+        s.LastCompletedAt,
+        s.IsUnseen);
 }
 
 public sealed record TotalsDto(long Input, long Output, long CacheCreate, long CacheRead, long Tokens, decimal CostUsd, bool HasUnpricedEntries, int Entries)

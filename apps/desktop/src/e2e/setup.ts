@@ -1,7 +1,8 @@
 /**
  * Browser e2e mode (`vite --mode e2e`, loaded before main.tsx by vite.config.ts): replaces the
  * Tauri backend with `@tauri-apps/api/mocks` and answers hub routes from `fixtures.ts`.
- * URL params: `theme=dark|light`, `lang=en|tr`. `window.__e2e.emit(type, data)` pushes a
+ * URL params: `theme=dark|light`, `lang=en|tr`, `colorTheme=<catalogue id>` (D-057: used as both
+ * the dark and the light colour theme). `window.__e2e.emit(type, data)` pushes a
  * hub stream frame. Never part of a real build.
  */
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -12,10 +13,13 @@ import * as agentFx from "./agentFixtures";
 import * as composerFx from "./composerFixtures";
 import * as timelineFx from "./timelineFixtures";
 import * as assistantFx from "./assistantFixtures";
+import * as themeFx from "./themeFixtures";
 
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "light" ? "light" : "dark";
 const language = params.get("lang") === "tr" ? "tr" : "en";
+const colorTheme = params.get("colorTheme");
+const appearance = colorTheme ? { darkTheme: colorTheme, lightTheme: colorTheme } : DEFAULT_SETTINGS.appearance;
 // `ai=local`: Settings → AI with every feature on the local endpoint ("Fully local").
 const aiLocal = params.get("ai") === "local";
 
@@ -123,10 +127,10 @@ mockIPC(
       case "save_state_slice":
         return null;
       case "settings_get":
-        return { ...DEFAULT_SETTINGS, theme };
+        return { ...DEFAULT_SETTINGS, theme, appearance };
       case "settings_set":
         // Echo what the app saved (M4: saved composer prompts must survive the round trip).
-        return { ...DEFAULT_SETTINGS, theme, ...(args.settings as object | undefined) };
+        return { ...DEFAULT_SETTINGS, theme, appearance, ...(args.settings as object | undefined) };
       case "fs_quick_open":
         return composerFx.quickOpen(String(args.query ?? ""));
       case "clipboard_save_image":
@@ -156,6 +160,8 @@ mockIPC(
         return runUpdateInstall();
       case "terminal_font_suggestion":
         return null;
+      case "terminal_wt_schemes":
+        return themeFx.wtSchemes;
       case "app_info":
         return { osBuild: 26300, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os: "Windows 11", buildDate: "2026-10-04" };
       case "pty_profiles":
@@ -196,6 +202,9 @@ mockIPC(
       case "assistant_set_config":
         window.__e2eAssistant.configs.push(args.config);
         return { status: "ok", hotkey: String((args.config as { hotkey?: string } | undefined)?.hotkey ?? "") };
+      case "taskbar_set_badge":
+        // D-056: the overlay icon is Rust-drawn; nothing to show in the browser.
+        return null;
       case "hub_status":
         return { state: "running", pid: 4242 };
       case "hub_request":

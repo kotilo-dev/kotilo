@@ -16,6 +16,8 @@ export function makeSession(partial: Partial<SessionDto>): SessionDto {
     tokens: 0,
     costUsd: null,
     contextUsedPercent: null,
+    lastCompletedAt: null,
+    unseen: false,
     turnStartedAt: null,
     endedAt: null,
     activeSubagents: 0,

@@ -7,7 +7,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { hydrateLanguage } from "../../../app/i18n";
-import { resolveTheme, systemPrefersDark } from "../../../app/theme/resolvedTheme";
+import { systemPrefersDark } from "../../../app/theme/resolvedTheme";
+import { applyAppearance } from "../../../app/theme/applyTheme";
 import { loadState, settingsGet } from "../../../lib/ipc";
 import { DictationOverlay } from "./DictationOverlay";
 
@@ -16,7 +17,7 @@ export const OVERLAY_VIEW = "dictation-overlay";
 export async function applyOverlayAppearance(): Promise<void> {
   try {
     const settings = await settingsGet();
-    document.documentElement.dataset.theme = resolveTheme(settings.theme, systemPrefersDark());
+    applyAppearance(settings, systemPrefersDark());
   } catch {
     document.documentElement.dataset.theme ??= "dark";
   }

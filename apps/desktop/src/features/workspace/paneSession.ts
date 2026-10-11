@@ -1,7 +1,8 @@
 /**
  * M2: which hub session belongs to a terminal pane, and how the pane should look. Pure;
  * the hub session (rich: model, tokens, permission details) is preferred, the desktop
- * tracker's pane record (fast, includes hookless agents and the unseen "done") fills gaps.
+ * tracker's pane record (fast, includes hookless agents) fills gaps. "Done" = finished and not
+ * seen yet, by either source (D-056: the hub stores seen state too).
  */
 import type { Agent } from "../../lib/ipc";
 import type { SessionDto } from "../../lib/hubTypes";
@@ -42,8 +43,7 @@ export function paneVisualState(session: SessionDto | null, agent: Agent | undef
         return "working";
       case "Idle":
       case "Stale":
-        // The hub has no "done, not yet seen"; the desktop tracker does.
-        return agent?.state === "done" ? "done" : "idle";
+        return session.unseen || agent?.state === "done" ? "done" : "idle";
       case "Unknown":
       case "Ended":
         break;

@@ -263,6 +263,8 @@ export const en = {
       stale: "An agent went silent while working",
       reminder: "Remind me while an agent keeps waiting",
       reminderAfter: "Remind after (minutes)",
+      unseenReminder: "Remind me about finished work I haven't looked at",
+      unseenReminderAfter: "Remind after (minutes)",
       error: "A turn ended with an error or a limit",
       todoCompleted: "A project todo item was completed",
       contextHigh: "Context is almost full",
@@ -832,6 +834,16 @@ export const en = {
         tab ? `${kind} needs your input — ${workspace} · ${tab}` : `${kind} needs your input — ${workspace}`,
       finished: (kind: string, workspace: string, tab: string) =>
         tab ? `${kind} finished — ${workspace} · ${tab}` : `${kind} finished — ${workspace}`,
+      /** D-056: "back at the desk" summary; only called when at least one count is above 0. */
+      away: (finished: number, waiting: number) =>
+        `While you were away: ${[finished > 0 ? `${finished} finished` : "", waiting > 0 ? `${waiting} ${waiting === 1 ? "needs" : "need"} you` : ""]
+          .filter(Boolean)
+          .join(", ")}`,
+      /** D-056: screen-reader text of the taskbar badge. */
+      badge: (finished: number, waiting: number) =>
+        [finished > 0 ? `${finished} finished` : "", waiting > 0 ? `${waiting} ${waiting === 1 ? "needs" : "need"} attention` : ""]
+          .filter(Boolean)
+          .join(", "),
     },
   },
 
@@ -928,6 +940,9 @@ export const en = {
       languageTurkish: "Türkçe",
       editorFontFamily: "Editor font family",
       editorFontSize: "Editor font size",
+      darkTheme: "Dark theme",
+      lightTheme: "Light theme",
+      themeSystemHint: "System mode switches between your dark and light theme with Windows.",
     },
     terminal: {
       fontFamily: "Terminal font family",
@@ -939,6 +954,19 @@ export const en = {
       fontDetected: (font: string) => `Using ${font} in front of the default font, so prompt icons show. Enter a font of your own to override it.`,
       bundledConpty: "Use the bundled console host (ConPTY)",
       bundledConptyHint: `Needed for images in the terminal (sixel). Turn it off if a terminal misbehaves. Applies after restarting ${APP_NAME}.`,
+      colorScheme: "Color scheme",
+      sameAsApp: "Same as app",
+      importedGroup: "Imported",
+      importWt: "Import from Windows Terminal…",
+      importNone: "No Windows Terminal color schemes found.",
+      importTitle: "Import from Windows Terminal",
+      importHint: `The colors of the schemes you pick are copied into ${APP_NAME}. Windows Terminal's settings are only read, never changed.`,
+      importAction: (count: number) => (count === 1 ? "Import 1 scheme" : `Import ${count} schemes`),
+      importCancel: "Cancel",
+      alreadyImported: "Already imported – importing again updates it",
+      importedSchemes: "Imported schemes",
+      removeScheme: (name: string) => `Remove ${name}`,
+      remove: "Remove",
     },
     agents: {
       commands: "Agent commands",
@@ -949,6 +977,9 @@ export const en = {
       moveDown: "Move down",
       noCommands: "No agent commands",
       notifications: "Notifications",
+      awaySummary: "Summary when I'm back",
+      awaySummaryHint: "One notification with the finished and waiting agents when you return to the computer.",
+      awaySummaryMinutes: "Away for at least (minutes)",
       integration: "Claude Code integration",
       integrationInstalled: "Installed and up to date",
     },

@@ -116,3 +116,23 @@ Preparation: `./scripts/fetch-conpty.ps1 -Arch x64 -Into target/debug/conpty`, t
 | T-4 | `%LOCALAPPDATA%\kotilo\logs\kotilo.log` after start | "terminals: bundled ConPTY from …\conpty" |
 | T-5 | Turn off **Use the bundled console host (ConPTY)**, restart Kotilo, run fastfetch again | Log says "using the system ConPTY"; terminals work; the logo does not appear (expected) |
 | T-6 | Install the 0.2.1 installer (x64, and ARM64 if available) | `conpty\conpty.dll` and `conpty\OpenConsole.exe` next to `kotilo.exe`; uninstall removes them |
+
+## Unseen work and themes (0.3, D-056, D-057)
+
+Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln`, then `npm --prefix apps/desktop run tauri dev`; Claude Code integration installed, a second terminal outside Kotilo (Windows Terminal) for outside sessions, Windows Terminal installed with at least its built-in schemes. Steps need the real taskbar, real idle time and the user's eyes, so they need the user (AGENTS.md rule 6).
+
+| # | Steps | Expected |
+|---|---|---|
+| U-1 | Run a Claude Code turn in Windows Terminal (outside Kotilo) and let it finish; look at Kotilo without clicking | Mission control: the tile turns blue **Done** and shows under the **Done** filter; the Kotilo taskbar button shows a blue badge with 1 |
+| U-2 | Click that outside session's tile | Tile becomes Idle (green), leaves the **Done** filter; the badge disappears |
+| U-3 | Let two outside turns finish; click **Mark all as seen** in the Mission control header | Both tiles Idle, badge gone, the button hides; after a hub restart they stay seen |
+| U-4 | Run an agent in a Kotilo pane, switch to another tab and let it finish; then open that tab | Blue Done and badge 1 while away from the tab; opening it clears the badge, and the hub session is Idle in Mission control too |
+| U-5 | One finished unseen turn plus a pending permission; answer the permission; open the finished one; check with a light and a dark Windows taskbar | Orange badge 2 while the permission waits → blue 1 when only finished work is left → no badge at 0; digits readable on both taskbars (10+ shows 9+); a screen reader reads e.g. "1 finished, 1 needs attention" |
+| U-6 | Settings → Agents: **Summary when I'm back** on, minutes 1. Let a turn finish, leave mouse and keyboard alone > 1 min, then move the mouse | Exactly one toast "While you were away: 1 finished" (plus the usual "completed" toast while away); repeat with nothing pending → no toast; repeat with Do not disturb on → no toast |
+| U-7 | Settings → Notifications: **Remind me about finished work I haven't looked at** on, 1 minute, Save; let a turn finish and don't look at it; restart the hub after the reminder | One toast "<project>: Finished work waiting for you" about a minute after the turn; no second one for the same turn, also after the restart; a new turn left unseen reminds again |
+| U-8 | Mascot on: let a turn finish and do not look at it; then click the snail | After the short hop the snail stays calm blue (no walking) instead of sleeping; the click opens the oldest unseen work; once seen it goes back to sleep; a permission or working agent still wins |
+| U-9 | Settings → Appearance: switch the dark theme through Catppuccin Mocha, Tokyo Night, Dracula, Nord, Gruvbox Dark; Light mode with Catppuccin Latte, Solarized Light, GitHub Light | Whole app and every open terminal change at once without reopening tabs; text, faint labels, status pills and buttons stay readable; agent colours and the mascot do not change; the editor background follows the theme |
+| U-10 | Mode System, dark theme Tokyo Night, light theme Rosé Pine Dawn; switch Windows between dark and light app mode | Kotilo follows Windows within a moment, using the picked theme for each mode |
+| U-11 | Settings → Terminal → **Color scheme**: pick Campbell, then an app theme different from the current one, then **Same as app** | Only the terminals change (background of the whole terminal area included, no stripe); live in open tabs; back to the app theme with **Same as app** |
+| U-12 | Settings → Terminal → **Import from Windows Terminal…**; tick One Half Dark and one own scheme from `settings.json`; import; pick it; compare with the same profile in Windows Terminal; remove it | The dialog lists the user's schemes and the built-in ones (One Half Dark, Campbell); colours and selection match Windows Terminal; Windows Terminal's files are unchanged (timestamps); **Remove** drops it and a terminal using it falls back to the app theme. Without Windows Terminal the button is disabled with a hint |
+| U-13 | Theme Kotilo Dark (default) and Kotilo Light; compare with 0.2.1 screenshots | Look exactly as before: same colours in the UI, the editor and the terminals |

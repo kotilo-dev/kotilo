@@ -29,6 +29,8 @@ function session(partial: Partial<SessionDto>): SessionDto {
     tokens: 1200,
     costUsd: 1.24,
     contextUsedPercent: 41,
+    lastCompletedAt: null,
+    unseen: false,
     turnStartedAt: null,
     endedAt: null,
     activeSubagents: 0,

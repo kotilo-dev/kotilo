@@ -174,6 +174,75 @@ public class RuleEngineTests
         restarted.Poll(T0.AddMinutes(25), [_session!]).Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.WaitingReminder);
     }
 
+    private static readonly RuleOptions UnseenOn = new() { UnseenReminderEnabled = true, CompletedEnabled = false, WaitingReminderEnabled = false };
+
+    /// <summary>A turn that finishes at T0 + 1 min.</summary>
+    private void FinishTurn()
+    {
+        Event(HookEventKind.UserPromptSubmit, T0);
+        Event(HookEventKind.Stop, T0.AddMinutes(1));
+    }
+
+    [Fact]
+    public void Unseen_reminder_is_off_by_default()
+    {
+        new RuleOptions().UnseenReminderEnabled.Should().BeFalse();
+        new RuleOptions().UnseenReminderAfter.Should().Be(TimeSpan.FromMinutes(30));
+        new RuleOptions().IsEnabled(RuleIds.UnseenReminder).Should().BeFalse();
+
+        var engine = new RuleEngine(new RuleOptions { CompletedEnabled = false });
+        FinishTurn();
+        engine.Poll(T0.AddHours(2), [_session!]).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Unseen_reminder_fires_once_after_the_wait()
+    {
+        var engine = new RuleEngine(UnseenOn);
+        FinishTurn();
+
+        engine.Poll(T0.AddMinutes(30), [_session!]).Should().BeEmpty("29 minutes since the turn finished");
+        var fired = engine.Poll(T0.AddMinutes(31), [_session!]);
+        fired.Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.UnseenReminder);
+        fired[0].Duration.Should().Be(TimeSpan.FromMinutes(30));
+        engine.Poll(T0.AddMinutes(90), [_session!]).Should().BeEmpty("one reminder per finished turn");
+    }
+
+    [Fact]
+    public void Unseen_reminder_respects_the_configured_wait()
+    {
+        var engine = new RuleEngine(UnseenOn with { UnseenReminderAfter = TimeSpan.FromMinutes(5) });
+        FinishTurn();
+
+        engine.Poll(T0.AddMinutes(5), [_session!]).Should().BeEmpty();
+        engine.Poll(T0.AddMinutes(6), [_session!]).Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.UnseenReminder);
+    }
+
+    [Fact]
+    public void Unseen_reminder_does_not_fire_once_seen()
+    {
+        var engine = new RuleEngine(UnseenOn);
+        FinishTurn();
+        _session = SessionStateMachine.MarkSeen(_session!, T0.AddMinutes(10));
+
+        engine.Poll(T0.AddHours(1), [_session!]).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Unseen_reminder_fires_again_for_the_next_finished_turn_and_not_after_restart()
+    {
+        var store = new InMemoryRuleStateStore();
+        var engine = new RuleEngine(UnseenOn, store);
+        FinishTurn();
+        engine.Poll(T0.AddMinutes(31), [_session!]).Should().ContainSingle();
+
+        new RuleEngine(UnseenOn, store).Poll(T0.AddMinutes(40), [_session!]).Should().BeEmpty("persisted per finished turn");
+
+        Event(HookEventKind.UserPromptSubmit, T0.AddMinutes(41));
+        Event(HookEventKind.Stop, T0.AddMinutes(42));
+        engine.Poll(T0.AddMinutes(73), [_session!]).Should().ContainSingle().Which.RuleId.Should().Be(RuleIds.UnseenReminder);
+    }
+
     [Fact]
     public void Muted_project_does_not_fire_until_mute_expires()
     {

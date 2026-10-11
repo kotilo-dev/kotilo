@@ -3,7 +3,7 @@
  * screen. Notifications are dispatched to `notificationHandler`, set by the toast owner.
  */
 import { create } from "zustand";
-import { onHubEvent, onHubStatus } from "../lib/ipc";
+import { hubRequest, onHubEvent, onHubStatus } from "../lib/ipc";
 import type { HealthDto, LimitDto, NotificationDto, SessionDto, StreamMessage, TaskCounts, UsageCurrent } from "../lib/hubTypes";
 
 interface HubState {
@@ -64,6 +64,48 @@ export const useHubStore = create<HubState>((set) => ({
   },
   setConnected: (connected) => set({ connected }),
 }));
+
+/** D-056: the hub route that marks one session's finished work as seen. */
+export function sessionSeenPath(session: Pick<SessionDto, "agent" | "sessionId">): string {
+  return `/v1/sessions/${encodeURIComponent(session.agent)}/${encodeURIComponent(session.sessionId)}/seen`;
+}
+
+const seenInFlight = new Set<string>();
+
+/**
+ * D-056: the user looked at a session's finished work. The flag is cleared locally right away
+ * (the hub publishes the same change on the `sessions` stream); failures are ignored, the hub
+ * keeps the session unseen and the next stream frame shows that again.
+ */
+export async function markSessionSeen(session: Pick<SessionDto, "agent" | "sessionId">): Promise<void> {
+  const key = `${session.agent}:${session.sessionId}`;
+  if (seenInFlight.has(key)) return;
+  seenInFlight.add(key);
+  const { sessions } = useHubStore.getState();
+  if (sessions.some((s) => s.agent === session.agent && s.sessionId === session.sessionId && s.unseen)) {
+    useHubStore.setState({
+      sessions: sessions.map((s) => (s.agent === session.agent && s.sessionId === session.sessionId ? { ...s, unseen: false } : s)),
+    });
+  }
+  try {
+    await hubRequest<unknown>("POST", sessionSeenPath(session));
+  } catch {
+    // Hub unavailable / older hub: nothing else to do.
+  } finally {
+    seenInFlight.delete(key);
+  }
+}
+
+/** D-056: "Mark all as seen" (Mission). */
+export async function markAllSessionsSeen(): Promise<void> {
+  const { sessions } = useHubStore.getState();
+  if (sessions.some((s) => s.unseen)) useHubStore.setState({ sessions: sessions.map((s) => (s.unseen ? { ...s, unseen: false } : s)) });
+  try {
+    await hubRequest<unknown>("POST", "/v1/sessions/seen");
+  } catch {
+    // As above.
+  }
+}
 
 let started = false;
 

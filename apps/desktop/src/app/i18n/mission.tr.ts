@@ -19,4 +19,6 @@ export const missionTr: typeof missionEn = {
   tokens: (count: string) => `${count} token`,
   outsideApp: `${APP_NAME} dışında çalışıyor`,
   open: "Görev kontrolü aç",
+  markAllSeen: "Tümünü görüldü say",
+  markSeen: "Görüldü say",
 };

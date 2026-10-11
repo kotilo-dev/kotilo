@@ -66,9 +66,13 @@ export function useStateLabel(): (state: SessionState) => string {
   };
 }
 
-export function StatusPill({ state, suffix }: { state: SessionState; suffix?: string }) {
-  const label = useStateLabel()(state);
-  const tone = toneForState(state);
+/** `unseen`: an Idle session whose finished work nobody looked at yet shows as Done (D-056). */
+export function StatusPill({ state, suffix, unseen = false }: { state: SessionState; suffix?: string; unseen?: boolean }) {
+  const s = useStrings();
+  const stateLabel = useStateLabel();
+  const done = unseen && state === "Idle";
+  const label = done ? s.status.done : stateLabel(state);
+  const tone = done ? "done" : toneForState(state);
   return (
     <span
       className={`inline-flex h-[26px] shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[13px] px-2.5 text-small font-semibold ${TONE_CLASS[tone]}`}

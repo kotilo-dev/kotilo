@@ -1,3 +1,4 @@
+using Hub.Core.Adapters;
 using Hub.Core.Hooks;
 using Hub.Core.Sessions;
 using Hub.Core.Tray;
@@ -63,6 +64,37 @@ public class SessionTrackerTests
 
         _tracker.Tick(T0.AddMinutes(32));
         _tracker.Snapshot.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void MarkSeen_reports_unknown_sessions_and_changes_only_unseen_ones()
+    {
+        _tracker.Apply(Hook(HookEventKind.UserPromptSubmit, T0));
+        _tracker.Apply(Hook(HookEventKind.Stop, T0.AddMinutes(1)));
+
+        _tracker.MarkSeen(AgentIds.ClaudeCode, "nope", T0.AddMinutes(2)).Known.Should().BeFalse();
+
+        var (known, changed) = _tracker.MarkSeen(AgentIds.ClaudeCode, "s1", T0.AddMinutes(2));
+        known.Should().BeTrue();
+        changed!.SeenAt.Should().Be(T0.AddMinutes(2));
+        _tracker.Snapshot[0].IsUnseen.Should().BeFalse("the snapshot is republished");
+
+        _tracker.MarkSeen(AgentIds.ClaudeCode, "s1", T0.AddMinutes(3)).Should().Be((true, (SessionInfo?)null));
+    }
+
+    [Fact]
+    public void MarkAllSeen_touches_only_unseen_sessions()
+    {
+        _tracker.Apply(Hook(HookEventKind.UserPromptSubmit, T0, sessionId: "done"));
+        _tracker.Apply(Hook(HookEventKind.Stop, T0.AddMinutes(1), sessionId: "done"));
+        _tracker.Apply(Hook(HookEventKind.UserPromptSubmit, T0, sessionId: "busy"));
+        _tracker.Apply(Hook(HookEventKind.UserPromptSubmit, T0, sessionId: "asking"));
+        _tracker.Apply(Hook(HookEventKind.Stop, T0.AddMinutes(1), sessionId: "asking"));
+        _tracker.Apply(Hook(HookEventKind.PermissionRequest, T0.AddMinutes(2), sessionId: "asking", tool: "Bash"));
+
+        _tracker.MarkAllSeen(T0.AddMinutes(3)).Select(s => s.SessionId).Should().Equal("done");
+        _tracker.Snapshot.Should().NotContain(s => s.IsUnseen);
+        _tracker.MarkAllSeen(T0.AddMinutes(4)).Should().BeEmpty();
     }
 
     [Fact]

@@ -7,7 +7,8 @@
 pub fn nerd_font_suggestion() -> Option<String> {
     let installed = os::installed_font_names();
     let families = nerd_families(installed.iter().map(String::as_str));
-    let faces: Vec<String> = os::windows_terminal_settings().iter().flat_map(|text| font_faces(text)).collect();
+    let faces: Vec<String> =
+        super::wt_settings::user_settings_texts().iter().flat_map(|text| font_faces(text)).collect();
     pick(&families, &faces)
 }
 
@@ -107,30 +108,11 @@ mod os {
         }
         names
     }
-
-    /// Windows Terminal's settings files (Store, Preview, unpackaged); read-only.
-    pub fn windows_terminal_settings() -> Vec<String> {
-        let Some(local) = std::env::var_os("LOCALAPPDATA").map(std::path::PathBuf::from) else {
-            return Vec::new();
-        };
-        [
-            local.join("Packages").join("Microsoft.WindowsTerminal_8wekyb3d8bbwe").join("LocalState").join("settings.json"),
-            local.join("Packages").join("Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe").join("LocalState").join("settings.json"),
-            local.join("Microsoft").join("Windows Terminal").join("settings.json"),
-        ]
-        .iter()
-        .filter_map(|p| std::fs::read_to_string(p).ok())
-        .collect()
-    }
 }
 
 #[cfg(not(windows))]
 mod os {
     pub fn installed_font_names() -> Vec<String> {
-        Vec::new()
-    }
-
-    pub fn windows_terminal_settings() -> Vec<String> {
         Vec::new()
     }
 }

@@ -175,6 +175,11 @@ internal static class SettingsEndpoints
             }
         }
 
+        if (r.UnseenReminderAfter < TimeSpan.FromMinutes(1) || r.UnseenReminderAfter > TimeSpan.FromDays(1))
+        {
+            Fail("rules.unseenReminderAfter", "between 00:01:00 and 1.00:00:00");
+        }
+
         var u = s.UsageRules;
         if (u.BlockTokenThresholds is null || u.BlockTokenThresholds.Any(t => t <= 0))
         {

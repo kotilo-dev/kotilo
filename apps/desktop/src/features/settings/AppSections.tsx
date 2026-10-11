@@ -14,44 +14,64 @@ import { useTerminalStore } from "../../stores/terminalStore";
 import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
 import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, Select } from "./controls";
 import { EditableList } from "./EditableList";
+import { TerminalSchemePicker, ThemePicker, WtSchemeImport } from "./ThemeSettings";
 
 export function AppearanceSection() {
   const s = useStrings();
   const theme = useSettingsStore((st) => st.settings.theme);
+  const appearance = useSettingsStore((st) => st.settings.appearance);
   const update = useSettingsStore((st) => st.update);
   const language = useI18nStore((st) => st.preference);
   const setLanguage = useI18nStore((st) => st.setPreference);
 
   return (
-    <div className="flex max-w-md flex-col gap-5">
-      <Field label={s.settings.appearance.theme}>
-        {(ids) => (
-          <Select<ThemeName>
-            {...ids}
-            value={theme}
-            onChange={(v) => update({ theme: v })}
-            options={[
-              { value: "dark", label: s.settings.appearance.themeDark },
-              { value: "light", label: s.settings.appearance.themeLight },
-              { value: "system", label: s.settings.appearance.themeSystem },
-            ]}
-          />
-        )}
-      </Field>
-      <Field label={s.settings.appearance.language}>
-        {(ids) => (
-          <Select<LanguagePreference>
-            {...ids}
-            value={language}
-            onChange={setLanguage}
-            options={[
-              { value: "system", label: s.settings.appearance.languageSystem },
-              { value: "en", label: s.settings.appearance.languageEnglish },
-              { value: "tr", label: s.settings.appearance.languageTurkish },
-            ]}
-          />
-        )}
-      </Field>
+    <div className="flex max-w-3xl flex-col gap-5">
+      <div className="flex max-w-md flex-col gap-5">
+        <Field label={s.settings.appearance.theme} hint={theme === "system" ? s.settings.appearance.themeSystemHint : undefined}>
+          {(ids) => (
+            <Select<ThemeName>
+              {...ids}
+              value={theme}
+              onChange={(v) => update({ theme: v })}
+              options={[
+                { value: "dark", label: s.settings.appearance.themeDark },
+                { value: "light", label: s.settings.appearance.themeLight },
+                { value: "system", label: s.settings.appearance.themeSystem },
+              ]}
+            />
+          )}
+        </Field>
+        <Field label={s.settings.appearance.language}>
+          {(ids) => (
+            <Select<LanguagePreference>
+              {...ids}
+              value={language}
+              onChange={setLanguage}
+              options={[
+                { value: "system", label: s.settings.appearance.languageSystem },
+                { value: "en", label: s.settings.appearance.languageEnglish },
+                { value: "tr", label: s.settings.appearance.languageTurkish },
+              ]}
+            />
+          )}
+        </Field>
+      </div>
+      {theme !== "light" && (
+        <ThemePicker
+          label={s.settings.appearance.darkTheme}
+          kind="dark"
+          value={appearance?.darkTheme ?? ""}
+          onChange={(id) => update({ appearance: { darkTheme: id } })}
+        />
+      )}
+      {theme !== "dark" && (
+        <ThemePicker
+          label={s.settings.appearance.lightTheme}
+          kind="light"
+          value={appearance?.lightTheme ?? ""}
+          onChange={(id) => update({ appearance: { lightTheme: id } })}
+        />
+      )}
     </div>
   );
 }
@@ -106,6 +126,8 @@ export function TerminalSection() {
         label={s.settings.terminal.bundledConpty}
         hint={s.settings.terminal.bundledConptyHint}
       />
+      <TerminalSchemePicker />
+      <WtSchemeImport />
     </div>
   );
 }

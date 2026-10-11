@@ -34,6 +34,8 @@ function session(partial: Partial<SessionDto>): SessionDto {
     tokens: 0,
     costUsd: null,
     contextUsedPercent: null,
+    lastCompletedAt: null,
+    unseen: false,
     turnStartedAt: null,
     endedAt: null,
     activeSubagents: 0,
@@ -98,6 +100,21 @@ describe("resolveMascotState", () => {
     expect(resolve([], { lastCompletedAt: NOW, celebrate: false })).toBe("sleep");
   });
 
+  it("keeps a calm done while unseen finished work exists, below every busier state (D-056)", () => {
+    const unseen = mergeEntries([], [session({ sessionId: "u", state: "Idle", unseen: true })])[0]!;
+    expect(unseen.unseen).toBe(true);
+    expect(resolve([unseen])).toBe("done");
+    // Not gated by celebrate (that only switches the hop and sparkle off).
+    expect(resolve([unseen], { celebrate: false })).toBe("done");
+    expect(resolve([unseen, entry("w", "Working")])).toBe("work");
+    expect(resolve([unseen, entry("w", "Working")], { burn: true })).toBe("sweat");
+    expect(resolve([unseen, entry("i", "WaitingInput")])).toBe("input");
+    expect(resolve([unseen, entry("p", "WaitingPermission")])).toBe("perm");
+    expect(resolve([unseen, entry("e", "Error")])).toBe("error");
+    expect(resolve([unseen], { doNotDisturb: true })).toBe("sleep");
+    expect(resolve([entry("seen", "Idle")])).toBe("sleep");
+  });
+
   it("always sleeps in do not disturb", () => {
     expect(resolve([entry("p", "WaitingPermission")], { doNotDisturb: true })).toBe("sleep");
   });
@@ -123,6 +140,20 @@ describe("speedFactor and click targets", () => {
     expect(clickTarget("error", entries)).toEqual({ kind: "none" });
     expect(clickTarget("sweat", entries)).toEqual({ kind: "usage" });
     expect(clickTarget("work", entries)).toEqual({ kind: "none" });
+    expect(clickTarget("done", entries)).toEqual({ kind: "none" });
+  });
+
+  it("opens the oldest unseen finished work on a done click", () => {
+    const at = (min: number) => new Date(NOW - min * 60_000).toISOString();
+    const entries = mergeEntries(
+      [],
+      [
+        session({ sessionId: "seen", state: "Idle", stateSince: at(30) }),
+        session({ sessionId: "new", state: "Idle", unseen: true, stateSince: at(2) }),
+        session({ sessionId: "old", state: "Idle", unseen: true, stateSince: at(9) }),
+      ],
+    );
+    expect(clickTarget("done", entries)).toEqual({ kind: "entry", entry: entries[2] });
   });
 });
 
@@ -130,6 +161,14 @@ describe("mergeEntries", () => {
   it("maps own agents: blocked is a permission wait, done counts as idle", () => {
     const entries = mergeEntries([agent({ paneId: "p1", state: "blocked" }), agent({ paneId: "p2", state: "working" }), agent({ paneId: "p3", state: "done" })], []);
     expect(entries.map((e) => `${e.key}:${e.state}`)).toEqual(["p1:permission", "p2:working", "p3:idle"]);
+    expect(entries.map((e) => e.unseen)).toEqual([false, false, true]);
+  });
+
+  it("marks unseen from either source, only while idle", () => {
+    const hubUnseen = session({ sessionId: "s1", paneId: "p1", state: "Idle", unseen: true });
+    const working = session({ sessionId: "s2", paneId: "p2", state: "Working", unseen: true });
+    const entries = mergeEntries([agent({ paneId: "p1" }), agent({ paneId: "p2", state: "done" })], [hubUnseen, working]);
+    expect(entries.map((e) => `${e.key}:${e.state}:${e.unseen}`)).toEqual(["p1:idle:true", "p2:working:false"]);
   });
 
   it("counts a hub session in one of our panes once and prefers the hub's more specific state", () => {

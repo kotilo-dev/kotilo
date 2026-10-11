@@ -336,6 +336,35 @@ Add "    Microsoft.Windows.Console.ConPTY $conptyVersion from https://github.com
 Add
 Add ((Normalize (Get-Content (Join-Path $licensesDir 'MIT.txt') -Raw)) -replace "Copyright \(c\) the package authors \(see the package's copyright notice\)", 'Copyright (c) Microsoft Corporation. All rights reserved.')
 
+
+# Colour themes (D-057): colour values copied into apps/desktop/src/app/theme/catalogue.ts (listed by hand).
+Add-Rule 'COLOUR THEMES (D-057)'
+Add 'Colour values (no code) of these themes are copied into apps/desktop/src/app/theme/catalogue.ts.'
+Add 'MIT License and Apache License 2.0 texts: see above (the copyright lines below apply).'
+Add
+Add '  Catppuccin (Mocha, Macchiato, Frappé, Latte) – https://github.com/catppuccin/palette,'
+Add '    https://github.com/catppuccin/windows-terminal – MIT License, Copyright (c) 2021 Catppuccin'
+Add '  Tokyo Night (Night, Storm, Moon, Day) – https://github.com/folke/tokyonight.nvim (extras/windows_terminal)'
+Add '    – Apache License 2.0, Copyright (c) Folke Lemaitre'
+Add '  Rosé Pine (Main, Moon, Dawn) – https://github.com/rose-pine/palette, https://github.com/rose-pine/windows-terminal'
+Add '    – MIT License, Copyright (c) mvllow; Copyright (c) Rosé Pine'
+Add '  Dracula – https://github.com/dracula/windows-terminal – MIT License, Copyright (c) 2019 thismat'
+Add '  Nord – https://github.com/nordtheme/nord, https://github.com/nordtheme/xfce-terminal – MIT License,'
+Add '    Copyright (c) 2016-present Sven Greb <development@svengreb.de> (https://www.svengreb.de)'
+Add '  One Dark – https://github.com/joshdick/onedark.vim (term/) – MIT License, Copyright (c) 2015 Joshua Dick'
+Add '  One Light – https://github.com/atom/atom (packages/one-light-syntax) – MIT License, Copyright (c) 2011-2022 GitHub Inc.;'
+Add '    terminal colours: One Half Light, https://github.com/sonph/onehalf – MIT License, Copyright (c) 2019 Son A. Pham <sp@sonpham.me>'
+Add '  Gruvbox (Dark, Light) – https://github.com/morhetz/gruvbox, https://github.com/morhetz/gruvbox-contrib'
+Add '    (xfce4-terminal) – MIT/X11 License, Copyright (c) Pavel Pertsev (morhetz)'
+Add '  Solarized (Dark, Light) – https://github.com/altercation/solarized – MIT License, Copyright (c) 2011 Ethan Schoonover;'
+Add '    terminal mapping as in Windows Terminal''s built-in schemes (below)'
+Add '  GitHub (Dark, Light) – https://github.com/primer/github-vscode-theme – MIT License, Copyright (c) 2020 Primer;'
+Add '    https://github.com/primer/primitives 7.10.0 – MIT License, Copyright (c) 2018 GitHub Inc.'
+Add '  Kanagawa (Wave, Dragon, Lotus) – https://github.com/rebelot/kanagawa.nvim – MIT License, Copyright (c) 2021 Tommaso Laurenzi'
+Add '  Everforest (Dark, Light; medium) – https://github.com/sainnhe/everforest – MIT License, Copyright (c) 2019 sainnhe'
+Add '  Campbell, Solarized and One Half terminal schemes – https://github.com/microsoft/terminal'
+Add '    (src/cascadia/TerminalSettingsModel/defaults.json) – MIT License, Copyright (c) Microsoft Corporation. All rights reserved.'
+
 $text = $sb.ToString() -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($Output, $text, [System.Text.UTF8Encoding]::new($false))
 

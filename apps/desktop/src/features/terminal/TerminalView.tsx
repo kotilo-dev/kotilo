@@ -30,7 +30,7 @@ import { useViewerStore } from "../../stores/viewerStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
-import { effectiveTerminalFont, getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
+import { currentTerminalColors, effectiveTerminalFont, getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
 import { routeKey } from "./keyRouting";
 import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
@@ -320,7 +320,11 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     function apply(s: ReturnType<typeof useSettingsStore.getState>["settings"]) {
       term.options.fontFamily = effectiveTerminalFont(s.terminal.fontFamily);
       term.options.fontSize = s.terminal.fontSize;
-      term.options.theme = xtermThemeFor(useResolvedTheme.getState().theme);
+      const colors = currentTerminalColors();
+      term.options.theme = xtermThemeFor(colors);
+      // D-057: the host (and its box) show the terminal background, not `--bg`, around the cells.
+      entry.host.style.background = colors.background;
+      if (containerRef.current) containerRef.current.style.background = colors.background;
       if (entry.opened) {
         entry.fit?.fit();
         if (tab.paneId) void ptyResize(tab.paneId, term.cols, term.rows);
@@ -332,13 +336,15 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       const prev = prevState.settings;
       if (
         s.terminal.fontFamily !== prev.terminal.fontFamily ||
-        s.terminal.fontSize !== prev.terminal.fontSize
+        s.terminal.fontSize !== prev.terminal.fontSize ||
+        s.terminal.colorScheme !== prev.terminal.colorScheme ||
+        s.terminal.importedSchemes !== prev.terminal.importedSchemes
       ) {
         apply(s);
       }
     });
     const unsubscribeTheme = useResolvedTheme.subscribe((state, prev) => {
-      if (state.theme !== prev.theme) apply(useSettingsStore.getState().settings);
+      if (state.theme !== prev.theme || state.id !== prev.id) apply(useSettingsStore.getState().settings);
     });
     return () => {
       unsubscribe();

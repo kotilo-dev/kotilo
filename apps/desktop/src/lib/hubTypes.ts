@@ -82,6 +82,10 @@ export interface SessionDto {
   error: { kind: SessionErrorKind; resetsAt: IsoDateTime | null } | null;
   tasks: { completed: number; inProgress: number; total: number } | null;
   pendingPermission: PendingPermission | null;
+  /** D-056: end of the latest finished turn (null before the first one). */
+  lastCompletedAt: IsoDateTime | null;
+  /** D-056: a finished turn the user hasn't looked at yet (seen state is stored in the hub). */
+  unseen: boolean;
 }
 
 export interface TransitionDto {
@@ -469,6 +473,9 @@ export interface RuleOptions {
   errorDebounce: TimeSpanString;
   minTurnForCompleted: TimeSpanString;
   reminderAfter: TimeSpanString;
+  /** D-056: one reminder per finished turn left unseen this long (rule `session.unseen_reminder`). */
+  unseenReminderEnabled: boolean;
+  unseenReminderAfter: TimeSpanString;
   debounce: TimeSpanString;
   settle: TimeSpanString;
 }

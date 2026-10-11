@@ -31,12 +31,12 @@ public sealed class SessionRepositoryTests : IDisposable
     [Fact]
     public void Migrate_creates_all_tables_and_is_repeatable()
     {
-        _db.Migrate().Should().Be(10);
+        _db.Migrate().Should().Be(11);
 
         using var c = _db.Open();
         var tables = c.Query<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
         tables.Should().Contain(["sessions", "session_transitions", "usage_entries", "transcript_offsets", "projects", "notification_log", "schema_version", "personal_tasks", "dictations"]);
-        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(10);
+        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(11);
     }
 
     [Fact]
@@ -53,6 +53,43 @@ public sealed class SessionRepositoryTests : IDisposable
         loaded.ParentPid.Should().Be(42);
         loaded.TurnStartedAt.Should().Be(T0.AddSeconds(-5));
         loaded.Model.Should().Be("claude-opus-5-5");
+    }
+
+    [Fact]
+    public void Seen_and_completed_times_round_trip()
+    {
+        _repo.Upsert(Session("a", SessionState.Idle, T0) with { LastCompletedAt = T0.AddMinutes(-1) });
+        _repo.LoadRecent(T0, TimeSpan.FromMinutes(30)).Should().ContainSingle().Which.IsUnseen.Should().BeTrue();
+
+        _repo.Upsert(Session("a", SessionState.Idle, T0) with { LastCompletedAt = T0.AddMinutes(-1), SeenAt = T0 });
+
+        var loaded = _repo.LoadHistory(T0.AddDays(-1), 10).Should().ContainSingle().Subject;
+        loaded.LastCompletedAt.Should().Be(T0.AddMinutes(-1));
+        loaded.SeenAt.Should().Be(T0);
+        loaded.IsUnseen.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Migration_011_counts_existing_finished_work_as_seen()
+    {
+        using (var c = _db.Open())
+        {
+            // Back to schema 10: no seen_at column yet, one finished session.
+            c.Execute("DELETE FROM schema_version WHERE version = 11");
+            c.Execute("ALTER TABLE sessions DROP COLUMN seen_at");
+            c.Execute(
+                """
+                INSERT INTO sessions (session_id, agent, project_root, state, state_since, last_event_at, last_completed_at)
+                VALUES ('old', 'claude-code', 'C:\src\alpha', 'Idle', @at, @at, @at)
+                """,
+                new { at = T0.ToUnixTimeMilliseconds() });
+        }
+
+        _db.Migrate().Should().Be(11);
+
+        var loaded = _repo.LoadRecent(T0, TimeSpan.FromMinutes(30)).Should().ContainSingle().Subject;
+        loaded.SeenAt.Should().Be(T0);
+        loaded.IsUnseen.Should().BeFalse();
     }
 
     [Fact]

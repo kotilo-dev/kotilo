@@ -23,6 +23,8 @@ internal static class UsageEndpoints
 {
     public const int MaxDays = 90;
 
+    private static readonly TimeSpan SeenTimeout = TimeSpan.FromSeconds(5);
+
     public static void Map(IEndpointRouteBuilder app, AppHost host)
     {
         app.MapGet("/v1/sessions/{agent}/{id}/transitions", (string agent, string id) =>
@@ -49,6 +51,18 @@ internal static class UsageEndpoints
             }
 
             return ApiJson.Ok(ActivityDto.From(activity));
+        });
+
+        // The user looked at a session's finished work (0.3). The change reaches clients through the `sessions` stream.
+        app.MapPost("/v1/sessions/{agent}/{id}/seen", async (string agent, string id) =>
+            await host.Pipeline.MarkSeenAsync(agent, id).WaitAsync(SeenTimeout)
+                ? Results.NoContent()
+                : ApiJson.NotFound($"No session {agent}/{id}."));
+
+        app.MapPost("/v1/sessions/seen", async () =>
+        {
+            await host.Pipeline.MarkAllSeenAsync().WaitAsync(SeenTimeout);
+            return Results.NoContent();
         });
 
         app.MapGet("/v1/usage/daily", (int? days) =>
@@ -127,14 +141,17 @@ internal static class UsageEndpoints
     public static IReadOnlyList<SessionDto> Sessions(AppHost host, bool includeEnded)
     {
         var live = host.Tracker.Snapshot;
-        IEnumerable<SessionInfo> all = live;
+        var dtos = live.Select(SessionDto.From).ToList();
         if (includeEnded)
         {
-            var seen = live.Select(s => (s.Agent, s.SessionId)).ToHashSet();
-            all = live.Concat(host.Repository.LoadHistory(DateTimeOffset.UtcNow.AddDays(-7), 200).Where(s => !seen.Contains((s.Agent, s.SessionId))));
+            // Unseen work belongs to the live view: the tracker forgets an ended session after 30 minutes, and so does "unseen".
+            var known = live.Select(s => (s.Agent, s.SessionId)).ToHashSet();
+            dtos.AddRange(host.Repository.LoadHistory(DateTimeOffset.UtcNow.AddDays(-7), 200)
+                .Where(s => !known.Contains((s.Agent, s.SessionId)))
+                .Select(s => SessionDto.From(s) with { Unseen = false }));
         }
 
-        return all.Select(SessionDto.From).ToList();
+        return dtos;
     }
 
     public static IReadOnlyList<LimitDto> Limits(AppHost host) =>

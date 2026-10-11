@@ -70,6 +70,13 @@ async function deliver(title: string, body: string): Promise<void> {
   }
 }
 
+/** D-056: the one "while you were away" toast (callers check the away setting and DND). */
+export async function notifyAwaySummary(counts: { finished: number; waiting: number }): Promise<void> {
+  if (!useSettingsStore.getState().settings.agents.notifications) return;
+  if (counts.finished + counts.waiting === 0) return;
+  await deliver(strings.appName, strings.agents.notification.away(counts.finished, counts.waiting));
+}
+
 function stateLabel(state: SessionState): string | null {
   switch (state) {
     case "WaitingPermission":

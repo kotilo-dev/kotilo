@@ -28,6 +28,16 @@ public sealed record SessionInfo(
 
     public DateTimeOffset? LastCompletedAt { get; init; }
 
+    /// <summary>When the user last looked at the session's finished work (opened it, marked it seen, or sent a new prompt).</summary>
+    public DateTimeOffset? SeenAt { get; init; }
+
+    /// <summary>A turn finished after the user last looked, and the session is not working or waiting.</summary>
+    public bool IsUnseen =>
+        (State is SessionState.Idle or SessionState.Ended or SessionState.Stale) && HasUnseenCompletion;
+
+    /// <summary>A turn finished after <see cref="SeenAt"/>, whatever the current state.</summary>
+    public bool HasUnseenCompletion => LastCompletedAt is { } done && done > (SeenAt ?? DateTimeOffset.MinValue);
+
     public DateTimeOffset? EndedAt { get; init; }
 
     public string? EndReason { get; init; }
