@@ -42,6 +42,7 @@ Settings (shared types already added in `ipc.ts`/`settingsStore.ts`): `theme` = 
 - [x] Unit tests (catalogue, derivation, contrast, resolution, import mapping); e2e screenshots of Appearance and a few themes (Catppuccin Mocha, Latte, Gruvbox Dark)
 
 ## Integration
+- [x] Released 0.3.0 (ec7bc3b, run 38168645519, published 2026-10-11 19:52Z); README + site screenshots updated; manual test run collected in `tasks/manual-test-run.md`
 - [x] All checks (UI 916, Rust desktop 613 + clippy, hub 709 + 224 + 78, e2e 70); D-056 (unseen work + badge + away summary), D-057 (terminal colour schemes); user guide EN/TR; manual tests U-1… (badge, away summary, WT import) for the user
 
 ---
