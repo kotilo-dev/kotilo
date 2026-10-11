@@ -1,0 +1,22 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <!-- Product identity from the repo's brand.json (single source, M5); Hub.Core embeds the whole file (Brand.Current). -->
+  <PropertyGroup>
+    <BrandJsonPath>$(MSBuildThisFileDirectory)..\brand.json</BrandJsonPath>
+    <BrandJson>$([System.IO.File]::ReadAllText($(BrandJsonPath)))</BrandJson>
+    <BrandName>$([System.Text.RegularExpressions.Regex]::Replace($(BrandJson), '(?s)^.*?"name"\s*:\s*"([^"]*)".*$', '$1'))</BrandName>
+    <BrandPublisher>$([System.Text.RegularExpressions.Regex]::Replace($(BrandJson), '(?s)^.*?"publisher"\s*:\s*"([^"]*)".*$', '$1'))</BrandPublisher>
+    <BrandExePrefix>$([System.Text.RegularExpressions.Regex]::Replace($(BrandJson), '(?s)^.*?"exePrefix"\s*:\s*"([^"]*)".*$', '$1'))</BrandExePrefix>
+    <Company>$(BrandPublisher)</Company>
+    <Product>$(BrandName)</Product>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window (Faz 1 risk spike adds: PTY + hook-pipe events; Faz 2 adds: folder-picker dialog for workspace_add; Faz 5 adds: OS notifications + taskbar attention for agent state changes; M2 adds: save dialog for report export)",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-destroy",
+    "core:window:allow-request-user-attention",
+    "window-state:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "notification:default",
+    "log:default"
+  ]
+}

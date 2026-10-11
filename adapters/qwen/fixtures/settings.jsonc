@@ -1,0 +1,9 @@
+{
+  // Qwen reads settings.json as JSONC (strip-json-comments after a BOM strip).
+  "model": { "name": "qwen3-coder-plus" },
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "C:\\tools\\notify.exe", "name": "notify", "timeout": 10 } ] },
+    ],
+  },
+}

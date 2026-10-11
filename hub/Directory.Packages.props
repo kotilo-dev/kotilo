@@ -1,0 +1,23 @@
+<Project>
+  <ItemGroup>
+    <!-- Data / logging -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Serilog" Version="4.4.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
+    <!-- Cost report export, MIT. -->
+    <PackageVersion Include="ClosedXML" Version="0.105.1" />
+    <!-- Dictation: whisper.cpp bindings + native runtimes (CPU: win-x64/arm64; Vulkan: x64 only), MIT. -->
+    <PackageVersion Include="Whisper.net" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />
+    <!-- Tests -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <!-- 7.x is the last Apache-2.0 line; 8.x requires a commercial license. -->
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+  </ItemGroup>
+</Project>

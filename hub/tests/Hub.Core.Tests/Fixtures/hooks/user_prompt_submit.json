@@ -1,0 +1,12 @@
+{
+  "receivedAt": "2026-09-30T18:11:00Z",
+  "hookPid": 1100,
+  "parentPid": 900,
+  "payload": {
+    "session_id": "abc123",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\C--src-alpha\\abc123.jsonl",
+    "cwd": "C:\\src\\alpha",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "secret prompt text"
+  }
+}

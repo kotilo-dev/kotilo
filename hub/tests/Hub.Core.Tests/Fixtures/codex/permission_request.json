@@ -1,0 +1,6 @@
+{"v":1,"agent":"codex","event":"PermissionRequest","tsMs":1791110400000,"receivedAt":"2026-10-04T09:20:00.000Z",
+ "paneId":"pane-1","workspaceId":"ws-1","hookPid":4321,"parentPid":4300,
+ "processChain":[{"pid":4300,"name":"cmd.exe"},{"pid":4200,"name":"codex.exe"},{"pid":4100,"name":"node.exe"}],
+ "payload":{"session_id":"0199a1b2-0000-7000-8000-000000000001","transcript_path":"C:\\Users\\u\\.codex\\sessions\\2026\\10\\04\\rollout-2026-10-04T09-12-03-0199a1b2-0000-7000-8000-000000000001.jsonl",
+  "cwd":"C:\\src\\beta","hook_event_name":"PermissionRequest","model":"gpt-test-codex","permission_mode":"default","turn_id":"7",
+  "tool_name":"Bash","tool_input":{"command":"npm test"}}}

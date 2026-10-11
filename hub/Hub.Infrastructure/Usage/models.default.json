@@ -1,0 +1,6 @@
+{
+  "comment": "Context window size (tokens) per model id prefix; the longest matching prefix wins. Used only when the statusLine gives no context reading (spec 18.4). Sessions above this size are treated as 1M extended context.",
+  "models": {
+    "claude-": 200000
+  }
+}

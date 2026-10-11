@@ -1,0 +1,11 @@
+{
+  "sessionId": "5d1e7a20-0000-4000-8000-00000000aa01",
+  "projectHash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "startTime": "2025-06-01T10:00:00.000Z",
+  "lastUpdated": "2025-06-01T10:05:00.000Z",
+  "messages": [
+    { "id": "u1", "timestamp": "2025-06-01T10:00:05.000Z", "type": "user", "content": "SECRET old prompt" },
+    { "id": "g1", "timestamp": "2025-06-01T10:00:09.000Z", "type": "gemini", "content": "SECRET old reply", "model": "gemini-2.5-flash",
+      "tokens": { "input": 5000, "output": 200, "cached": 0, "thoughts": 50, "tool": 0, "total": 5250 } }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schema/agent-protocol.v1.json",
+  "title": "agent-hub Agent Integration Protocol v1",
+  "description": "What a user-defined agent (adapter.json without a code adapter) sends to the hub: the hook envelope v1 (schema/hook-envelope.v1.json) with a protocol event name and a camelCase payload. Sent through `agenthub-hook --agent <id> --event <event> [--session <id>] [--json <payload>]` or `POST /v1/events`. Unknown fields are ignored; unknown events are accepted and change nothing. See docs/agent-protocol.md.",
+  "type": "object",
+  "required": ["v", "agent", "event"],
+  "properties": {
+    "v": { "const": 1, "description": "Envelope version. Any other value is rejected." },
+    "agent": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "The adapter id (adapter.json `id`)." },
+    "event": {
+      "enum": ["session-start", "working", "waiting-permission", "waiting-input", "done", "error", "session-end", "usage"]
+    },
+    "receivedAt": { "type": "string", "format": "date-time", "description": "Event time; the sidecar sets it. Default: when the hub read the event." },
+    "tsMs": { "type": "integer", "minimum": 0, "description": "Event time as Unix ms, used when receivedAt is absent." },
+    "paneId": { "type": "string", "description": "AGENTHUB_PANE_ID of the agent-hub terminal; the sidecar adds it." },
+    "workspaceId": { "type": "string" },
+    "payload": { "type": ["object", "null"], "description": "Event fields (below). Missing or null reads as {}." }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "session-start" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/sessionStart" } } } },
+    { "if": { "properties": { "event": { "const": "working" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/working" } } } },
+    { "if": { "properties": { "event": { "const": "waiting-permission" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/waitingPermission" } } } },
+    { "if": { "properties": { "event": { "const": "waiting-input" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/waitingInput" } } } },
+    { "if": { "properties": { "event": { "const": "error" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/error" } } } },
+    { "if": { "properties": { "event": { "const": "session-end" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/sessionEnd" } } } },
+    { "if": { "properties": { "event": { "const": "usage" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/usage" } } } }
+  ],
+  "$defs": {
+    "common": {
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "minLength": 1, "description": "The agent's session id (`--session` sets it). Missing: `pane:<paneId>`; missing outside a pane: the event is rejected." },
+        "cwd": { "type": "string", "description": "Working folder; the session's project is its git root." },
+        "model": { "type": "string" }
+      }
+    },
+    "sessionStart": { "$ref": "#/$defs/common" },
+    "working": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "properties": { "tool": { "type": "string", "description": "Tool running now (shown on the session card)." } }
+    },
+    "waitingPermission": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "properties": {
+        "tool": { "type": "string" },
+        "command": { "type": "string", "description": "Shell command waiting for approval; kept in memory only, never stored or logged." },
+        "path": { "type": "string", "description": "File the tool wants to change; in memory only." },
+        "risk": {
+          "enum": ["deletesFiles", "writesDatabase", "network", "installsPackages", "gitPush", "other"],
+          "description": "The agent's own risk label. Any other value is ignored and the hub classifies `command` itself."
+        }
+      }
+    },
+    "waitingInput": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "properties": {
+        "question": { "type": "string", "description": "Never reaches the hub: agenthub-hook replaces it with question_length." },
+        "question_length": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "error": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "properties": {
+        "kind": { "enum": ["usageLimit", "rateLimit", "overloaded", "auth", "api"], "description": "Anything else counts as `api`." },
+        "message": { "type": "string", "description": "Short error text (clipped to 500 chars); read for a usage limit's reset time, not stored." }
+      }
+    },
+    "sessionEnd": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "properties": { "reason": { "type": "string" } }
+    },
+    "usage": {
+      "allOf": [{ "$ref": "#/$defs/common" }],
+      "required": ["inputTokens", "outputTokens"],
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0, "description": "Input tokens of one model call, without the cached ones." },
+        "outputTokens": { "type": "integer", "minimum": 0, "description": "Output tokens, reasoning included." },
+        "cachedTokens": { "type": "integer", "minimum": 0, "description": "Input tokens read from the provider's cache." },
+        "costUsd": { "type": "number", "minimum": 0, "description": "The agent's own cost for the call. Absent: priced from pricing.json (or no cost)." }
+      }
+    }
+  }
+}

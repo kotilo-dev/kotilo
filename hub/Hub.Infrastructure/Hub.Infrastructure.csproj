@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hub.Core\Hub.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\*.sql" />
+    <EmbeddedResource Include="Usage\pricing.default.json" LogicalName="Hub.Infrastructure.Usage.pricing.default.json" />
+    <EmbeddedResource Include="Usage\models.default.json" LogicalName="Hub.Infrastructure.Usage.models.default.json" />
+    <EmbeddedResource Include="..\..\schema\adapter.v1.json" Link="Adapters\adapter.v1.json" LogicalName="Hub.Infrastructure.Adapters.adapter.v1.json" />
+    <EmbeddedResource Include="..\..\adapters\opencode\plugin.js" Link="OpenCode\plugin.js" LogicalName="Hub.Infrastructure.OpenCode.plugin.js" />
+    <InternalsVisibleTo Include="Hub.Infrastructure.Tests" />
+  </ItemGroup>
+</Project>

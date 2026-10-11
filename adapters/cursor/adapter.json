@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "cursor",
+  "displayName": "Cursor CLI",
+  "avatar": { "letter": "U", "bg": "#21252b", "ink": "#d3dae3" },
+  "detect": { "executables": ["cursor-agent.exe", "cursor-agent"], "nodeScripts": ["/cursor-agent/"] },
+  "launch": { "command": "cursor-agent", "args": [] },
+  "gracefulClose": [{ "keys": "Ctrl+D", "repeat": 2, "gapMs": 200, "waitMs": 3000 }],
+  "permissionKeys": { "allowOnce": "y", "deny": "n" },
+  "hooks": {
+    "shell": "any",
+    "events": ["sessionStart", "sessionEnd", "postToolUse", "afterShellExecution", "afterFileEdit", "stop"]
+  },
+  "usage": "none",
+  "screenRules": [
+    {
+      "id": "permission",
+      "state": "waitingPermission",
+      "pattern": "\\(y\\)[\\s\\S]*\\((?:esc or )?n\\)|\\(y/n\\)",
+      "lines": 10
+    }
+  ]
+}

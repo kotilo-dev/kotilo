@@ -1,0 +1,13 @@
+{
+  "receivedAt": "2026-09-30T18:13:00Z",
+  "hookPid": 1300,
+  "parentPid": 900,
+  "payload": {
+    "session_id": "abc123",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\C--src-alpha\\abc123.jsonl",
+    "cwd": "C:\\src\\alpha",
+    "hook_event_name": "Notification",
+    "notification_type": "permission_prompt",
+    "message": "Claude needs your permission to use Bash"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "opencode",
+  "displayName": "OpenCode",
+  "avatar": { "letter": "O", "bg": "#26231e", "ink": "#f0d9a8" },
+  "detect": { "executables": ["opencode.exe", "opencode"] },
+  "launch": { "command": "opencode", "args": [] },
+  "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 2, "gapMs": 400, "waitMs": 3000 }],
+  "permissionKeys": { "allowOnce": "Enter", "deny": "Esc" },
+  "usage": "builtIn"
+}

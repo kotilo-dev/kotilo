@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schema/hook-envelope.v1.json",
+  "title": "agent-hub hook envelope v1",
+  "description": "What agenthub-hook POSTs to the hub's /v1/events and writes to the spool. The hub ignores unknown fields; a missing `agent` means `claude-code`, a missing `event` means `payload.hook_event_name`.",
+  "type": "object",
+  "required": ["v", "agent", "tsMs", "receivedAt", "hookPid", "processChain", "payload"],
+  "properties": {
+    "v": { "type": "integer", "const": 1 },
+    "agent": { "type": "string", "description": "Adapter id from --agent, e.g. claude-code, codex.", "minLength": 1 },
+    "event": { "type": "string", "description": "Hook event name from --event (agent-native, e.g. Stop)." },
+    "tsMs": { "type": "integer", "minimum": 0, "description": "Wall clock when the hook started, Unix epoch ms." },
+    "receivedAt": { "type": "string", "format": "date-time", "description": "Same instant as tsMs, ISO 8601 UTC with milliseconds." },
+    "paneId": { "type": "string", "description": "AGENTHUB_PANE_ID; absent outside agent-hub terminals." },
+    "workspaceId": { "type": "string", "description": "AGENTHUB_WORKSPACE_ID; absent outside agent-hub terminals." },
+    "hookPid": { "type": "integer", "minimum": 0 },
+    "parentPid": { "type": "integer", "minimum": 0, "description": "First entry of processChain; absent when the chain is empty." },
+    "processChain": {
+      "type": "array",
+      "description": "The hook's ancestors, nearest first, at most 8.",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["pid", "name"],
+        "properties": {
+          "pid": { "type": "integer", "minimum": 0 },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "payload": { "type": ["object", "null"], "description": "The agent's hook stdin JSON (or `--json`) with content fields removed by the sidecar (prompt, question, assistant text; D-013); `{}` when empty or not an object. The hub reads a missing or null payload as `{}` and rejects any other non-object." }
+  }
+}

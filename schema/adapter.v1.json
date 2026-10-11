@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schema/adapter.v1.json",
+  "title": "agent-hub adapter definition v1",
+  "description": "Data half of an agent adapter (ARCHITECTURE §3): how to detect, launch, close and present an agent. Read by the desktop app and the hub. Fields that could not be verified for an agent are omitted, never guessed.",
+  "type": "object",
+  "required": ["v", "id", "displayName", "avatar", "detect", "launch"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "v": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "avatar": {
+      "type": "object",
+      "required": ["letter", "bg", "ink"],
+      "properties": {
+        "letter": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "bg": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "ink": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      },
+      "additionalProperties": false
+    },
+    "detect": {
+      "type": "object",
+      "properties": {
+        "executables": { "type": "array", "items": { "type": "string" } },
+        "nodeScripts": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "launch": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "args": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "gracefulClose": {
+      "description": "Key sequence that lets the agent exit cleanly before its process tree is killed.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["keys"],
+        "properties": {
+          "keys": { "type": "string" },
+          "repeat": { "type": "integer", "minimum": 1 },
+          "gapMs": { "type": "integer", "minimum": 0 },
+          "waitMs": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "permissionKeys": {
+      "description": "Keys the agent's own permission prompt accepts; the permission card sends these.",
+      "type": "object",
+      "properties": {
+        "allowOnce": { "type": "string" },
+        "alwaysAllow": { "type": "string" },
+        "deny": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "hooks": {
+      "description": "How the agent runs hook commands and which events agent-hub registers. Informational: for a built-in adapter the hub's installer is the source of truth. Absent for agents that report only through the Agent Integration Protocol.",
+      "type": "object",
+      "required": ["shell", "events"],
+      "properties": {
+        "shell": {
+          "description": "Command form the agent's Windows hook runner needs: cmd (quoted exe path), cmdUnquoted (no quotes; 8.3 path when the path has spaces), powershell (& '<exe>' …), any (shell-neutral: unquoted forward-slash path).",
+          "enum": ["cmd", "cmdUnquoted", "powershell", "any"]
+        },
+        "events": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "usage": {
+      "description": "Where token usage comes from: none (no data), builtIn (a hub reader for the agent's own files), protocol (Agent Integration Protocol `usage` events). Default: none for user adapters.",
+      "enum": ["none", "builtIn", "protocol"]
+    },
+    "screenRules": {
+      "description": "Prompt detection for states the agent has no hook for. A rule's regex is matched against the last `lines` visible lines of the pane's terminal screen, joined with \\n. Patterns must stay in the common regex subset (no lookaround, no backreferences).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "state", "pattern"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "state": { "enum": ["waitingPermission", "waitingInput", "working", "done"] },
+          "pattern": { "type": "string", "minLength": 1 },
+          "lines": { "description": "Visible lines, counted from the bottom, the pattern sees. Default 6.", "type": "integer", "minimum": 1, "maximum": 50 },
+          "clearOn": { "description": "What ends the matched state: new output or user input. Absent: the state lasts while the rule matches.", "enum": ["output", "input"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

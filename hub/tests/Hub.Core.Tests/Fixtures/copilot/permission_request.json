@@ -1,0 +1,5 @@
+{"v":1,"agent":"copilot","event":"permissionRequest","tsMs":1791282000000,"receivedAt":"2026-10-06T09:00:00.000Z",
+ "paneId":"pane-3","workspaceId":"ws-1","hookPid":5321,"parentPid":5300,
+ "processChain":[{"pid":5300,"name":"pwsh.exe"},{"pid":5200,"name":"copilot.exe"},{"pid":5100,"name":"pwsh.exe"}],
+ "payload":{"sessionId":"6f1c2d3e-0000-4000-8000-00000000c001","timestamp":1791282000000,"cwd":"C:\\src\\gamma",
+  "toolName":"powershell","toolInput":{"command":"Remove-Item -Recurse .\\dist","description":"clean build output"}}}

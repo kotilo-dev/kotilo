@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "qwen",
+  "displayName": "Qwen Code",
+  "avatar": { "letter": "Q", "bg": "#262236", "ink": "#b39cf5" },
+  "detect": { "executables": ["qwen.cmd", "qwen"], "nodeScripts": ["@qwen-code/qwen-code"] },
+  "launch": { "command": "qwen", "args": [] },
+  "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 3, "gapMs": 400, "waitMs": 3000 }],
+  "permissionKeys": { "allowOnce": "1", "alwaysAllow": "2", "deny": "Esc" },
+  "hooks": {
+    "shell": "cmdUnquoted",
+    "events": [
+      "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
+      "Notification", "Stop", "StopFailure"
+    ]
+  },
+  "usage": "builtIn"
+}

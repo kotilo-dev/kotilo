@@ -1,0 +1,115 @@
+[package]
+name = "agenthub"
+version = "0.1.0"
+description = "agent-hub — Windows workspace & AI agent desktop app"
+authors = ["agent-hub"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "agenthub_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+serde_json = "1"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+# Faz 5 §4 item 10: `preserve_order` so hook install/uninstall (`hooks/mod.rs`) can
+# read-modify-write `~/.claude/settings.json` without reshuffling unrelated top-level
+# keys. Workspace-wide via Cargo's feature unification — see root Cargo.toml.
+serde_json = { version = "1", features = ["preserve_order"] }
+agenthub-proto = { path = "../../../crates/proto" }
+regex = "1"
+# M3: screen-rule engine — a per-pane terminal screen for agents whose adapter.json has
+# `screenRules` (D-002 follow-up).
+vt100 = "0.16"
+portable-pty = "0.9"
+uuid = { version = "1.26.1", features = ["v4"] }
+tokio = { version = "1.53.1", features = ["net", "io-util", "rt", "sync", "time", "macros"] }
+dunce = "1.0.5"
+globset = "0.4.20"
+ignore = "0.4.33"
+trash = "5.2.9"
+# M1: blocking HTTP client for the hub's loopback API (no TLS needed).
+ureq = { version = "2", default-features = false, features = ["json"] }
+# M2: WebSocket client for the hub's /v1/stream (plain loopback, no TLS).
+tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
+arboard = "3.6.1"
+png = "0.18.1"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+notify-debouncer-mini = "0.7.0"
+tauri-plugin-dialog = "2.7.3"
+tauri-plugin-opener = "2.5.5"
+# Faz 5 §1.8: OS notifications are sent from the frontend; backend only registers the
+# plugin (capability: notification:default, capabilities/default.json).
+tauri-plugin-notification = "2.5.0"
+# Faz 7 §1/§9.1: rotating file logger. Kept on the same 2.x major as the npm
+# `@tauri-apps/plugin-log` the frontend installs (Cargo/JS plugin halves must match).
+tauri-plugin-log = "2"
+log = "0.4"
+# Faz 7 §9.6: diagnostics zip. `deflate` only — no need for the heavier `bzip2`/`zstd`
+# codecs or AES encryption this app never uses.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+encoding_rs = "0.8.42"
+codepage = "0.1.3"
+# M2b: microphone capture for dictation (WASAPI on Windows, CoreAudio on macOS).
+cpal = "0.18"
+xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
+mime_guess = "2.0.5"
+percent-encoding = "2.3.2"
+nucleo-matcher = "0.3.1"
+# M5: self-update from the release feed (`latest.json`, minisign-verified). The app wraps it in
+# its own `update_*` commands (commands/update.rs); the NSIS installer relaunches the app, so the
+# process plugin is not needed.
+tauri-plugin-updater = "2.13"
+# D18: disabling WebView2's built-in browser accelerator keys (Ctrl+P, Ctrl+F, F5, ...)
+# requires reaching into the raw ICoreWebView2Settings3 COM interface via
+# WebviewWindow::with_webview — there is no declarative tauri.conf.json flag for it in
+# Tauri 2.12 / wry 0.57 (see DECISIONS.md D18).
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+    "Win32_Globalization",
+    "Win32_Storage_FileSystem",
+    # Faz 4 §4.21: `app_info`'s `osBuild` reads `CurrentBuildNumber` from the registry.
+    "Win32_System_Registry",
+    # BUG-2 fix: `SetConsoleCtrlHandler(None, false)` clears an inherited "ignore
+    # Ctrl+C" flag before spawning pane shells.
+    "Win32_System_Console",
+    # BUG-1 fix: `CreateToolhelp32Snapshot`/`Process32FirstW`/`Process32NextW` walk the
+    # whole system process list to find descendants that escaped our Job Object (e.g.
+    # the Store/MSIX pwsh profile's children).
+    "Win32_System_Diagnostics_ToolHelp",
+    # Faz 5 §1.4/§4 item 11: `ProcessCommandLineInformation` via `NtQueryInformationProcess`
+    # (node.exe cmdline heuristic classification).
+    "Wdk_System_Threading",
+    # Folder picker: disable/re-enable and refocus the main window around an unowned
+    # dialog (see commands/dialog.rs).
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    # M2b dictation: clipboard save/restore, monitor work area + DPI for the overlay,
+    # sound cues.
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_HiDpi",
+    "Win32_Media_Audio",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+# Faz 5 §1.9: the real-pipe integration test drives the actual `agenthub-hook` `run`
+# function against `ipc_server`'s real named pipe.
+agenthub-hook = { path = "../../../crates/hook" }

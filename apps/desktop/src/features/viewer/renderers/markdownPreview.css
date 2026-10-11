@@ -1,0 +1,140 @@
+/*
+ * Markdown preview typography. Tailwind preflight resets heading/list/paragraph styles — inside
+ * the preview (`.md-preview`) GitHub-like defaults are restored. Colours come from the theme
+ * tokens (dark/light aware).
+ */
+.md-preview {
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.md-preview > :first-child {
+  margin-top: 0;
+}
+
+.md-preview p,
+.md-preview ul,
+.md-preview ol,
+.md-preview blockquote,
+.md-preview pre,
+.md-preview table,
+.md-preview dl {
+  margin: 0 0 1em;
+}
+
+.md-preview h1,
+.md-preview h2,
+.md-preview h3,
+.md-preview h4,
+.md-preview h5,
+.md-preview h6 {
+  margin: 1.5em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.25;
+  scroll-margin-top: 0.5em;
+}
+.md-preview h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-strong);
+}
+.md-preview h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-strong);
+}
+.md-preview h3 { font-size: 1.25em; }
+.md-preview h4 { font-size: 1em; }
+.md-preview h5 { font-size: 0.875em; }
+.md-preview h6 { font-size: 0.85em; color: var(--text-muted); }
+
+.md-preview ul,
+.md-preview ol {
+  padding-left: 2em;
+}
+.md-preview ul { list-style: disc; }
+.md-preview ol { list-style: decimal; }
+.md-preview ul ul { list-style: circle; }
+.md-preview ul ul ul { list-style: square; }
+.md-preview ol ol { list-style: lower-alpha; }
+.md-preview ol ol ol { list-style: lower-roman; }
+.md-preview li + li { margin-top: 0.25em; }
+.md-preview li > ul,
+.md-preview li > ol { margin: 0.25em 0 0; }
+.md-preview li > p { margin: 0.5em 0 0; }
+
+/* GFM task lists */
+.md-preview li.task-list-item { list-style: none; }
+.md-preview li.task-list-item input[type="checkbox"] {
+  margin: 0 0.4em 0.2em -1.4em;
+  vertical-align: middle;
+}
+
+.md-preview strong { font-weight: 600; }
+.md-preview em { font-style: italic; }
+.md-preview del { text-decoration: line-through; }
+
+.md-preview a {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.md-preview a:hover { text-decoration: underline; }
+
+.md-preview hr {
+  height: 2px;
+  margin: 1.5em 0;
+  border: 0;
+  background: var(--border-strong);
+}
+
+.md-preview blockquote {
+  padding: 0 1em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.md-preview code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  background: var(--surface-1);
+}
+.md-preview pre {
+  padding: 0.75em 1em;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--surface-1);
+  line-height: 1.45;
+}
+.md-preview pre code {
+  padding: 0;
+  font-size: 0.875em;
+  background: transparent;
+}
+
+.md-preview table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+.md-preview th,
+.md-preview td {
+  padding: 0.35em 0.8em;
+  border: 1px solid var(--border-strong);
+}
+.md-preview th {
+  font-weight: 600;
+  text-align: left;
+  background: var(--surface-1);
+}
+
+.md-preview img {
+  max-width: 100%;
+}

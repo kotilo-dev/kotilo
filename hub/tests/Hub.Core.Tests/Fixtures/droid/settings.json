@@ -1,0 +1,1 @@
+{"model":"claude-sonnet-4-5-20250929","reasoningEffort":"medium","autonomyMode":"normal","assistantActiveTimeMs":38200,"providerLock":"anthropic","providerLockTimestamp":"2026-10-05T09:12:44.120Z","tokenUsage":{"inputTokens":48210,"outputTokens":3120,"cacheCreationTokens":12000,"cacheReadTokens":96400,"thinkingTokens":850}}

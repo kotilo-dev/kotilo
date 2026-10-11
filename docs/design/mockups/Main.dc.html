@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agent workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0c0f}
+a{color:#8fb0ff}a:hover{color:#b9ceff}
+@keyframes shimmer{0%{background-position:-120px 0}100%{background-position:120px 0}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="width: 100%; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #0b0c0f; color: #e7e9ee; font-family: 'Geist', system-ui, sans-serif; font-size: 13px; overflow: hidden">
+
+  <!-- Title bar with workspace tabs -->
+  <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 16px; background: #101216; border-bottom: 1px solid rgba(255,255,255,0.06)">
+    <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em">
+      <div style="width: 22px; height: 22px; border-radius: 6px; background: #7c9cff; display: flex; align-items: center; justify-content: center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0b0c0f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
+      </div>
+      <span>[PRODUCT NAME]</span>
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 2px; height: 44px; margin-left: 12px">
+      <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 8px 8px 0 0; background: #15171c; border: 1px solid rgba(255,255,255,0.07); border-bottom: none; font-weight: 500">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #f2b440"></span>orders-service
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; color: #8b909c">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #ff6b5a"></span>payments-gateway
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; color: #8b909c">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #46c58a"></span>docs-site
+      </div>
+    </div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border-radius: 8px; background: #15171c; border: 1px solid rgba(255,255,255,0.07); color: #8b909c; min-width: 240px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="flex: 1">Search or run a command</span>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #1f2229">Ctrl K</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 28px; border-radius: 8px; background: rgba(242,180,64,0.10); color: #f2c56a; font-size: 12px; font-weight: 500">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 7v5l3 2"></path><circle cx="12" cy="12" r="9"></circle></svg>
+      5h limit 62%
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+
+    <!-- Sidebar: sessions -->
+    <div style="width: 268px; flex: none; box-sizing: border-box; padding: 14px 12px; background: #0f1014; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 4px">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7480">Agents</span>
+        <button aria-label="New agent" style="width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); background: #15171c; color: #c9ccd4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        </button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{sessions}}" as="s" hint-placeholder-count="5">
+          <div style="{{s.cardStyle}}">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div style="{{s.avatarStyle}}">{{s.initial}}</div>
+              <div style="flex: 1; min-width: 0">
+                <div style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.project}}</div>
+                <div style="font-size: 11.5px; color: #7d8290">{{s.agent}} · {{s.branch}}</div>
+              </div>
+              <span style="{{s.dotStyle}}"></span>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: #a3a8b4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.last}}</div>
+            <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 11px; color: #6f7480">
+              <span style="{{s.stateStyle}}">{{s.state}}</span><span>{{s.time}}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex: 1"></div>
+      <div style="padding: 12px; border-radius: 10px; background: #15171c; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span style="color: #a3a8b4">Today</span><span style="font-weight: 600">$4.82</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #22252d; overflow: hidden"><div style="width: 62%; height: 100%; border-radius: 3px; background: #f2b440"></div></div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6f7480"><span>Claude 5h · 62%</span><span>Codex weekly · 31%</span></div>
+      </div>
+    </div>
+
+    <!-- Center: agent pane -->
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; padding: 12px; gap: 10px; box-sizing: border-box">
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 12px; background: #111318; border: 1px solid rgba(242,180,64,0.28); box-shadow: 0 0 0 4px rgba(242,180,64,0.05); overflow: hidden">
+
+        <!-- Agent header strip -->
+        <div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #14161b; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap">
+          <div style="width: 28px; height: 28px; border-radius: 8px; background: #2a2230; color: #f0a37d; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">C</div>
+          <div style="display: flex; flex-direction: column">
+            <span style="font-weight: 600; font-size: 14px">orders-service</span>
+            <span style="font-size: 11.5px; color: #7d8290">Claude Code · feature/approval-flow · opus</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 13px; background: linear-gradient(90deg, rgba(242,180,64,0.12), rgba(242,180,64,0.28), rgba(242,180,64,0.12)); background-size: 240px 100%; animation: shimmer 1.6s linear infinite; color: #f6c86b; font-weight: 600; font-size: 12px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation: spin 1s linear infinite"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+            Working · 2m 14s
+          </div>
+          <div style="flex: 1"></div>
+          <div style="display: flex; align-items: center; gap: 18px; font-size: 12px; color: #a3a8b4">
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 120px">
+              <div style="display: flex; justify-content: space-between"><span>Context</span><span style="color: #e7e9ee; font-family: 'Geist Mono', monospace">41%</span></div>
+              <div style="height: 4px; border-radius: 2px; background: #22252d"><div style="width: 41%; height: 100%; border-radius: 2px; background: #7c9cff"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px"><span>Session</span><span style="color: #e7e9ee; font-family: 'Geist Mono', monospace">312k · $1.24</span></div>
+            <button aria-label="Split pane" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: #a3a8b4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M12 4v16"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div style="flex: 1; min-height: 0; padding: 18px 22px; font-family: 'Geist Mono', monospace; font-size: 13.5px; line-height: 1.6; color: #d6d9e0; overflow: hidden; background: #0e1014">
+          <div style="color: #7d8290">~/src/orders-service on feature/approval-flow</div>
+          <div><span style="color: #7c9cff">❯</span> fix the failing order approval test and keep the provider status mapping unchanged</div>
+          <div style="height: 10px"></div>
+          <sc-for list="{{lines}}" as="l" hint-placeholder-count="10">
+            <div style="{{l.style}}">{{l.text}}</div>
+          </sc-for>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; color: #f6c86b">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation: spin 1s linear infinite"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+            <span>Re-running tests… <span style="color: #6f7480">(esc to interrupt)</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px; background: #14161b; border: 1px solid rgba(255,255,255,0.08)">
+        <label for="composer" style="color: #7c9cff; font-family: 'Geist Mono', monospace; font-weight: 600">❯</label>
+        <input id="composer" placeholder="Message the agent… @ to mention a file, / for commands" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #e7e9ee; font-family: 'Geist', sans-serif; font-size: 13.5px; height: 34px">
+        <span style="font-size: 11.5px; color: #6f7480; padding: 3px 8px; border-radius: 6px; background: #1b1e24">@approval.ts</span>
+        <button aria-label="Dictate" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.08); background: #1b1e24; color: #c9ccd4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+        </button>
+        <button aria-label="Send" style="width: 36px; height: 36px; border-radius: 9px; border: none; background: #7c9cff; color: #0b0c0f; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right rail: timeline -->
+    <div style="width: 304px; flex: none; box-sizing: border-box; padding: 16px 14px; background: #0f1014; border-left: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 18px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7480">Plan</span>
+          <span style="font-size: 11.5px; color: #a3a8b4">3 / 5</span>
+        </div>
+        <div style="height: 4px; border-radius: 2px; background: #22252d"><div style="width: 60%; height: 100%; border-radius: 2px; background: #46c58a"></div></div>
+        <sc-for list="{{todos}}" as="t" hint-placeholder-count="5">
+          <div style="display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px">
+            <span style="{{t.boxStyle}}"></span><span style="{{t.textStyle}}">{{t.text}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7480; margin-bottom: 6px">Activity</span>
+        <sc-for list="{{activity}}" as="a" hint-placeholder-count="6">
+          <div style="display: flex; gap: 10px; padding: 6px 4px">
+            <div style="{{a.iconStyle}}">{{a.tool}}</div>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.target}}</div>
+              <div style="font-size: 11px; color: #6f7480">{{a.meta}}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top: auto; padding: 12px; border-radius: 10px; background: #15171c; border: 1px solid rgba(255,255,255,0.06)">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px">Changed files</div>
+        <div style="display: flex; justify-content: space-between; font-family: 'Geist Mono', monospace; font-size: 12px"><a href="#diff">approval.ts</a><span><span style="color: #46c58a">+12</span> <span style="color: #ff8a7a">−3</span></span></div>
+        <div style="display: flex; justify-content: space-between; font-family: 'Geist Mono', monospace; font-size: 12px; margin-top: 4px"><a href="#diff">approval.test.ts</a><span><span style="color: #46c58a">+28</span> <span style="color: #ff8a7a">−0</span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var colors = { working: '#f2b440', blocked: '#ff6b5a', done: '#5aa9ff', idle: '#46c58a' };
+    var raw = [
+      { project: 'orders-service', agent: 'Claude Code', branch: 'feature/approval-flow', initial: 'C', tint: '#2a2230', ink: '#f0a37d', status: 'working', state: 'Working · 2m', time: 'now', last: 'Re-running tests after editing approval.ts', active: true },
+      { project: 'payments-gateway', agent: 'Codex', branch: 'main', initial: 'X', tint: '#1d2a26', ink: '#7fd8b4', status: 'blocked', state: 'Needs permission', time: '1m', last: 'Wants to run: dotnet ef database update' },
+      { project: 'docs-site', agent: 'Copilot CLI', branch: 'docs/api', initial: 'G', tint: '#1e2333', ink: '#9db2ff', status: 'done', state: 'Finished · 4m 10s', time: '6m', last: 'Updated 14 pages and fixed broken links' },
+      { project: 'mobile-app', agent: 'Gemini CLI', branch: 'fix/login', initial: 'M', tint: '#2a2a1c', ink: '#e6d27a', status: 'idle', state: 'Idle', time: '22m', last: 'Waiting for your next prompt' },
+      { project: 'etl-jobs', agent: 'OpenCode', branch: 'perf/batch', initial: 'O', tint: '#26202b', ink: '#d29bf0', status: 'working', state: 'Working · 40s', time: 'now', last: 'Profiling the nightly import job' }
+    ];
+    var sessions = raw.map(function (s) {
+      var c = colors[s.status];
+      return Object.assign({}, s, {
+        cardStyle: 'padding: 10px 10px 9px; border-radius: 10px; cursor: pointer; ' + (s.active ? 'background: #181a20; border: 1px solid rgba(124,156,255,0.35);' : 'background: transparent; border: 1px solid transparent;'),
+        avatarStyle: 'width: 28px; height: 28px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; background: ' + s.tint + '; color: ' + s.ink,
+        dotStyle: 'width: 8px; height: 8px; border-radius: 50%; flex: none; background: ' + c + (s.status === 'blocked' ? '; box-shadow: 0 0 0 4px rgba(255,107,90,0.18)' : ''),
+        stateStyle: 'color: ' + c + '; font-weight: 500'
+      });
+    });
+    var lines = [
+      { text: '● Read  src/approval/approval.ts  (212 lines)', style: 'color: #9fb4ff' },
+      { text: '● Read  src/approval/approval.test.ts', style: 'color: #9fb4ff' },
+      { text: '● Bash  npm test -- approval', style: 'color: #9fb4ff' },
+      { text: '  FAIL  approval.test.ts › rejects when provider status is CANCELLED', style: 'color: #ff8a7a' },
+      { text: '        expected "REJECTED", received "PENDING"', style: 'color: #8b909c' },
+      { text: '● The status map treats CANCELLED as pending; adding the missing branch.', style: 'color: #d6d9e0' },
+      { text: '● Edit  src/approval/approval.ts  +12 −3', style: 'color: #9fb4ff' },
+      { text: '  + case ProviderStatus.Cancelled: return ApprovalState.Rejected;', style: 'color: #7fd8a4' },
+      { text: '  − default: return ApprovalState.Pending;', style: 'color: #ff9d90' },
+      { text: '● Bash  npm test -- approval', style: 'color: #9fb4ff' }
+    ];
+    var todos = [
+      { text: 'Reproduce the failing approval test', done: true },
+      { text: 'Map provider CANCELLED to Rejected', done: true },
+      { text: 'Add regression test for cancelled orders', done: true },
+      { text: 'Run the full approval suite', current: true },
+      { text: 'Update CHANGELOG' }
+    ].map(function (t) {
+      return Object.assign({}, t, {
+        boxStyle: 'width: 14px; height: 14px; flex: none; margin-top: 2px; border-radius: 4px; box-sizing: border-box; ' + (t.done ? 'background: #46c58a;' : t.current ? 'border: 2px solid #f2b440;' : 'border: 1.5px solid #3a3e48;'),
+        textStyle: t.done ? 'color: #7d8290; text-decoration: line-through' : t.current ? 'color: #f6c86b; font-weight: 500' : 'color: #c9ccd4'
+      });
+    });
+    var activity = [
+      { tool: 'B', target: 'npm test -- approval', meta: 'Bash · running', color: '#f2b440' },
+      { tool: 'E', target: 'src/approval/approval.ts', meta: 'Edit · +12 −3 · 20s ago', color: '#7c9cff' },
+      { tool: 'B', target: 'npm test -- approval', meta: 'Bash · 1 failed · 48s ago', color: '#ff6b5a' },
+      { tool: 'R', target: 'src/approval/approval.test.ts', meta: 'Read · 1m ago', color: '#6f7480' },
+      { tool: 'R', target: 'src/approval/approval.ts', meta: 'Read · 1m ago', color: '#6f7480' }
+    ].map(function (a) {
+      return Object.assign({}, a, {
+        iconStyle: 'width: 24px; height: 24px; flex: none; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-family: Geist Mono, monospace; font-size: 11px; font-weight: 600; background: #1b1e24; color: ' + a.color + '; border: 1px solid rgba(255,255,255,0.06)'
+      });
+    });
+    return { sessions: sessions, lines: lines, todos: todos, activity: activity };
+  }
+}
+</script>
+</body>
+</html>

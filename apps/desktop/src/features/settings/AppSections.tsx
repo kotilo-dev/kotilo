@@ -1,0 +1,171 @@
+/**
+ * Settings sections stored by the desktop app (`settings_get/set`, applied immediately, as the
+ * old Settings dialog did): appearance, editor, terminal, files, about. Agents lives in
+ * `AgentsSection.tsx`.
+ */
+import { useState } from "react";
+import { useStrings, useI18nStore, type LanguagePreference } from "../../app/i18n";
+import { AboutPanel } from "../../app/AboutPanel";
+import { openLogsFolder } from "../../app/diagnosticsActions";
+import type { ShellKind, ThemeName } from "../../lib/ipc";
+import { useHelpStore } from "../help/helpStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useTerminalStore } from "../../stores/terminalStore";
+import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, Select } from "./controls";
+import { EditableList } from "./EditableList";
+
+export function AppearanceSection() {
+  const s = useStrings();
+  const theme = useSettingsStore((st) => st.settings.theme);
+  const update = useSettingsStore((st) => st.update);
+  const language = useI18nStore((st) => st.preference);
+  const setLanguage = useI18nStore((st) => st.setPreference);
+
+  return (
+    <div className="flex max-w-md flex-col gap-5">
+      <Field label={s.settings.appearance.theme}>
+        {(ids) => (
+          <Select<ThemeName>
+            {...ids}
+            value={theme}
+            onChange={(v) => update({ theme: v })}
+            options={[
+              { value: "dark", label: s.settings.appearance.themeDark },
+              { value: "light", label: s.settings.appearance.themeLight },
+              { value: "system", label: s.settings.appearance.themeSystem },
+            ]}
+          />
+        )}
+      </Field>
+      <Field label={s.settings.appearance.language}>
+        {(ids) => (
+          <Select<LanguagePreference>
+            {...ids}
+            value={language}
+            onChange={setLanguage}
+            options={[
+              { value: "system", label: s.settings.appearance.languageSystem },
+              { value: "en", label: s.settings.appearance.languageEnglish },
+              { value: "tr", label: s.settings.appearance.languageTurkish },
+            ]}
+          />
+        )}
+      </Field>
+    </div>
+  );
+}
+
+export function EditorSection() {
+  const s = useStrings();
+  const editor = useSettingsStore((st) => st.settings.editor);
+  const update = useSettingsStore((st) => st.update);
+  return (
+    <div className="flex max-w-md flex-col gap-5">
+      <Field label={s.settings.appearance.editorFontFamily}>
+        {({ id }) => <DebouncedText id={id} value={editor.fontFamily} onCommit={(v) => update({ editor: { fontFamily: v } })} />}
+      </Field>
+      <Field label={s.settings.appearance.editorFontSize}>
+        {({ id }) => <DebouncedNumber id={id} value={editor.fontSize} onCommit={(v) => update({ editor: { fontSize: v } })} />}
+      </Field>
+    </div>
+  );
+}
+
+export function TerminalSection() {
+  const s = useStrings();
+  const terminal = useSettingsStore((st) => st.settings.terminal);
+  const update = useSettingsStore((st) => st.update);
+  const profiles = useTerminalStore((st) => st.profiles);
+
+  return (
+    <div className="flex max-w-md flex-col gap-5">
+      <Field label={s.settings.terminal.fontFamily}>
+        {({ id }) => <DebouncedText id={id} value={terminal.fontFamily} onCommit={(v) => update({ terminal: { fontFamily: v } })} />}
+      </Field>
+      <Field label={s.settings.terminal.fontSize}>
+        {({ id }) => <DebouncedNumber id={id} value={terminal.fontSize} onCommit={(v) => update({ terminal: { fontSize: v } })} />}
+      </Field>
+      <Field label={s.settings.terminal.defaultShell}>
+        {(ids) => (
+          <Select<string>
+            {...ids}
+            value={terminal.defaultShell ?? ""}
+            onChange={(v) => update({ terminal: { defaultShell: (v || null) as ShellKind | null } })}
+            options={[{ value: "", label: s.settings.terminal.automatic }, ...profiles.map((p) => ({ value: p.id, label: p.name }))]}
+          />
+        )}
+      </Field>
+      <Checkbox checked={terminal.copyOnSelect} onChange={(v) => update({ terminal: { copyOnSelect: v } })} label={s.settings.terminal.copyOnSelect} />
+      <Checkbox checked={terminal.warnMultilinePaste} onChange={(v) => update({ terminal: { warnMultilinePaste: v } })} label={s.settings.terminal.warnMultilinePaste} />
+    </div>
+  );
+}
+
+export function FilesSection() {
+  const s = useStrings();
+  const settings = useSettingsStore((st) => st.settings);
+  const update = useSettingsStore((st) => st.update);
+  const lastError = useSettingsStore((st) => st.lastError);
+  return (
+    <div className="flex max-w-lg flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <span className="text-small font-medium text-text-3">{s.settings.files.hiddenPatterns}</span>
+        <EditableList
+          items={settings.files.hiddenPatterns}
+          onChange={(next) => update({ files: { hiddenPatterns: next } })}
+          addPlaceholder={s.settings.files.addPatternPlaceholder}
+          addLabel={s.settings.files.addPattern}
+          removeLabel={s.settings.files.removePattern}
+          emptyLabel=""
+          listLabel={s.settings.files.hiddenPatterns}
+        />
+        {lastError?.code === "invalid_argument" && (
+          <span role="alert" className="text-meta text-blocked-ink">
+            {lastError.message}
+          </span>
+        )}
+      </div>
+      <Checkbox checked={settings.files.respectGitignore} onChange={(v) => update({ files: { respectGitignore: v } })} label={s.settings.files.respectGitignore} />
+      <Checkbox
+        checked={settings.clipboard.copyPathAfterImageSave}
+        onChange={(v) => update({ clipboard: { copyPathAfterImageSave: v } })}
+        label={s.settings.clipboard.copyPathAfterImageSave}
+      />
+    </div>
+  );
+}
+
+export { AgentsSection } from "./AgentsSection";
+
+export function AboutSection() {
+  const s = useStrings();
+  const verbose = useSettingsStore((st) => st.settings.diagnostics.verboseLogging);
+  const checkUpdatesOnStart = useSettingsStore((st) => st.settings.updates?.checkOnStart !== false);
+  const update = useSettingsStore((st) => st.update);
+  const [openingLogs, setOpeningLogs] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <AboutPanel />
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => useHelpStore.getState().openHelp()}>{s.settings.about.openHelp}</Button>
+        <Button
+          disabled={openingLogs}
+          onClick={() => {
+            setOpeningLogs(true);
+            void openLogsFolder().finally(() => setOpeningLogs(false));
+          }}
+        >
+          {s.settings.about.openLogsFolder}
+        </Button>
+      </div>
+      <Checkbox
+        checked={checkUpdatesOnStart}
+        onChange={(v) => update({ updates: { checkOnStart: v } })}
+        label={s.update.checkOnStart}
+      />
+      <Checkbox checked={verbose}onChange={(v) => update({ diagnostics: { verboseLogging: v } })} label={s.settings.about.verboseLogging} />
+      <span className="text-small text-muted">{s.settings.about.privacyNote}</span>
+    </div>
+  );
+}

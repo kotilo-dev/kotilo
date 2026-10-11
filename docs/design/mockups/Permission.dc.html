@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Permission request</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0c0f}
+a{color:#8fb0ff}a:hover{color:#b9ceff}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,90,0.45)}70%{box-shadow:0 0 0 10px rgba(255,107,90,0)}100%{box-shadow:0 0 0 0 rgba(255,107,90,0)}}
+@keyframes rise{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="width: 100%; height: 900px; box-sizing: border-box; display: flex; background: #0b0c0f; color: #e7e9ee; font-family: 'Geist', system-ui, sans-serif; font-size: 13px; overflow: hidden; flex-wrap: wrap">
+
+  <!-- Collapsed rail -->
+  <div style="width: 64px; flex: none; box-sizing: border-box; padding: 12px 0; background: #0f1014; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; gap: 10px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #7c9cff; display: flex; align-items: center; justify-content: center; margin-bottom: 8px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0b0c0f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
+    </div>
+    <sc-for list="{{rail}}" as="r" hint-placeholder-count="5">
+      <div style="position: relative">
+        <div style="{{r.style}}">{{r.initial}}</div>
+        <span style="{{r.dot}}"></span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Pane -->
+  <div style="flex: 999 1 560px; min-width: 0; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column">
+    <div style="{{paneStyle}}">
+
+      <div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #14161b; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap">
+        <div style="width: 28px; height: 28px; border-radius: 8px; background: #1d2a26; color: #7fd8b4; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">X</div>
+        <div style="display: flex; flex-direction: column">
+          <span style="font-weight: 600; font-size: 14px">payments-gateway</span>
+          <span style="font-size: 11.5px; color: #7d8290">Codex · main · gpt-5-codex</span>
+        </div>
+        <div style="{{pillStyle}}">
+          <span style="{{pillDot}}"></span>{{pillText}}
+        </div>
+        <div style="flex: 1"></div>
+        <div style="display: flex; gap: 18px; font-size: 12px; color: #a3a8b4">
+          <div style="display: flex; flex-direction: column; gap: 2px"><span>Weekly limit</span><span style="color: #e7e9ee; font-family: 'Geist Mono', monospace">31%</span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span>Session</span><span style="color: #e7e9ee; font-family: 'Geist Mono', monospace">88k tokens</span></div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; position: relative; background: #0e1014">
+        <div style="padding: 18px 22px; font-family: 'Geist Mono', monospace; font-size: 13.5px; line-height: 1.6; color: #d6d9e0">
+          <div style="color: #7d8290">~/src/payments-gateway on main</div>
+          <div><span style="color: #7c9cff">❯</span> add the e-arşiv cancellation status column and migrate the dev database</div>
+          <div style="height: 10px"></div>
+          <div style="color: #9fb4ff">• Edited Payments.Gateway/Data/OrderStatus.cs (+6)</div>
+          <div style="color: #9fb4ff">• Added migration 20261004_AddCancellationStatus</div>
+          <div style="color: #d6d9e0">• Migration is ready. Applying it needs a database write.</div>
+          <div style="height: 10px"></div>
+          <div style="color: #8b909c">  Allow command?  dotnet ef database update --project Payments.Gateway</div>
+          <div style="color: #8b909c">  › 1. Yes   2. Yes, always for this project   3. No, tell Codex what to do</div>
+        </div>
+
+        <sc-if value="{{pending}}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: 22px; right: 22px; bottom: 22px; border-radius: 14px; background: #181a20; border: 1px solid rgba(255,107,90,0.45); box-shadow: 0 18px 50px rgba(0,0,0,0.55); padding: 18px 18px 16px; animation: rise 0.25s ease-out">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <div style="width: 32px; height: 32px; border-radius: 9px; background: rgba(255,107,90,0.14); color: #ff8a7a; display: flex; align-items: center; justify-content: center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path><path d="M12 9v4M12 16h.01"></path></svg>
+              </div>
+              <div style="display: flex; flex-direction: column">
+                <span style="font-weight: 600; font-size: 14.5px">Codex wants to run a command</span>
+                <span style="font-size: 12px; color: #8b909c">payments-gateway · waiting 1m 12s</span>
+              </div>
+              <div style="flex: 1"></div>
+              <span style="font-size: 11.5px; color: #ffb4a8; padding: 3px 9px; border-radius: 6px; background: rgba(255,107,90,0.12)">Writes to a database</span>
+            </div>
+            <div style="margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #0e1014; border: 1px solid rgba(255,255,255,0.06); font-family: 'Geist Mono', monospace; font-size: 13px; color: #e7e9ee">
+              <span style="color: #6f7480">$</span> dotnet ef database update --project Payments.Gateway
+            </div>
+            <div style="margin-top: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <button onClick="{{allow}}" style="height: 38px; padding: 0 16px; border-radius: 9px; border: none; background: #e7e9ee; color: #0b0c0f; font-family: 'Geist', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px">Allow once <span style="font-family: 'Geist Mono', monospace; font-size: 11px; opacity: 0.6">Enter</span></button>
+              <button onClick="{{always}}" style="height: 38px; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12); background: #1f2229; color: #e7e9ee; font-family: 'Geist', sans-serif; font-weight: 500; font-size: 13px; cursor: pointer">Always allow in this project</button>
+              <button onClick="{{deny}}" style="height: 38px; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(255,107,90,0.35); background: transparent; color: #ff9d90; font-family: 'Geist', sans-serif; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px">Deny <span style="font-family: 'Geist Mono', monospace; font-size: 11px; opacity: 0.6">Esc</span></button>
+              <div style="flex: 1"></div>
+              <a href="#terminal" style="font-size: 12.5px">Answer in terminal</a>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{resolved}}" hint-placeholder-val="{{ false }}">
+          <div style="{{toastStyle}}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>
+            <span>{{toastText}}</span>
+            <div style="flex: 1"></div>
+            <button onClick="{{reset}}" style="height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #c9ccd4; font-family: 'Geist', sans-serif; font-size: 12px; cursor: pointer">Show request again</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { decision: null };
+  }
+  renderVals() {
+    var self = this;
+    var d = this.state.decision;
+    var pending = d === null;
+    var rail = [
+      { initial: 'C', tint: '#2a2230', ink: '#f0a37d', c: '#f2b440' },
+      { initial: 'X', tint: '#1d2a26', ink: '#7fd8b4', c: pending ? '#ff6b5a' : '#f2b440', active: true },
+      { initial: 'G', tint: '#1e2333', ink: '#9db2ff', c: '#5aa9ff' },
+      { initial: 'M', tint: '#2a2a1c', ink: '#e6d27a', c: '#46c58a' },
+      { initial: 'O', tint: '#26202b', ink: '#d29bf0', c: '#f2b440' }
+    ].map(function (r) {
+      return {
+        initial: r.initial,
+        style: 'width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; cursor: pointer; background: ' + r.tint + '; color: ' + r.ink + (r.active ? '; outline: 2px solid rgba(124,156,255,0.6); outline-offset: 2px' : ''),
+        dot: 'position: absolute; right: -2px; top: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #0f1014; background: ' + r.c
+      };
+    });
+    var denied = d === 'deny';
+    return {
+      rail: rail,
+      pending: pending,
+      resolved: !pending,
+      paneStyle: 'flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 12px; background: #111318; overflow: hidden; ' + (pending ? 'border: 1px solid rgba(255,107,90,0.55); box-shadow: 0 0 0 4px rgba(255,107,90,0.08), 0 0 40px rgba(255,107,90,0.10)' : 'border: 1px solid rgba(242,180,64,0.28); box-shadow: 0 0 0 4px rgba(242,180,64,0.05)'),
+      pillStyle: 'display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 13px; font-weight: 600; font-size: 12px; ' + (pending ? 'background: rgba(255,107,90,0.14); color: #ff9d90' : denied ? 'background: rgba(124,156,255,0.14); color: #b3c5ff' : 'background: rgba(242,180,64,0.16); color: #f6c86b'),
+      pillDot: 'width: 8px; height: 8px; border-radius: 50%; ' + (pending ? 'background: #ff6b5a; animation: pulse 1.4s infinite' : denied ? 'background: #7c9cff' : 'background: #f2b440'),
+      pillText: pending ? 'Needs permission · 1m 12s' : denied ? 'Waiting for your reply' : 'Working',
+      toastStyle: 'position: absolute; left: 22px; right: 22px; bottom: 22px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; animation: rise 0.25s ease-out; font-size: 13px; ' + (denied ? 'background: #171a24; border: 1px solid rgba(124,156,255,0.35); color: #b3c5ff' : 'background: #13201a; border: 1px solid rgba(70,197,138,0.35); color: #8fe0b6'),
+      toastText: d === 'allow' ? 'Allowed once. Sent “1” to Codex; it is applying the migration.' : d === 'always' ? 'Always allowed in payments-gateway. Sent “2” to Codex.' : 'Denied. Sent “3”; tell Codex what to do instead.',
+      allow: function () { self.setState({ decision: 'allow' }); },
+      always: function () { self.setState({ decision: 'always' }); },
+      deny: function () { self.setState({ decision: 'deny' }); },
+      reset: function () { self.setState({ decision: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

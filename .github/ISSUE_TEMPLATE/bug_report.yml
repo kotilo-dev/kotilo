@@ -1,0 +1,74 @@
+name: Bug report
+description: Something in Kotilo does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please search existing issues first.
+        Security problems: do not file them here, see SECURITY.md.
+        Do not paste prompts, agent responses, file contents, tokens or API keys.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a new Codex CLI tab
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Kotilo version
+      description: Settings → About & diagnostics → Copy version info.
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Windows architecture
+      options:
+        - x64
+        - ARM64
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2 (26100)
+  - type: dropdown
+    id: agents
+    attributes:
+      label: Agents involved
+      multiple: true
+      options:
+        - Claude Code
+        - Codex CLI
+        - GitHub Copilot CLI
+        - Gemini CLI
+        - Qwen Code
+        - Factory Droid
+        - OpenCode
+        - Cursor CLI
+        - Custom agent (adapter.json)
+        - Plain shell
+        - None / not agent-related
+  - type: input
+    id: agent-version
+    attributes:
+      label: Agent version
+      description: Output of the agent's --version, if an agent is involved.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Settings → About & diagnostics → Open logs folder. Remove anything personal before attaching.

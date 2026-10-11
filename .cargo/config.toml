@@ -1,0 +1,6 @@
+# Some dev machines set CC=gcc (MinGW). The `cc` crate would hand that GNU compiler to any
+# bundled C build for the MSVC target and link.exe then fails with unresolved GNU symbols.
+# Forcing CC/CXX empty for cargo-driven builds makes `cc` locate MSVC's cl.exe instead.
+[env]
+CC = { value = "", force = true }
+CXX = { value = "", force = true }

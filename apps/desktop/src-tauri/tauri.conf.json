@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kotilo",
+  "mainBinaryName": "kotilo",
+  "version": "0.1.0",
+  "identifier": "dev.kotilo.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kotilo",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 500,
+        "backgroundColor": "#1e1e1e"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://adfs.localhost; frame-src http://adfs.localhost; worker-src 'self' blob:; font-src 'self' data:",
+      "devCsp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://adfs.localhost; frame-src http://adfs.localhost; worker-src 'self' blob:; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": ["binaries/kotilo-hook"],
+    "resources": { "../../../adapters/": "adapters/" },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "Turkish"],
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/installer-hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwQzBGREQxQjk3MEY0QUIKUldTcjlIQzUwZjNBRUoydENpWkdzNUZIaVZhNWJPKzQ5VThTR0sxc01FNUZHa1d6dmVHaHVrcEEK",
+      "endpoints": [],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

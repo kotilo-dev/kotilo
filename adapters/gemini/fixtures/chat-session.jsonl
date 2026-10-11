@@ -1,0 +1,10 @@
+{"sessionId":"7b0c2f9e-3d4a-4c1e-9a55-2f1d8e6b4c10","projectHash":"0000000000000000000000000000000000000000000000000000000000000000","startTime":"2026-10-06T09:15:02.000Z","lastUpdated":"2026-10-06T09:15:02.000Z","kind":"main"}
+{"id":"m-u1","timestamp":"2026-10-06T09:15:20.400Z","type":"user","content":[{"text":"SECRET user prompt with \"tokens\" in it"}]}
+{"$set":{"lastUpdated":"2026-10-06T09:15:20.401Z"}}
+{"id":"m-g1","timestamp":"2026-10-06T09:15:23.900Z","type":"gemini","content":"","toolCalls":[{"id":"call-1","name":"run_shell_command","args":{"command":"npm test"},"status":"success","timestamp":"2026-10-06T09:15:31.600Z","displayName":"Shell"}],"thoughts":[],"model":"gemini-2.5-pro"}
+{"id":"m-g1","timestamp":"2026-10-06T09:15:23.900Z","type":"gemini","content":"","toolCalls":[{"id":"call-1","name":"run_shell_command","args":{"command":"npm test"},"result":"SECRET tool result","status":"success","timestamp":"2026-10-06T09:15:31.600Z","displayName":"Shell"}],"thoughts":[{"subject":"SECRET","description":"SECRET thought"}],"model":"gemini-2.5-pro","tokens":{"input":18234,"output":120,"cached":12000,"thoughts":310,"tool":0,"total":18664}}
+{"id":"m-g2","timestamp":"2026-10-06T09:15:39.800Z","type":"gemini","content":"SECRET reply","thoughts":[],"model":"gemini-2.5-pro","tokens":{"input":19102,"output":450,"cached":18000,"thoughts":95,"tool":12,"total":19659}}
+{"$set":{"lastUpdated":"2026-10-06T09:15:39.801Z"}}
+{"id":"m-g2","timestamp":"2026-10-06T09:15:39.800Z","type":"gemini","content":"SECRET reply","thoughts":[],"model":"gemini-2.5-pro","tokens":{"input":19102,"output":450,"cached":18000,"thoughts":95,"tool":12,"total":19659}}
+{"id":"m-i1","timestamp":"2026-10-06T09:15:40.000Z","type":"info","content":"Request cancelled."}
+{"$rewindTo":"m-g2"}

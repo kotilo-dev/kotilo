@@ -1,0 +1,413 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (DESIGN_SYSTEM.md §2–§6). Every color, radius, shadow and motion value lives
+ * here as a CSS variable; components use these (or the Tailwind utilities generated from the
+ * `@theme` block below) and never raw hex. Dark is the default; `[data-theme="light"]`
+ * overrides the same names (§2.5). `src/app/theme/palette.ts` mirrors the values that
+ * non-CSS consumers (xterm, Monaco) need — `palette.test.ts` keeps the two in sync.
+ */
+
+@font-face {
+  font-family: "Geist";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  /* §3 Typography */
+  --font-ui: "Geist", "Segoe UI", system-ui, sans-serif;
+  --font-code: "Geist Mono", "Cascadia Code", Consolas, monospace;
+
+  /* §2.1 Surfaces (dark) */
+  --bg: #0b0c0f;
+  --surface-1: #0f1014;
+  --surface-2: #111318;
+  --surface-3: #14161b;
+  --surface-4: #181a20;
+  --surface-5: #1b1e24;
+  --surface-selected: #262a33;
+  --track: #22252d;
+  --terminal-bg: #0e1014;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.08);
+  /* Document previews (HTML/PDF) render on paper, independent of the app theme. */
+  --paper: #ffffff;
+
+  /* §2.2 Text */
+  --text: #e7e9ee;
+  --text-2: #c9ccd4;
+  --text-3: #a3a8b4;
+  --text-muted: #7d8290;
+  --text-faint: #6f7480;
+
+  /* §2.3 Accent and status */
+  --accent: #7c9cff;
+  --accent-soft: rgba(124, 156, 255, 0.14);
+  --on-accent: #0b0c0f;
+  --status-working: #f2b440;
+  --status-working-ink: #f6c86b;
+  --status-working-bg: rgba(242, 180, 64, 0.14);
+  --status-blocked: #ff6b5a;
+  --status-blocked-ink: #ff9d90;
+  --status-blocked-bg: rgba(255, 107, 90, 0.14);
+  --status-done: #5aa9ff;
+  --status-done-ink: #9cc8ff;
+  --status-done-bg: rgba(90, 169, 255, 0.14);
+  --status-idle: #46c58a;
+  --status-idle-ink: #8fe0b6;
+  --status-idle-bg: rgba(70, 197, 138, 0.14);
+  --status-error: #ff6b5a;
+  --status-error-ink: #ff9d90;
+  --status-error-bg: rgba(255, 107, 90, 0.14);
+
+  /* §2.4 Agent identity (avatar tile + ink); same in both themes. Equal to each built-in
+     adapters/<id>/adapter.json `avatar` (agentIdentity.test.ts). */
+  --agent-claude-bg: #2a2230;
+  --agent-claude-ink: #f0a37d;
+  --agent-codex-bg: #1d2a26;
+  --agent-codex-ink: #7fd8b4;
+  --agent-copilot-bg: #1f2430;
+  --agent-copilot-ink: #a5c8ff;
+  --agent-gemini-bg: #1e2433;
+  --agent-gemini-ink: #8ab4f8;
+  --agent-opencode-bg: #26231e;
+  --agent-opencode-ink: #f0d9a8;
+  --agent-cursor-bg: #21252b;
+  --agent-cursor-ink: #d3dae3;
+  --agent-qwen-bg: #262236;
+  --agent-qwen-ink: #b39cf5;
+  --agent-droid-bg: #2b2620;
+  --agent-droid-ink: #f2b56b;
+  --agent-other-bg: #1b1e24;
+  --agent-other-ink: #c9ccd4;
+
+  /* §8 Terminal ANSI palette */
+  --ansi-black: #1b1e24;
+  --ansi-red: #ff6b5a;
+  --ansi-green: #46c58a;
+  --ansi-yellow: #f2b440;
+  --ansi-blue: #7c9cff;
+  --ansi-magenta: #c792ea;
+  --ansi-cyan: #5ccfe6;
+  --ansi-white: #c9ccd4;
+  --ansi-bright-black: #4a4f5c;
+  --ansi-bright-red: #ff9d90;
+  --ansi-bright-green: #7fd8a4;
+  --ansi-bright-yellow: #f6c86b;
+  --ansi-bright-blue: #9fb4ff;
+  --ansi-bright-magenta: #d29bf0;
+  --ansi-bright-cyan: #86c8f0;
+  --ansi-bright-white: #e7e9ee;
+  --terminal-selection: rgba(124, 156, 255, 0.25);
+  --terminal-selection-inactive: rgba(124, 156, 255, 0.14);
+
+  /* §4 Radius and shadow */
+  --r-badge: 4px;
+  --r-control: 7px;
+  --r-button: 9px;
+  --r-card: 10px;
+  --r-panel: 12px;
+  --r-sheet: 14px;
+  --elev-float: 0 18px 50px rgba(0, 0, 0, 0.55);
+  --halo-working: 0 0 0 4px rgba(242, 180, 64, 0.05);
+  --halo-blocked: 0 0 0 4px rgba(255, 107, 90, 0.08), 0 0 40px rgba(255, 107, 90, 0.1);
+  /* Modal backdrop (dialogs, Help, palette). */
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  /* Image preview checkerboard. */
+  --checkerboard-a: #2a2d35;
+  --checkerboard-b: #1f2229;
+
+  /* Native scrollbars / form controls follow the theme. */
+  color-scheme: dark;
+}
+
+/*
+ * §2.5 Light theme: same names. Surface order kept (window background darker than panels,
+ * panels lightest); status colors one step darker (icons ≥ 3:1, text ≥ 4.5:1 on white).
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eceef2;
+  --surface-1: #f3f4f7;
+  --surface-2: #ffffff;
+  --surface-3: #f7f8fa;
+  --surface-4: #e9ecf1;
+  --surface-5: #e2e5eb;
+  --surface-selected: #dde2ea;
+  --track: #dadee5;
+  --terminal-bg: #fbfbfc;
+  --border: rgba(10, 12, 20, 0.08);
+  --border-strong: rgba(10, 12, 20, 0.14);
+
+  --text: #14161b;
+  --text-2: #2a2e36;
+  --text-3: #474d59;
+  --text-muted: #5b616d;
+  --text-faint: #6b7180;
+
+  --accent: #3d5fd9;
+  --accent-soft: rgba(61, 95, 217, 0.12);
+  --on-accent: #ffffff;
+  --status-working: #b27500;
+  --status-working-ink: #7f5400;
+  --status-working-bg: rgba(178, 117, 0, 0.12);
+  --status-blocked: #d43b2a;
+  --status-blocked-ink: #a8291b;
+  --status-blocked-bg: rgba(212, 59, 42, 0.1);
+  --status-done: #2d79d0;
+  --status-done-ink: #1d5aa3;
+  --status-done-bg: rgba(45, 121, 208, 0.1);
+  --status-idle: #1f8f5c;
+  --status-idle-ink: #166b45;
+  --status-idle-bg: rgba(31, 143, 92, 0.1);
+  --status-error: #d43b2a;
+  --status-error-ink: #a8291b;
+  --status-error-bg: rgba(212, 59, 42, 0.1);
+
+  --ansi-black: #383a42;
+  --ansi-red: #d43b2a;
+  --ansi-green: #1f8f5c;
+  --ansi-yellow: #9a6500;
+  --ansi-blue: #3d5fd9;
+  --ansi-magenta: #a626a4;
+  --ansi-cyan: #0b7f96;
+  --ansi-white: #5b616d;
+  --ansi-bright-black: #6b7180;
+  --ansi-bright-red: #b22a1c;
+  --ansi-bright-green: #166b45;
+  --ansi-bright-yellow: #7f5400;
+  --ansi-bright-blue: #2a46b0;
+  --ansi-bright-magenta: #84197f;
+  --ansi-bright-cyan: #086478;
+  --ansi-bright-white: #14161b;
+  --terminal-selection: rgba(61, 95, 217, 0.22);
+  --terminal-selection-inactive: rgba(61, 95, 217, 0.12);
+
+  --elev-float: 0 18px 50px rgba(15, 20, 35, 0.18);
+  --halo-working: 0 0 0 4px rgba(178, 117, 0, 0.08);
+  --halo-blocked: 0 0 0 4px rgba(212, 59, 42, 0.1), 0 0 40px rgba(212, 59, 42, 0.08);
+  --scrim: rgba(15, 20, 35, 0.3);
+  --checkerboard-a: #d9dce2;
+  --checkerboard-b: #c6cad2;
+}
+
+/* Tailwind utilities generated from the tokens (`bg-surface-2`, `text-muted`, `rounded-card`, …). */
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+
+  /* §3 Type scale (font size only; line height stays inherited, like the arbitrary sizes
+     these replaced). Nothing below 11px. */
+  --text-label: 11px; /* section label (uppercase), caption, shortcut hint */
+  --text-meta: 11.5px; /* meta, terminal preview */
+  --text-small: 12px; /* meta (upper end), numbers */
+  --text-body: 12.5px; /* page body text, buttons, tables */
+  --text-ui: 13px; /* UI base size */
+  --text-title: 14px; /* panel / card title */
+  --text-display: 26px; /* screen title */
+
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-selected: var(--surface-selected);
+  --color-track: var(--track);
+  --color-terminal: var(--terminal-bg);
+  --color-border: var(--border-strong);
+  --color-border-subtle: var(--border);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-working: var(--status-working);
+  --color-working-ink: var(--status-working-ink);
+  --color-working-bg: var(--status-working-bg);
+  --color-blocked: var(--status-blocked);
+  --color-blocked-ink: var(--status-blocked-ink);
+  --color-blocked-bg: var(--status-blocked-bg);
+  --color-done: var(--status-done);
+  --color-done-ink: var(--status-done-ink);
+  --color-done-bg: var(--status-done-bg);
+  --color-idle: var(--status-idle);
+  --color-idle-ink: var(--status-idle-ink);
+  --color-idle-bg: var(--status-idle-bg);
+  --color-error: var(--status-error);
+  --color-error-ink: var(--status-error-ink);
+  --color-error-bg: var(--status-error-bg);
+  --color-scrim: var(--scrim);
+  --color-paper: var(--paper);
+
+  --radius-badge: var(--r-badge);
+  --radius-control: var(--r-control);
+  --radius-button: var(--r-button);
+  --radius-card: var(--r-card);
+  --radius-panel: var(--r-panel);
+  --radius-sheet: var(--r-sheet);
+
+  --shadow-float: var(--elev-float);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-spin: spin 1s linear infinite;
+  --animate-pulse-halo: pulse-halo 1.4s ease-out infinite;
+  --animate-rise: rise 0.25s ease-out;
+  --animate-blink: blink 0.96s steps(1, end) infinite;
+}
+
+/* §6 Motion */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pulse-halo {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-blocked) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+/* Dictation record dot (CCC blinks every 12 × 40 ms ticks). */
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Working label shimmer: a soft highlight sliding across the status ink. */
+.shimmer-text {
+  background: linear-gradient(
+      90deg,
+      currentColor 0%,
+      currentColor 40%,
+      color-mix(in srgb, currentColor 45%, white) 50%,
+      currentColor 60%,
+      currentColor 100%
+    )
+    0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .shimmer-text {
+    -webkit-text-fill-color: currentColor;
+    background: none;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dictation overlay window: transparent outside its rounded card. */
+html[data-view="dictation-overlay"] body {
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* §9 Visible focus ring. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Numbers (tokens, %, $, durations) are always mono (§3). */
+.num {
+  font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel header action buttons (HeaderButton.tsx): outline style. */
+.header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.25rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-badge);
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+.header-btn:hover {
+  background: var(--surface-4);
+}
+.header-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  position: relative;
+  z-index: 1;
+}
+.header-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

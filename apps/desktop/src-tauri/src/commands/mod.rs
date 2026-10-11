@@ -1,0 +1,13 @@
+pub mod agents;
+pub mod app;
+pub mod clipboard;
+pub mod dictation;
+pub mod diagnostics;
+pub mod dialog;
+pub mod fs;
+pub mod git;
+pub mod hooks;
+pub mod hub;
+pub mod settings;
+pub mod update;
+pub mod workspace;

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dictation-overlay",
+  "description": "M2b: the dictation overlay window only listens to `dictation:overlay` and calls app commands (settings_get, load_state, dictation_cancel).",
+  "windows": ["dictation-overlay"],
+  "permissions": ["core:default", "core:event:default"]
+}

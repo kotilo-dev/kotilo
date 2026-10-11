@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "copilot",
+  "displayName": "GitHub Copilot CLI",
+  "avatar": { "letter": "P", "bg": "#1f2430", "ink": "#a5c8ff" },
+  "detect": { "executables": ["copilot.exe", "copilot"], "nodeScripts": ["@github/copilot"] },
+  "launch": { "command": "copilot", "args": [] },
+  "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 2, "gapMs": 400, "waitMs": 3000 }],
+  "permissionKeys": { "allowOnce": "1", "deny": "Esc" },
+  "hooks": {
+    "shell": "powershell",
+    "events": [
+      "sessionStart", "sessionEnd", "userPromptSubmitted", "postToolUse", "permissionRequest", "notification", "agentStop",
+      "errorOccurred"
+    ]
+  },
+  "usage": "builtIn"
+}

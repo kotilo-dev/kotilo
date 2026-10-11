@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mission control</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0c0f}
+a{color:#8fb0ff;text-decoration:none}a:hover{color:#b9ceff}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,90,0.45)}70%{box-shadow:0 0 0 10px rgba(255,107,90,0)}100%{box-shadow:0 0 0 0 rgba(255,107,90,0)}}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 900px; box-sizing: border-box; padding: 28px 32px; background: #0b0c0f; color: #e7e9ee; font-family: 'Geist', system-ui, sans-serif; font-size: 13px; display: flex; flex-direction: column; gap: 22px">
+
+  <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Mission control</span>
+      <span style="color: #8b909c">6 agents · 2 need you · 3 working · 1 done</span>
+    </div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 6px; padding: 4px; border-radius: 10px; background: #14161b; border: 1px solid rgba(255,255,255,0.06)">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+        <button onClick="{{f.pick}}" style="{{f.style}}">{{f.label}}</button>
+      </sc-for>
+    </div>
+    <a href="Main.dc.html" style="height: 36px; padding: 0 14px; border-radius: 9px; background: #7c9cff; color: #0b0c0f; font-weight: 600; display: flex; align-items: center; gap: 8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New agent
+    </a>
+  </div>
+
+  <!-- Limits strip -->
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+    <sc-for list="{{limits}}" as="l" hint-placeholder-count="4">
+      <div style="padding: 14px 16px; border-radius: 12px; background: #111318; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; color: #a3a8b4; font-size: 12px"><span>{{l.label}}</span><span style="font-family: 'Geist Mono', monospace; color: #e7e9ee">{{l.value}}</span></div>
+        <div style="height: 5px; border-radius: 3px; background: #22252d; overflow: hidden"><div style="{{l.bar}}"></div></div>
+        <span style="font-size: 11.5px; color: #6f7480">{{l.note}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Tiles -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="6">
+      <a href="Main.dc.html" style="{{t.cardStyle}}">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.06)">
+          <div style="{{t.avatar}}">{{t.initial}}</div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+            <span style="font-weight: 600; color: #e7e9ee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.project}}</span>
+            <span style="font-size: 11.5px; color: #7d8290">{{t.agent}} · {{t.branch}}</span>
+          </div>
+          <span style="{{t.pill}}"><span style="{{t.pillDot}}"></span>{{t.state}}</span>
+        </div>
+        <div style="padding: 12px 14px; height: 132px; box-sizing: border-box; overflow: hidden; background: #0e1014; font-family: 'Geist Mono', monospace; font-size: 11.5px; line-height: 1.55; color: #9aa0ac">
+          <sc-for list="{{t.preview}}" as="p" hint-placeholder-count="5">
+            <div style="{{p.style}}">{{p.text}}</div>
+          </sc-for>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 9px 14px; font-size: 11.5px; color: #7d8290">
+          <span>{{t.meta}}</span><span style="font-family: 'Geist Mono', monospace">{{t.cost}}</span>
+        </div>
+      </a>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all' };
+  }
+  renderVals() {
+    var self = this;
+    var colors = { blocked: '#ff6b5a', working: '#f2b440', done: '#5aa9ff', idle: '#46c58a' };
+    var bgs = { blocked: 'rgba(255,107,90,0.14)', working: 'rgba(242,180,64,0.14)', done: 'rgba(90,169,255,0.14)', idle: 'rgba(70,197,138,0.14)' };
+    var inks = { blocked: '#ff9d90', working: '#f6c86b', done: '#9cc8ff', idle: '#8fe0b6' };
+    var all = [
+      { project: 'payments-gateway', agent: 'Codex', branch: 'main', initial: 'X', tint: '#1d2a26', ink: '#7fd8b4', status: 'blocked', state: 'Needs permission', meta: 'waiting 1m 12s', cost: '88k tok',
+        preview: [['• Added migration 20261004_AddCancellationStatus', '#9fb4ff'], ['• Migration is ready. Applying it needs a', '#c9ccd4'], ['  database write.', '#c9ccd4'], ['  Allow command?  dotnet ef database update', '#ffb4a8'], ['  › 1. Yes  2. Always  3. No', '#8b909c']] },
+      { project: 'billing-ui', agent: 'Cursor CLI', branch: 'feat/order-list', initial: 'U', tint: '#202326', ink: '#c9d1d9', status: 'blocked', state: 'Waiting for input', meta: 'asked a question 3m ago', cost: '—',
+        preview: [['I can paginate on the server or keep the', '#c9ccd4'], ['client-side table. Server paging changes', '#c9ccd4'], ['the API contract.', '#c9ccd4'], ['', '#c9ccd4'], ['Which do you prefer?', '#ffb4a8']] },
+      { project: 'orders-service', agent: 'Claude Code', branch: 'feature/approval-flow', initial: 'C', tint: '#2a2230', ink: '#f0a37d', status: 'working', state: 'Working · 2m', meta: 'context 41%', cost: '$1.24',
+        preview: [['● Edit  src/approval/approval.ts  +12 −3', '#9fb4ff'], ['  + case ProviderStatus.Cancelled: return Rejected;', '#7fd8a4'], ['● Bash  npm test -- approval', '#9fb4ff'], ['  PASS  approval.test.ts (14 tests)', '#7fd8a4'], ['✻ Running the full suite…', '#f6c86b']] },
+      { project: 'etl-jobs', agent: 'OpenCode', branch: 'perf/batch', initial: 'O', tint: '#26202b', ink: '#d29bf0', status: 'working', state: 'Working · 40s', meta: 'profiling', cost: '$0.31',
+        preview: [['→ read jobs/nightly_import.py', '#9fb4ff'], ['→ bash python -m cProfile nightly_import.py', '#9fb4ff'], ['  1.8M calls in parse_row (62% of time)', '#c9ccd4'], ['  Batching the row parser next.', '#c9ccd4'], ['', '#c9ccd4']] },
+      { project: 'search-api', agent: 'Gemini CLI', branch: 'fix/ranking', initial: 'M', tint: '#2a2a1c', ink: '#e6d27a', status: 'working', state: 'Working · 6m', meta: 'tool: run_tests', cost: '41k tok',
+        preview: [['✓ ReadFile ranking/score.ts', '#9fb4ff'], ['✓ Edit ranking/score.ts', '#9fb4ff'], ['⠋ Shell npm run test:ranking', '#f6c86b'], ['', '#c9ccd4'], ['', '#c9ccd4']] },
+      { project: 'docs-site', agent: 'Copilot CLI', branch: 'docs/api', initial: 'G', tint: '#1e2333', ink: '#9db2ff', status: 'done', state: 'Done · 4m 10s', meta: 'finished 6m ago', cost: '12 req',
+        preview: [['● Updated 14 pages under docs/api/', '#9fb4ff'], ['● Fixed 3 broken links', '#9fb4ff'], ['', '#c9ccd4'], ['All docs build without warnings.', '#7fd8a4'], ['', '#c9ccd4']] }
+    ];
+    var f = this.state.filter;
+    var shown = all.filter(function (t) { return f === 'all' || (f === 'attention' && t.status === 'blocked') || (f === 'working' && t.status === 'working') || (f === 'done' && t.status === 'done'); });
+    var tiles = shown.map(function (t) {
+      var blocked = t.status === 'blocked';
+      return Object.assign({}, t, {
+        cardStyle: 'display: flex; flex-direction: column; border-radius: 14px; background: #111318; overflow: hidden; color: inherit; ' + (blocked ? 'border: 1px solid rgba(255,107,90,0.5); box-shadow: 0 0 0 4px rgba(255,107,90,0.07)' : 'border: 1px solid rgba(255,255,255,0.07)'),
+        avatar: 'width: 30px; height: 30px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: ' + t.tint + '; color: ' + t.ink,
+        pill: 'display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 12px; font-size: 11.5px; font-weight: 600; white-space: nowrap; background: ' + bgs[t.status] + '; color: ' + inks[t.status],
+        pillDot: 'width: 7px; height: 7px; border-radius: 50%; background: ' + colors[t.status] + (blocked ? '; animation: pulse 1.4s infinite' : ''),
+        preview: t.preview.map(function (p) { return { text: p[0] || ' ', style: 'white-space: pre; overflow: hidden; text-overflow: ellipsis; color: ' + p[1] }; })
+      });
+    });
+    var filters = [['all', 'All'], ['attention', 'Needs you · 2'], ['working', 'Working'], ['done', 'Done']].map(function (x) {
+      var on = f === x[0];
+      return { label: x[1], pick: function () { self.setState({ filter: x[0] }); }, style: 'height: 30px; padding: 0 12px; border-radius: 7px; border: none; cursor: pointer; font-family: Geist, sans-serif; font-size: 12.5px; font-weight: 500; ' + (on ? 'background: #262a33; color: #e7e9ee' : 'background: transparent; color: #8b909c') };
+    });
+    var limits = [
+      { label: 'Claude · 5-hour', value: '62%', pct: 62, color: '#f2b440', note: 'resets 14:00' },
+      { label: 'Claude · weekly', value: '38%', pct: 38, color: '#7c9cff', note: 'resets Mon 09:00' },
+      { label: 'Codex · weekly', value: '31%', pct: 31, color: '#7c9cff', note: 'resets Thu 11:20' },
+      { label: 'Today · estimated', value: '$6.41', pct: 43, color: '#46c58a', note: 'across 6 agents' }
+    ].map(function (l) { return Object.assign({}, l, { bar: 'height: 100%; border-radius: 3px; width: ' + l.pct + '%; background: ' + l.color }); });
+    return { tiles: tiles, filters: filters, limits: limits };
+  }
+}
+</script>
+</body>
+</html>

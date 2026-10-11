@@ -1,0 +1,13 @@
+{
+  // User settings with comments and a trailing comma: Gemini reads this file as JSONC.
+  "general": { "vimMode": false },
+  "security": { "auth": { "selectedType": "gemini-api-key" } },
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "write_file",
+        "hooks": [ { "name": "my-linter", "type": "command", "command": "node C:/tools/lint-hook.js", "timeout": 10000 } ],
+      },
+    ],
+  },
+}

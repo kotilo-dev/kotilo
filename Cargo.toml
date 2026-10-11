@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/desktop/src-tauri",
+    "crates/proto",
+    "crates/hook",
+]
+
+# `apps/desktop/src-tauri` enables serde_json's `preserve_order` (hook install/uninstall must
+# keep key order across a read-modify-write of agent config files). Cargo's feature
+# unification turns it on for every crate in the workspace.
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

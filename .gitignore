@@ -1,0 +1,39 @@
+# Rust
+/target/
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/gen/schemas/
+
+# Node
+node_modules/
+dist/
+.vite/
+test-results/
+playwright-report/
+
+# .NET
+bin/
+obj/
+*.user
+TestResults/
+
+# Logs
+*.log
+
+# Editors / OS
+.vscode/
+.vs/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets and local-only files (never commit)
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
+*.db
+*.sqlite
+.claude/settings.local.json
+CLAUDE.local.md

@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "droid",
+  "displayName": "Factory Droid",
+  "avatar": { "letter": "D", "bg": "#2b2620", "ink": "#f2b56b" },
+  "detect": { "executables": ["droid.exe", "droid"], "nodeScripts": ["node_modules/droid/"] },
+  "launch": { "command": "droid", "args": [] },
+  "gracefulClose": [
+    { "keys": "Ctrl+C", "waitMs": 500 },
+    { "keys": "Ctrl+C", "repeat": 2, "gapMs": 200, "waitMs": 3000 }
+  ],
+  "hooks": {
+    "shell": "cmd",
+    "events": [
+      "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification", "Stop",
+      "SubagentStop", "PreCompact"
+    ]
+  },
+  "usage": "builtIn"
+}

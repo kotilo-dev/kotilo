@@ -1,0 +1,20 @@
+{
+  "receivedAt": "2026-09-30T18:12:00.123Z",
+  "hookPid": 1234,
+  "parentPid": 1200,
+  "processChain": [
+    { "pid": 1200, "name": "bash.exe" },
+    { "pid": 900, "name": "claude.exe" }
+  ],
+  "payload": {
+    "session_id": "abc123",
+    "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\C--src-alpha\\abc123.jsonl",
+    "cwd": "C:\\src\\alpha",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": { "command": "<redacted>", "description": "<redacted>" },
+    "tool_use_id": "toolu_01ABC123"
+  }
+}

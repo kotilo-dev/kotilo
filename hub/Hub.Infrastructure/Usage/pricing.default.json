@@ -1,0 +1,24 @@
+{
+  // USD per million tokens. Key = model id prefix (longest prefix wins); "<prefix>-fast" = fast mode.
+  // Source: Anthropic first-party API pricing (claude-api reference, cached 2026-09-25).
+  // Cache writes: 5-minute TTL = 1.25x input, 1-hour TTL = 2x input. Cache reads per model.
+  // Unknown models get no cost ("?") instead of a guess. Edit freely; agent-hub re-reads this file on change.
+  "updated": "2026-09-25",
+  "models": {
+    "claude-fable-5-1":    { "input": 10.00, "output": 50.00, "cacheWrite5m": 12.50, "cacheWrite1h": 20.00, "cacheRead": 0.25, "contextWindow": 1000000 },
+    "claude-mythos-5-1":   { "input": 10.00, "output": 50.00, "cacheWrite5m": 12.50, "cacheWrite1h": 20.00, "cacheRead": 0.25, "contextWindow": 1000000 },
+    "claude-fable-5":      { "input": 10.00, "output": 50.00, "cacheWrite5m": 12.50, "cacheWrite1h": 20.00, "cacheRead": 1.00, "contextWindow": 1000000 },
+    "claude-mythos-5":     { "input": 10.00, "output": 50.00, "cacheWrite5m": 12.50, "cacheWrite1h": 20.00, "cacheRead": 1.00, "contextWindow": 1000000 },
+    "claude-opus-5-5":     { "input": 4.00,  "output": 20.00, "cacheWrite5m": 5.00,  "cacheWrite1h": 8.00,  "cacheRead": 0.20, "contextWindow": 1000000 },
+    "claude-opus-5-5-fast":{ "input": 8.00,  "output": 40.00, "cacheWrite5m": 10.00, "cacheWrite1h": 16.00, "cacheRead": 0.40, "contextWindow": 1000000 },
+    "claude-opus-5":       { "input": 5.00,  "output": 25.00, "cacheWrite5m": 6.25,  "cacheWrite1h": 10.00, "cacheRead": 0.50, "contextWindow": 1000000 },
+    "claude-opus-5-fast":  { "input": 10.00, "output": 50.00, "cacheWrite5m": 12.50, "cacheWrite1h": 20.00, "cacheRead": 1.00, "contextWindow": 1000000 },
+    "claude-opus-4-8":     { "input": 5.00,  "output": 25.00, "cacheWrite5m": 6.25,  "cacheWrite1h": 10.00, "cacheRead": 0.50, "contextWindow": 1000000 },
+    "claude-opus-4-7":     { "input": 5.00,  "output": 25.00, "cacheWrite5m": 6.25,  "cacheWrite1h": 10.00, "cacheRead": 0.50, "contextWindow": 1000000 },
+    "claude-opus-4-6":     { "input": 5.00,  "output": 25.00, "cacheWrite5m": 6.25,  "cacheWrite1h": 10.00, "cacheRead": 0.50, "contextWindow": 1000000 },
+    "claude-sonnet-5-5":   { "input": 2.00,  "output": 10.00, "cacheWrite5m": 2.50,  "cacheWrite1h": 4.00,  "cacheRead": 0.20, "contextWindow": 1000000 },
+    "claude-sonnet-5":     { "input": 2.00,  "output": 10.00, "cacheWrite5m": 2.50,  "cacheWrite1h": 4.00,  "cacheRead": 0.20, "contextWindow": 1000000 },
+    "claude-sonnet-4-6":   { "input": 3.00,  "output": 15.00, "cacheWrite5m": 3.75,  "cacheWrite1h": 6.00,  "cacheRead": 0.30, "contextWindow": 1000000 },
+    "claude-haiku-4-5":    { "input": 1.00,  "output": 5.00,  "cacheWrite5m": 1.25,  "cacheWrite1h": 2.00,  "cacheRead": 0.10, "contextWindow": 200000 }
+  }
+}

@@ -1,0 +1,59 @@
+name: New agent support
+description: Request built-in support for another AI coding agent CLI.
+labels: ["new agent"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kotilo can already run any CLI in a terminal, and you can add your own agent with an
+        `adapter.json` and the Agent Integration Protocol (docs/agent-protocol.md) without code.
+        Built-in support means one-click hook install, state mapping and usage data; see the
+        "Adding an agent" section of CONTRIBUTING.md.
+  - type: input
+    id: name
+    attributes:
+      label: Agent name
+      placeholder: Example CLI
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agent version you use
+      description: Output of the agent's --version.
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How it is installed
+      placeholder: npm install -g @vendor/example-cli / winget / standalone exe
+  - type: input
+    id: hook-docs
+    attributes:
+      label: Docs for hooks, events or plugins
+      description: Link to the vendor's official documentation of its hook/event/plugin system.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Where its configuration lives
+      description: Config file paths and format (for example ~/.example/settings.json, TOML), as documented.
+  - type: textarea
+    id: usage
+    attributes:
+      label: Where usage data lives
+      description: Does the agent write token counts or cost anywhere (session files, database, status line)? Path and a link to docs if known. "None" is a valid answer.
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Permission prompt
+      description: How the agent asks for permission and which keys answer it (allow once, always, deny).
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can test against a live install and provide scrubbed sample payloads (no prompts, no personal data).
+        - label: I would like to implement the adapter myself.

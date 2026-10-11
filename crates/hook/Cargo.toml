@@ -1,0 +1,34 @@
+[package]
+name = "agenthub-hook"
+version = "0.1.0"
+edition = "2021"
+description = "agent-hub hook sidecar: forwards agent hook events to the hub and the desktop app"
+
+[lib]
+name = "agenthub_hook"
+path = "src/lib.rs"
+
+[[bin]]
+name = "agenthub-hook"
+path = "src/main.rs"
+
+[dependencies]
+agenthub-proto = { path = "../proto" }
+serde = { version = "1", features = ["derive"] }
+# `raw_value`: the agent's stdin JSON is forwarded to the hub byte for byte.
+serde_json = { version = "1", features = ["raw_value"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_System_Diagnostics_ToolHelp",
+    # SHGetKnownFolderPath: Codex runs hooks with an empty environment (no LOCALAPPDATA).
+    "Win32_UI_Shell",
+    "Win32_System_Com",
+] }
+
+[dev-dependencies]
+tempfile = "3"

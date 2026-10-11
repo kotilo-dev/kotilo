@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schema/adapter.v1.json",
+  "v": 1,
+  "id": "codex",
+  "displayName": "Codex CLI",
+  "avatar": { "letter": "X", "bg": "#1d2a26", "ink": "#7fd8b4" },
+  "detect": { "executables": ["codex.exe", "codex"], "nodeScripts": ["@openai/codex"] },
+  "launch": { "command": "codex", "args": [] },
+  "permissionKeys": { "allowOnce": "y", "alwaysAllow": "p", "deny": "Esc" },
+  "hooks": {
+    "shell": "cmdUnquoted",
+    "events": [
+      "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "PostToolUse",
+      "PostCompact", "Stop", "Interrupt", "SubagentStart", "SubagentStop"
+    ]
+  },
+  "usage": "builtIn"
+}
