@@ -51,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   diagnostics: { verboseLogging: false },
   composer: { savedPrompts: [], attachmentsHintShown: false },
   updates: { checkOnStart: true },
+  window: { closeToTray: false },
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

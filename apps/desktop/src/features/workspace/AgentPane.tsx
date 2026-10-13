@@ -16,7 +16,7 @@ import { useHubStore } from "../../stores/hubStore";
 import type { TerminalTab } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { formatElapsed } from "../agents/agentLogic";
-import { hasScreenPermissionRule, permissionKeysOf } from "../agents/permissionKeys";
+import { hasScreenPermissionRule, isQuestionTool, permissionKeysOf } from "../agents/permissionKeys";
 import { focusTerminal } from "../terminal/terminalRegistry";
 import { TerminalView } from "../terminal/TerminalView";
 import { Composer } from "../composer/Composer";
@@ -24,7 +24,7 @@ import { AgentHeaderStrip, type HeaderLimit } from "./AgentHeaderStrip";
 import { matchSession, paneVisualState, statusFamily, type PaneVisualState } from "./paneSession";
 import { PermissionCard, PermissionResult, type PermissionDecision } from "./PermissionCard";
 
-const RESULT_VISIBLE_MS = 4000;
+const RESULT_VISIBLE_MS = 2500;
 const BRANCH_POLL_MS = 15000;
 
 /** §7.4 frame: working = thin amber border + 4px halo; waiting = stronger blocked border + glow. */
@@ -147,7 +147,8 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
 
   // The hub's request (tool, command, risk), else a prompt the desktop found on the screen
   // (Cursor), which has no details: the card then only names the agent.
-  const hubPermission = session?.state === "WaitingPermission" ? session.pendingPermission : null;
+  const hubPermission =
+    session?.state === "WaitingPermission" && !isQuestionTool(session.pendingPermission?.tool) ? session.pendingPermission : null;
   const screenBlocked = !hubPermission && screenPermission && agent?.state === "blocked";
   const permission: PendingPermission | null =
     hubPermission ?? (screenBlocked && agent ? { tool: null, command: null, path: null, risk: null, since: new Date(agent.sinceMs).toISOString() } : null);
@@ -167,7 +168,7 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div data-agent-pane className="flex min-h-0 min-w-0 flex-1 flex-col">
       {hasAgent && state && (
         <AgentHeaderStrip
           agent={agentKey}

@@ -28,6 +28,16 @@ export function permissionKeysFor(adapterId: string): PermissionKeys | null {
   return permissionKeysOf(definitionFor(adapterId));
 }
 
+/**
+ * Tools whose "permission" dialog is really a multiple-choice question (Claude Code's
+ * `AskUserQuestion` and plan approval `ExitPlanMode`): answered in the terminal, never with the
+ * card's allow/deny keys. The hub already reports them as WaitingInput; this also covers an
+ * older hub.
+ */
+export function isQuestionTool(tool: string | null | undefined): boolean {
+  return tool === "AskUserQuestion" || tool === "ExitPlanMode";
+}
+
 /** The agent detects permission prompts on its screen (no hook reports them, e.g. Cursor). */
 export function hasScreenPermissionRule(def: AdapterDefinition | undefined): boolean {
   return def?.screenRules?.some((r) => r.state === "waitingPermission") ?? false;

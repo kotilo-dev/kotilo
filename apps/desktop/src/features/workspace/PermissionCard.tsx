@@ -10,7 +10,10 @@ import { useStrings } from "../../app/i18n";
 import type { PendingPermission } from "../../lib/hubTypes";
 import type { PermissionKeys } from "../agents/permissionKeys";
 
-export type PermissionDecision = "allow" | "always" | "deny";
+/** Enter/Space/Esc right after the card took focus were typed before it appeared. */
+const FOCUS_GRACE_MS = 400;
+
+export type PermissionDecision ="allow" | "always" | "deny";
 
 export interface PermissionCardProps {
   agentName: string;
@@ -37,15 +40,28 @@ function ShieldIcon() {
 
 export function PermissionCard(p: PermissionCardProps) {
   const s = useStrings();
+  const cardRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const linkRef = useRef<HTMLButtonElement>(null);
+  const focusedAt = useRef(0);
 
+  // On open, and again whenever the pane becomes visible with the window focused (the request
+  // may arrive while the user is elsewhere). Focus is taken only from this pane's terminal, an
+  // empty input or nothing, so text being typed somewhere else is never redirected.
   useEffect(() => {
     if (!p.autoFocus) return;
+    const card = cardRef.current;
+    const active = document.activeElement;
+    if (!card || (active && card.contains(active))) return;
+    const pane = card.closest("[data-agent-pane]");
+    const free =
+      !active ||
+      active === document.body ||
+      (pane?.contains(active) === true && !((active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) && active.value !== ""));
+    if (!free) return;
     (primaryRef.current ?? linkRef.current)?.focus();
-    // Only when the request first appears.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    focusedAt.current = Date.now();
+  }, [p.autoFocus]);
 
   const tool = p.permission.tool ?? "";
   const title = p.permission.command
@@ -59,6 +75,14 @@ export function PermissionCard(p: PermissionCardProps) {
   const subject = p.permission.command ?? p.permission.path;
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    // A key already on its way to the terminal or composer must not land on the button that
+    // just took focus.
+    const onFocusedButton = e.target === primaryRef.current || e.target === linkRef.current;
+    if (onFocusedButton && ["Enter", " ", "Escape"].includes(e.key) && Date.now() - focusedAt.current < FOCUS_GRACE_MS) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.key === "Escape" && p.keys) {
       e.preventDefault();
       e.stopPropagation();
@@ -76,6 +100,7 @@ export function PermissionCard(p: PermissionCardProps) {
 
   return (
     <div
+      ref={cardRef}
       role="region"
       aria-label={s.permission.region}
       aria-live="assertive"
@@ -140,7 +165,11 @@ export function PermissionCard(p: PermissionCardProps) {
   );
 }
 
-/** The strip shown briefly after a decision: which key went to the agent. */
+/**
+ * The note shown briefly after a decision: which key went to the agent. A small pill in the
+ * top-right corner, not over the bottom rows where the agent redraws its prompt, and it never
+ * takes clicks.
+ */
 export function PermissionResult({ decision, keyName }: { decision: PermissionDecision; keyName: string }) {
   const s = useStrings();
   const text =
@@ -153,9 +182,9 @@ export function PermissionResult({ decision, keyName }: { decision: PermissionDe
   return (
     <div
       role="status"
-      className={`absolute bottom-[22px] left-[22px] right-[22px] z-10 flex animate-rise items-center gap-2.5 rounded-card border px-3.5 py-3 text-ui ${tone}`}
+      className={`pointer-events-none absolute right-3 top-3 z-10 flex max-w-[calc(100%-24px)] animate-rise items-center gap-2 rounded-card border px-3 py-1.5 text-small shadow-float ${tone}`}
     >
-      <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12l5 5 9-10" />
       </svg>
       <span>{text}</span>

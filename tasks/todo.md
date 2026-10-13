@@ -1,3 +1,38 @@
+# 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059)
+
+User: agent states on the phone; ntfy with a generated UUID topic and a "Set up on phone" button that shows a QR the ntfy app can add directly; keep settings simple.
+
+## Before starting
+- [ ] Check on a real iPhone whether the ntfy iOS app opens `ntfy://ntfy.sh/<topic>` (if yes: one QR for both platforms, drop the iPhone tab)
+- [ ] Re-read ntfy publish docs (headers, limits of the public server) and pick the QR library (licence)
+
+## Hub (C#)
+- [ ] `PhoneNotifier` channel next to the toast feed: receives every notification that passed the rules and `NotificationGate`, maps severity → ntfy `Priority` (attention = 4/high, warning = 3, info = 2), `Title` = project · agent, body = state + waiting time; metadata only (rule 5); `HttpClient` with timeout, failures logged without the topic
+- [ ] Settings: `phone.enabled` (false), `phone.server` ("https://ntfy.sh"), `phone.onlyWhenAway` (true); validation (https URL; http only with an explicit flag); topic in `ISecretStore` (`kotilo-ntfy-topic`), never in settings/logs/diagnostics
+- [ ] Endpoints: `POST /v1/phone/topic` (create or renew: `kotilo-` + UUID "N"), `GET /v1/phone/setup` (server, topic, `ntfy://` link – for the local app only), `POST /v1/phone/test`, `PUT /v1/presence { away }` (desktop idle state)
+- [ ] Only-when-away: skip publishing while the desktop reports present; nothing reported (app closed, hub alone) = away
+- [ ] Tests: priority/title mapping, no transcript fields in the payload, gate + away logic, topic never in logs (fake HTTP handler, temp secret store); schema + contract tests
+
+## Desktop (Rust + UI)
+- [ ] Report presence to the hub from the existing idle watcher (D-056): away after `agents.awaySummaryMinutes`, present on input
+- [ ] Settings → Notifications: one "Phone (ntfy)" block – toggle, **Set up on phone** (dialog: Android tab with QR of `ntfy://<host>/<topic>?display=Kotilo` + "Install ntfy" link; iPhone tab with server/topic and Copy buttons), **Send test**, **Renew link** (confirm: the phone must be set up again), "Only when I'm away"; **Advanced**: server URL + iOS `upstream-base-url` hint
+- [ ] QR rendered locally (no web service); i18n EN/TR; Playwright screenshots of the block and the dialog (light/dark)
+- [ ] `THIRD_PARTY_NOTICES` regenerated
+
+## Docs and checks
+- [ ] README/user guide: phone notifications, what is sent, how to renew
+- [ ] Manual tests N-1… in `docs/manual-tests.md`: Android QR subscribe, iPhone manual subscribe, test message, permission while away arrives with high priority, no message while present, DND/quiet hours, renew link → old subscription silent, topic absent from logs and diagnostics zip
+
+# 0.3.1 – Fixes from testing on a second machine (2026-10-13)
+
+User: a PowerShell profile that changes to the home folder made new terminals and agents start outside the workspace; a restored Claude tab's start button could not be clicked; asked for a "keep running in the tray" setting.
+- [x] PowerShell panes: `-NoExit -Command "Set-Location -LiteralPath '<cwd>'[; <agent>]"` so the workspace folder wins over the profile (`pty::wrap_agent_command`, tests)
+- [x] Start/exit/search overlays above xterm's layers (`z-10`): xterm's link-layer canvas swallowed the click; e2e `restore.spec.ts` (`?restore=agent`)
+- [x] D-058 close to tray: setting in Settings → About, tray icon with Show/Quit, `CloseGuard` hides instead of closing
+- [x] Agent questions vs. the permission card: Claude's `AskUserQuestion` goes through its permission dialog, so the card's Allow/Deny sent `1`/`Esc` to a multiple-choice question (picked the first answer or cancelled it). The hub now treats a question tool (`AskUserQuestion`, plan approval `ExitPlanMode`) as WaitingInput and the desktop hides the card for them even with an older hub; the card takes focus also when the window comes back (only from this pane's terminal or an empty input), ignores Enter/Space/Esc in the first 400 ms after taking focus, and the result note is a small top-right pill (2.5 s) instead of a strip over the agent's prompt
+- [x] Workspace rows: arrow cursor instead of the text cursor (`select-none`); inactive roots get a "Switch" button on hover/selection, a double click switches, the ○ dot has a bigger hit area; "Make active" stays in the context menu; e2e `workspaces.spec.ts` (`?workspaces=2`)
+- [x] Right click pasted twice in an agent: with mouse tracking on, xterm reports the click to the program (which may paste itself) and Kotilo pasted too. Now the click is left to a mouse-tracking program, as in Windows Terminal; Shift+right click still pastes; a selection is still copied; e2e `paste.spec.ts`
+- [ ] Manual checks F-1–F-15 (`docs/manual-tests.md`, run list `tasks/manual-test-run.md` §5) – needs the user and a build with these fixes
 # 0.3 – Unseen finished work + terminal colour schemes (planned 2026-10-11)
 
 User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar başında değilse ya da bildirimi pas geçtiyse bir süre sonra unutabilir". Second track: terminal colour schemes for the terminal area only (app chrome keeps the design tokens).

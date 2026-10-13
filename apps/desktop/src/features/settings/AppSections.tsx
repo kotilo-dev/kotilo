@@ -172,6 +172,7 @@ export function AboutSection() {
   const s = useStrings();
   const verbose = useSettingsStore((st) => st.settings.diagnostics.verboseLogging);
   const checkUpdatesOnStart = useSettingsStore((st) => st.settings.updates?.checkOnStart !== false);
+  const closeToTray = useSettingsStore((st) => st.settings.window?.closeToTray === true);
   const update = useSettingsStore((st) => st.update);
   const [openingLogs, setOpeningLogs] = useState(false);
 
@@ -190,6 +191,12 @@ export function AboutSection() {
           {s.settings.about.openLogsFolder}
         </Button>
       </div>
+      <Checkbox
+        checked={closeToTray}
+        onChange={(v) => update({ window: { closeToTray: v } })}
+        label={s.settings.about.closeToTray}
+        hint={s.settings.about.closeToTrayHint}
+      />
       <Checkbox
         checked={checkUpdatesOnStart}
         onChange={(v) => update({ updates: { checkOnStart: v } })}

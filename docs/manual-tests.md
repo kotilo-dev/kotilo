@@ -136,3 +136,25 @@ Preparation: stop any running dev app, `dotnet build hub/AgentHub.sln`, then `np
 | U-11 | Settings → Terminal → **Color scheme**: pick Campbell, then an app theme different from the current one, then **Same as app** | Only the terminals change (background of the whole terminal area included, no stripe); live in open tabs; back to the app theme with **Same as app** |
 | U-12 | Settings → Terminal → **Import from Windows Terminal…**; tick One Half Dark and one own scheme from `settings.json`; import; pick it; compare with the same profile in Windows Terminal; remove it | The dialog lists the user's schemes and the built-in ones (One Half Dark, Campbell); colours and selection match Windows Terminal; Windows Terminal's files are unchanged (timestamps); **Remove** drops it and a terminal using it falls back to the app theme. Without Windows Terminal the button is disabled with a hint |
 | U-13 | Theme Kotilo Dark (default) and Kotilo Light; compare with 0.2.1 screenshots | Look exactly as before: same colours in the UI, the editor and the terminals |
+
+## Fixes after 0.3.0 (0.3.1, D-058)
+
+Preparation: a build that contains the fixes (0.3.1 installer, or `npm --prefix apps/desktop run tauri dev`); Claude Code installed; a workspace open. For F-1/F-2 add a line that changes the folder to your PowerShell profile (`notepad $PROFILE` → `Set-Location ~`), and remove it afterwards if you don't want it.
+
+| # | Steps | Expected |
+|---|---|---|
+| F-1 | Profile with `Set-Location ~`: open a **New terminal** (PowerShell 7, then Windows PowerShell via the shell menu); run `pwd` | The prompt is in the workspace folder, not the home folder; the rest of the profile (prompt, aliases) still loaded |
+| F-2 | Same profile: **New agent ▶** → claude; in Claude ask "which folder are you in?" (or watch the header/project) | Claude starts in the workspace folder; the session shows under the right project in Mission control |
+| F-3 | Workspace whose path contains a space and an apostrophe (e.g. `C:\tmp\o'neil test`): New terminal and New agent | Both open in that folder; no PowerShell parse error |
+| F-4 | Start Claude in a tab, close Kotilo while it runs, open Kotilo again; click **Start claude** on the restored tab; repeat with **Start shell only** | The buttons react at once: Claude (or the plain shell) starts in the tab |
+| F-5 | Let a terminal exit (`exit`), then use the **Restart** and **Close** buttons on the bar at the top; open search with `Ctrl+Shift+F` and use its arrows/× | All buttons react to the mouse |
+| F-6 | Settings → About and diagnostics: **Keep running in the tray…** on; close the window with ✕ while an agent works | Window hides, a Kotilo icon is in the tray (maybe under the ^ overflow); the agent keeps working; notifications still arrive |
+| F-7 | Left-click the tray icon; then close again and right-click → **Show Kotilo** | The window comes back in front with its tabs intact each time |
+| F-8 | Open a file in the viewer, change it without saving, close the window (hides), then tray → **Quit Kotilo** | The window comes back with the unsaved-changes prompt; Cancel keeps the app running; Discard quits; the agents' processes are gone (Task Manager) |
+| F-9 | Turn the setting off | The tray icon disappears at once; closing the window quits the app as before (D13) |
+| F-10 | Rebuild/restart the hub first. Ask Claude something that makes it use its question tool ("ask me with AskUserQuestion which of two colours I prefer"); then ask for a plan in plan mode (Shift+Tab) and let it finish | No permission card for either: the pane shows "waiting for input" and the question is answered in the terminal itself (arrows, Tab, Enter work there) |
+| F-11 | Click into the terminal, let Claude ask for a real permission (e.g. a Bash command) | The card's **Allow once** has focus; Tab moves to the other buttons; Enter/Esc pressed in the same instant the card appears do nothing |
+| F-12 | Switch to another app while Claude works; come back after the card appeared | The card gets focus when the window is active again (within a second); text typed in the composer is never moved to the card |
+| F-13 | Allow a request from the card | A small note ("Allowed once…") shows in the top-right corner for ~2 s; the agent's prompt rows at the bottom stay readable |
+| F-14 | Add a second workspace; hover its name, then use **Switch**; double-click the other one; right-click → **Make active** | Arrow cursor over names (no text cursor); each of the three switches the active workspace (● moves, its files show) |
+| F-15 | Copy a line of text; right-click into Claude's prompt, then into a plain PowerShell prompt; in Claude also try Shift+right click | Each pastes the text exactly once; selecting text and right-clicking still copies it |

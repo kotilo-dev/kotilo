@@ -15,11 +15,34 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { strings, useStrings } from "./strings";
 import { UnsavedChangesModal } from "../features/viewer/UnsavedChangesModal";
 import { collectDirtyDocs, saveAllDirty } from "../features/viewer/unsavedChanges";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useToastStore } from "../stores/toastStore";
 
 type Decision = "cancel" | "discard" | "saveAll";
 
 let promptOpen = false;
+/** D-058: set by the tray's Quit so the next close really closes instead of hiding. */
+let quitRequested = false;
+
+/** D-058: brings the main window back from the tray (or from behind other windows). */
+export async function showMainWindow(): Promise<void> {
+  const win = getCurrentWindow();
+  await win.show();
+  await win.unminimize();
+  await win.setFocus();
+}
+
+/** D-058: the tray's Quit – the normal close path (unsaved-changes prompt included), never hidden. */
+export async function requestQuit(): Promise<void> {
+  // The prompt must be seen: a hidden window comes back first.
+  if (collectDirtyDocs().length > 0) await showMainWindow().catch(() => {});
+  quitRequested = true;
+  try {
+    await getCurrentWindow().close();
+  } catch {
+    quitRequested = false;
+  }
+}
 
 /** Destroys the window; on failure (e.g. permission) a toast: close cancelled, guard stays active. */
 async function destroyWindow() {
@@ -43,6 +66,14 @@ export function CloseGuard() {
       .onCloseRequested(async (event) => {
         if (promptOpen) {
           event.preventDefault(); // modal already open: just block, no second modal
+          return;
+        }
+        const quitting = quitRequested;
+        quitRequested = false;
+        if (!quitting && useSettingsStore.getState().settings.window?.closeToTray === true) {
+          // D-058: panes and agents keep running; the tray icon brings the window back.
+          event.preventDefault();
+          await getCurrentWindow().hide();
           return;
         }
         const dirty = collectDirtyDocs();

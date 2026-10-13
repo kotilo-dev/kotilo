@@ -459,14 +459,15 @@ export function Tree() {
 
     return (
       <div
-        className={`flex items-center px-1${isSel ? " bg-surface-4" : ""}`}
+        className={`group flex cursor-default select-none items-center px-1${isSel ? " bg-surface-4" : ""}`}
         style={{ paddingLeft: 4 + row.depth * INDENT_PX, height: ROW_HEIGHT }}
         onClick={(e) => {
           if (isEditingThis) return;
           // File: a click only selects, Ctrl+click opens in a new (pinned) tab, a double click
           // opens in the preview tab (onDoubleClick). Folder: a click toggles. Root: a click only
-          // selects; activation is the ○ button (user request 2026-09-27); the active root's
-          // tree toggles with the arrow (▶/▼).
+          // selects (user request 2026-09-27); activation is the ○ dot, the "Switch" button shown
+          // on hover/selection, a double click or "Make active" in the context menu; the active
+          // root's tree toggles with the arrow (▶/▼).
           if (row.kind === "file") {
             if (e.ctrlKey) openRow(row as Row, true);
             else select(workspaceId, rel);
@@ -481,6 +482,7 @@ export function Tree() {
         onDoubleClick={(e) => {
           if (isEditingThis || e.ctrlKey) return;
           if (row.kind === "file") openRow(row as Row, false);
+          else if (isRoot && !isActive) void setActive(workspaceId);
         }}
         onContextMenu={(e) => {
           select(workspaceId, rel);
@@ -503,7 +505,7 @@ export function Tree() {
         {isRoot && (
           <button
             type="button"
-            className={`mr-1 shrink-0 leading-none ${isActive ? "cursor-default text-accent" : "cursor-pointer text-muted"}`}
+            className={`mr-1 flex h-full w-4 shrink-0 items-center justify-center leading-none ${isActive ? "cursor-default text-accent" : "cursor-pointer text-muted hover:text-text"}`}
             title={isActive ? strings.workspaces.activeTooltip : strings.workspaces.activateTooltip}
             onClick={(e) => {
               e.stopPropagation();
@@ -536,6 +538,19 @@ export function Tree() {
             <span className="min-w-0 flex-1 truncate" title={name}>
               {name}
             </span>
+            {isRoot && !isActive && (
+              <button
+                type="button"
+                title={strings.workspaces.activateTooltip}
+                className={`ml-1 shrink-0 cursor-pointer rounded border border-border px-1.5 leading-4 text-text-2 hover:bg-surface-5 hover:text-text ${isSel ? "" : "hidden group-hover:block"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void setActive(workspaceId);
+                }}
+              >
+                {strings.workspaces.activate}
+              </button>
+            )}
             {isRoot && <AgentBadge state={urgentStateForWorkspace(agents, workspaceId)} />}
           </>
         )}

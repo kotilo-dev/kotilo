@@ -811,6 +811,8 @@ export interface Settings {
    * means the default: check on start.
    */
   updates?: { checkOnStart: boolean };
+  /** D-058: frontend-only like `updates`; missing means off. */
+  window?: { closeToTray: boolean };
 }
 
 export interface SavedPrompt {

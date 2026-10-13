@@ -1,10 +1,12 @@
-# Manuel test turu (planlandı: 2026-10-12)
+# Manuel test turu (planlandı: 2026-10-12, güncellendi: 2026-10-13)
 
 Bekleyen bütün manuel testler tek listede. Adımlar ve beklenen sonuçlar `docs/manual-tests.md` içinde, buradaki numaralarla. Her maddeyi `[x]` (geçti) veya `[!]` (sorun; kısa not) ile işaretle; notları bana yapıştırman yeterli.
 
 **Kurulum:** Testler **kurulu 0.3.0** sürümüyle yapılır (dev ortamı gerekmez, hub da güncel gelir). Önce 0.2.1 açıkken uygulama içinden güncellemeyi dene (U-0). Log: `%LOCALAPPDATA%\kotilo\logs\kotilo.log`, hub: `%LOCALAPPDATA%\kotilo\hub\`.
 
-Önerilen sıra: yeni sürümün testleri → ajan/terminal akışları → dikte. Yaklaşık süreler parantez içinde.
+Önerilen sıra: 1 → 2 → 3 → 4 kurulu 0.3.0 ile; **5. bölüm yeni düzeltmeleri içeren sürüm gerektirir** (0.3.1 kurulumu veya `tauri dev`) – en sona bırak, 0.3.1 hazır olunca U-0 gibi uygulama içinden güncelleyip yap. Yaklaşık süreler parantez içinde.
+
+**Not:** D13 (pencere kapanınca uygulama çıkar) tepsi ayarı **kapalıyken** geçerlidir; 0.3.0 zaten bu ayarı içermez.
 
 ## 1. 0.3.0 – bakılmamış işler ve temalar (~45 dk)
 
@@ -73,3 +75,23 @@ Mikrofon ve bir konuşma modeli gerekir.
 - [ ] **D12** Dosyaya yazma
 - [ ] **D13** Ana pencere kapanınca uygulama çıkar
 - [ ] **D14** Farklı ölçekli iki monitör
+
+## 5. 0.3.1 düzeltmeleri – PowerShell profili, geri yüklenen sekme, tepsi (~25 dk)
+
+Yeni sürüm gerekir (0.3.1 veya `tauri dev`). Hazırlık: `notepad $PROFILE` → en sona `Set-Location ~` ekle (F-1–F-3 için; sonra istersen sil).
+
+- [ ] **F-1** Profilde `Set-Location ~` varken yeni terminal (PowerShell 7 ve Windows PowerShell) workspace klasöründe açılır, profilin geri kalanı yüklenir
+- [ ] **F-2** Aynı profille "New agent ▶ → claude" workspace klasöründe başlar, Mission'da doğru projede görünür
+- [ ] **F-3** Yolunda boşluk ve `'` olan workspace (`C:\tmp\o'neil test`): terminal ve ajan doğru klasörde, hata yok
+- [ ] **F-4** Claude çalışırken Kotilo'yu kapat-aç → geri gelen sekmede **Start claude** ve **Start shell only** tıklanır, çalışır
+- [ ] **F-5** Çıkmış terminalin **Restart**/**Close** düğmeleri ve terminal araması (`Ctrl+Shift+F`) fareyle çalışır
+- [ ] **F-6** Ayarlar → Hakkında ve tanılama → tepsi ayarı açık; ✕ ile kapat → pencere gizlenir, tepsi simgesi var (gerekirse ^ altında), ajan çalışmaya devam eder, bildirimler gelir
+- [ ] **F-7** Tepsi simgesine sol tık ve sağ tık → **Show Kotilo** → pencere sekmeleriyle önde açılır
+- [ ] **F-8** Görüntüleyicide kaydedilmemiş değişiklik + pencere gizli → tepsi → **Quit Kotilo** → pencere kaydetme sorusuyla gelir; İptal uygulamayı açık tutar, Vazgeç çıkar; ajan süreçleri kapanır (Görev Yöneticisi)
+- [ ] **F-9** Ayarı kapat → tepsi simgesi hemen kaybolur, pencereyi kapatmak uygulamadan çıkar
+- [ ] **F-10** (Önce hub'ı yeniden derle/başlat.) Claude'a "AskUserQuestion ile iki renk arasında tercihimi sor" de; ayrıca plan modunda (Shift+Tab) bir plan iste → ikisinde de izin kartı çıkmaz, pane "girdi bekliyor" olur, soru terminalde ok/Tab/Enter ile cevaplanır
+- [ ] **F-11** Terminale tıkla, Claude gerçek bir izin istesin (ör. Bash komutu) → kartta **Allow once** odakta, Tab diğer düğmelere geçer, kart çıktığı anda basılan Enter/Esc bir şey yapmaz
+- [ ] **F-12** Claude çalışırken başka uygulamaya geç, kart çıktıktan sonra dön → kart (en geç 1 sn içinde) odak alır; composer'a yazılan yazı karta kaymaz
+- [ ] **F-13** Karttan izin ver → sağ üstte küçük "Allowed once…" notu ~2 sn görünür, alttaki ajan satırları okunur kalır
+- [ ] **F-14** İkinci bir workspace ekle; adının üzerine gel → normal ok imleci ve **Geç** düğmesi; Geç, çift tık ve sağ tık → **Etkinleştir** üçü de etkin workspace'i değiştirir
+- [ ] **F-15** Bir satır kopyala; Claude'un prompt'una ve düz bir PowerShell'e sağ tıkla, Claude'da Shift+sağ tık da dene → her biri metni **bir kez** yapıştırır; metin seçip sağ tıklamak kopyalar

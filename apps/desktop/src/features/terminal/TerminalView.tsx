@@ -444,12 +444,17 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   }, [term]);
 
   // --- right click: copy if there is a selection, else paste (§2.3, §4.3) --------------------
+  // A program that tracks the mouse (agent TUIs) already got the click from xterm and may paste
+  // on its own, so the paste is left to it – as in Windows Terminal; Shift+right click (which
+  // xterm does not report) still pastes here.
   useEffect(() => {
     const host = entry.host;
     const handler = (e: MouseEvent) => {
       e.preventDefault();
       if (term.hasSelection()) {
         void clipboardWriteText(term.getSelection());
+      } else if ((term.modes.mouseTrackingMode ?? "none") !== "none" && !e.shiftKey) {
+        return;
       } else {
         void pasteFromClipboard(term, false, setPendingPaste);
       }
@@ -466,7 +471,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       <div ref={containerRef} className="h-full min-h-0 w-full" />
 
       {showAgentPrompt && (
-        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-bg">
+        <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-bg">
           <button
             type="button"
             className="rounded bg-accent px-3 py-1 text-xs font-medium text-on-accent"
@@ -485,7 +490,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       )}
 
       {showExitBar && (
-        <div className="absolute inset-x-0 top-0 flex items-center justify-end gap-2 bg-surface-1 px-2 py-1 text-xs">
+        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-end gap-2 bg-surface-1 px-2 py-1 text-xs">
           <button
             type="button"
             className="rounded px-2 py-0.5 text-text"
@@ -504,7 +509,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       )}
 
       {searchOpen && (
-        <div className="absolute right-2 top-2 flex items-center gap-1 rounded border border-border bg-surface-1 px-1.5 py-1 text-xs">
+        <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded border border-border bg-surface-1 px-1.5 py-1 text-xs">
           <input
             autoFocus
             value={searchQuery}

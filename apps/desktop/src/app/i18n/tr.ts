@@ -764,6 +764,7 @@ export const tr: Strings = {
     filterPlaceholder: "Dosyaları süz…",
     activateTooltip: "Etkinleştir (dosyalarını göster)",
     activeTooltip: "Etkin çalışma alanı",
+    activate: "Geç",
     loading: "Yükleniyor…",
     folderNotFound: "Klasör bulunamadı",
     searchNoResults: "Eşleşme yok",
@@ -968,6 +969,8 @@ export const tr: Strings = {
       openLogsFolder: "Günlük klasörünü aç",
       privacyNote: "Günlükler bu bilgisayarda kalır. Hiçbir şey otomatik gönderilmez.",
       openHelp: "Yardımı aç",
+      closeToTray: "Pencere kapatılınca sistem tepsisinde çalışmaya devam et",
+      closeToTrayHint: "Terminaller ve ajanlar çalışmaya devam eder. Pencereyi geri getirmek için tepsi simgesine tıklayın; menüsünden çıkın.",
     },
     close: "Kapat",
     invalidNumberRange: (min: number, max: number) => `${min} ile ${max} arasında bir tam sayı girin`,
@@ -1075,6 +1078,11 @@ export const tr: Strings = {
     viewerPrevTab: "Önceki sekme",
     viewerToggleMarkdownMode: "Markdown düzenle/önizle geçişi",
   },
+  tray: {
+    show: `${APP_NAME} penceresini göster`,
+    quit: `${APP_NAME} uygulamasından çık`,
+  },
+
   mascot: {
     aria: `${APP_NAME} robot salyangozu: ajanlarınızın durumu`,
     hideHour: "1 saat gizle",

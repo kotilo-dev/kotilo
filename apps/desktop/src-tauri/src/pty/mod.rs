@@ -263,29 +263,47 @@ pub fn pty_profiles() -> Vec<ShellProfile> {
 // Agent command wrapping + pane env (spec §1.2, §4.16, §4.17, §4.18)
 // ---------------------------------------------------------------------------------
 
+/// PowerShell runs the user's profile before `-Command`, and a profile that changes the
+/// location (`Set-Location ~` is common) would otherwise leave the pane outside the
+/// workspace: the command first moves back to `cwd`. Single-quoted literal, so only the
+/// quote characters PowerShell accepts as `'` (ASCII and the typographic ones) are doubled.
+fn pwsh_set_location(cwd: &Path) -> String {
+    let mut quoted = String::new();
+    for ch in cwd.to_string_lossy().chars() {
+        if matches!(ch, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            quoted.push(ch);
+        }
+        quoted.push(ch);
+    }
+    format!("Set-Location -LiteralPath '{quoted}'")
+}
+
 /// Pure (spec §1.2, unit-tested): the shell args that make the pane either sit at an
-/// interactive prompt (`agent_command: None`, just `profile.args`) or run `agent_command`
-/// and then fall back to an interactive shell once it exits.
-pub fn wrap_agent_command(profile: &ShellProfile, agent_command: Option<&str>) -> Vec<String> {
-    let Some(agent) = agent_command else {
-        return profile.args.clone();
-    };
-    match profile.id {
-        ShellKind::Pwsh | ShellKind::Powershell => {
+/// interactive prompt (`agent_command: None`) or run `agent_command` and then fall back
+/// to an interactive shell once it exits. PowerShell always gets a `-Command` that
+/// restores `cwd` after the profile (see `pwsh_set_location`).
+pub fn wrap_agent_command(profile: &ShellProfile, cwd: &Path, agent_command: Option<&str>) -> Vec<String> {
+    match (profile.id, agent_command) {
+        (ShellKind::Pwsh | ShellKind::Powershell, _) => {
+            let set_location = pwsh_set_location(cwd);
             let mut args = profile.args.clone();
             args.push("-NoExit".to_string());
             args.push("-Command".to_string());
-            args.push(agent.to_string());
+            args.push(match agent_command {
+                Some(agent) => format!("{set_location}; {agent}"),
+                None => set_location,
+            });
             args
         }
-        ShellKind::Cmd => vec!["/K".to_string(), agent.to_string()],
-        ShellKind::GitBash => vec![
+        (_, None) => profile.args.clone(),
+        (ShellKind::Cmd, Some(agent)) => vec!["/K".to_string(), agent.to_string()],
+        (ShellKind::GitBash, Some(agent)) => vec![
             "--login".to_string(),
             "-i".to_string(),
             "-c".to_string(),
             format!("{agent}; exec bash --login -i"),
         ],
-        ShellKind::Wsl => vec![
+        (ShellKind::Wsl, Some(agent)) => vec![
             "--".to_string(),
             "bash".to_string(),
             "-lic".to_string(),
@@ -380,7 +398,7 @@ pub fn build_command(
         validate_agent_command(profile, agent)?;
     }
 
-    let args = wrap_agent_command(profile, agent_command);
+    let args = wrap_agent_command(profile, cwd, agent_command);
 
     let mut cmd = CommandBuilder::new(&profile.program);
     cmd.args(&args);
@@ -2318,10 +2336,26 @@ mod tests {
         }
     }
 
+    const CWD: &str = r"C:\src\app";
+
     #[test]
     fn wrap_agent_command_none_returns_bare_profile_args() {
+        let p = profile(ShellKind::Cmd, &["/Q"]);
+        assert_eq!(wrap_agent_command(&p, Path::new(CWD), None), vec!["/Q".to_string()]);
+    }
+
+    #[test]
+    fn wrap_agent_command_pwsh_without_agent_restores_cwd_after_the_profile() {
         let p = profile(ShellKind::Pwsh, &["-NoLogo"]);
-        assert_eq!(wrap_agent_command(&p, None), vec!["-NoLogo".to_string()]);
+        assert_eq!(
+            wrap_agent_command(&p, Path::new(CWD), None),
+            vec![
+                "-NoLogo".to_string(),
+                "-NoExit".to_string(),
+                "-Command".to_string(),
+                r"Set-Location -LiteralPath 'C:\src\app'".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -2329,22 +2363,30 @@ mod tests {
         for id in [ShellKind::Pwsh, ShellKind::Powershell] {
             let p = profile(id, &["-NoLogo"]);
             assert_eq!(
-                wrap_agent_command(&p, Some("claude")),
+                wrap_agent_command(&p, Path::new(CWD), Some("claude")),
                 vec![
                     "-NoLogo".to_string(),
                     "-NoExit".to_string(),
                     "-Command".to_string(),
-                    "claude".to_string(),
+                    r"Set-Location -LiteralPath 'C:\src\app'; claude".to_string(),
                 ]
             );
         }
     }
 
     #[test]
+    fn pwsh_set_location_doubles_every_single_quote_form() {
+        assert_eq!(
+            pwsh_set_location(Path::new("C:\\o'neil\\it\u{2019}s [x] $y")),
+            "Set-Location -LiteralPath 'C:\\o''neil\\it\u{2019}\u{2019}s [x] $y'"
+        );
+    }
+
+    #[test]
     fn wrap_agent_command_cmd() {
         let p = profile(ShellKind::Cmd, &[]);
         assert_eq!(
-            wrap_agent_command(&p, Some("claude")),
+            wrap_agent_command(&p, Path::new(CWD), Some("claude")),
             vec!["/K".to_string(), "claude".to_string()]
         );
     }
@@ -2353,7 +2395,7 @@ mod tests {
     fn wrap_agent_command_gitbash() {
         let p = profile(ShellKind::GitBash, &["--login", "-i"]);
         assert_eq!(
-            wrap_agent_command(&p, Some("claude")),
+            wrap_agent_command(&p, Path::new(CWD), Some("claude")),
             vec![
                 "--login".to_string(),
                 "-i".to_string(),
@@ -2367,7 +2409,7 @@ mod tests {
     fn wrap_agent_command_wsl() {
         let p = profile(ShellKind::Wsl, &[]);
         assert_eq!(
-            wrap_agent_command(&p, Some("claude")),
+            wrap_agent_command(&p, Path::new(CWD), Some("claude")),
             vec![
                 "--".to_string(),
                 "bash".to_string(),
@@ -2380,11 +2422,11 @@ mod tests {
     #[test]
     fn wrap_agent_command_preserves_spaces_and_quotes_as_a_single_arg() {
         let p = profile(ShellKind::Pwsh, &["-NoLogo"]);
-        let args = wrap_agent_command(&p, Some(r#"claude --flag "some value""#));
-        assert_eq!(args.last().unwrap(), r#"claude --flag "some value""#);
+        let args = wrap_agent_command(&p, Path::new(CWD), Some(r#"claude --flag "some value""#));
+        assert_eq!(args.last().unwrap(), r#"Set-Location -LiteralPath 'C:\src\app'; claude --flag "some value""#);
 
         let p = profile(ShellKind::GitBash, &["--login", "-i"]);
-        let args = wrap_agent_command(&p, Some("claude --flag 'some value'"));
+        let args = wrap_agent_command(&p, Path::new(CWD), Some("claude --flag 'some value'"));
         assert_eq!(
             args.last().unwrap(),
             "claude --flag 'some value'; exec bash --login -i"
@@ -2475,7 +2517,7 @@ mod tests {
                 "-NoLogo".to_string(),
                 "-NoExit".to_string(),
                 "-Command".to_string(),
-                "claude".to_string(),
+                format!("{}; claude", pwsh_set_location(dir.path())),
             ]
         );
 

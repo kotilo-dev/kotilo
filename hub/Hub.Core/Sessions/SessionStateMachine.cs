@@ -97,13 +97,27 @@ public static class SessionStateMachine
                 break;
 
             case HookEventKind.PermissionRequest:
-                target = SessionState.WaitingPermission;
+                var requested = e.ToolName ?? s.CurrentTool;
                 detail = e.ToolName;
-                s = s with { CurrentTool = e.ToolName ?? s.CurrentTool, PendingPermission = PendingFrom(e, e.ToolName ?? s.CurrentTool, at) };
+                if (IsQuestionTool(requested))
+                {
+                    // A question with its own answer menu, not a yes/no: it is answered in the terminal.
+                    target = SessionState.WaitingInput;
+                    s = s with { CurrentTool = requested };
+                    break;
+                }
+
+                target = SessionState.WaitingPermission;
+                s = s with { CurrentTool = requested, PendingPermission = PendingFrom(e, requested, at) };
                 break;
 
             case HookEventKind.Notification:
                 var kind = NotificationClassifier.Classify(e.NotificationType, e.Message);
+                if (kind == NotificationKind.Permission && IsQuestionTool(s.CurrentTool))
+                {
+                    kind = NotificationKind.Input;
+                }
+
                 if (kind == NotificationKind.Input && IsIdleReminder(s, e))
                 {
                     // Claude Code (and Droid/Qwen) send idle_prompt ~60 s after a turn that already ended normally:
@@ -238,6 +252,13 @@ public static class SessionStateMachine
         s.State == SessionState.Idle
         && s.LastCompletedAt is not null
         && (e.NotificationType is null || string.Equals(e.NotificationType, "idle_prompt", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Tools that show a multiple-choice question through the agent's permission dialog (Claude Code's
+    /// <c>AskUserQuestion</c> and its plan approval <c>ExitPlanMode</c>). Allow/deny keys would pick or cancel
+    /// an answer with a different meaning, so they count as WaitingInput.
+    /// </summary>
+    private static bool IsQuestionTool(string? tool) => tool is "AskUserQuestion" or "ExitPlanMode";
 
     private static PermissionPrompt PendingFrom(HookEvent e, string? tool, DateTimeOffset at) =>
         new(tool, e.ToolCommand, e.ToolPath, e.Risk ?? PermissionRiskClassifier.Classify(e.ToolCommand), at);

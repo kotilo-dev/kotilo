@@ -11,6 +11,7 @@ import { initHubStore } from "../stores/hubStore";
 import { useRouteStore } from "../stores/routeStore";
 import { collectDiagnostics, openLogsFolder } from "./diagnosticsActions";
 import { StatusBar } from "./StatusBar";
+import { AppTray } from "./AppTray";
 import { CloseGuard } from "./CloseGuard";
 import { HelpModal } from "../features/help/HelpModal";
 import { openHelpFromF1, useHelpStore } from "../features/help/helpStore";
@@ -365,6 +366,7 @@ export function App() {
       <MascotOffer />
       <ToastHost />
       <CloseGuard />
+      <AppTray />
       <QuickPick />
       <HelpModal />
     </div>

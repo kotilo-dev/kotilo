@@ -73,6 +73,32 @@ public class SessionStateMachineTests
     }
 
     [Theory]
+    [InlineData("AskUserQuestion")]
+    [InlineData("ExitPlanMode")]
+    public void A_question_tool_waits_for_input_without_a_permission_card(string tool)
+    {
+        var (s, change) = SessionStateMachine.Apply(
+            Run(Hook(HookEventKind.UserPromptSubmit, T0), Hook(HookEventKind.PreToolUse, T0.AddSeconds(1), tool: tool)),
+            Hook(HookEventKind.PermissionRequest, T0.AddSeconds(2), tool: tool));
+
+        s.State.Should().Be(SessionState.WaitingInput);
+        s.PendingPermission.Should().BeNull();
+        change!.To.Should().Be(SessionState.WaitingInput);
+    }
+
+    [Fact]
+    public void A_permission_notification_during_a_question_tool_waits_for_input()
+    {
+        var s = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            Hook(HookEventKind.PreToolUse, T0.AddSeconds(1), tool: "AskUserQuestion"),
+            Hook(HookEventKind.Notification, T0.AddSeconds(2), notificationType: "permission_prompt", message: "Claude needs your permission to use AskUserQuestion"));
+
+        s.State.Should().Be(SessionState.WaitingInput);
+        s.PendingPermission.Should().BeNull();
+    }
+
+    [Theory]
     [InlineData("permission_prompt", null, SessionState.WaitingPermission)]
     [InlineData("idle_prompt", null, SessionState.WaitingInput)]
     [InlineData("elicitation_dialog", null, SessionState.WaitingInput)]

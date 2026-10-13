@@ -785,6 +785,7 @@ export const en = {
     filterPlaceholder: "Filter files…",
     activateTooltip: "Make active (show its files)",
     activeTooltip: "Active workspace",
+    activate: "Switch",
     loading: "Loading…",
     folderNotFound: "Folder not found",
     searchNoResults: "No matches",
@@ -1001,6 +1002,8 @@ export const en = {
       openLogsFolder: "Open logs folder",
       privacyNote: "Logs stay on this computer. Nothing is sent automatically.",
       openHelp: "Open help",
+      closeToTray: "Keep running in the tray when the window is closed",
+      closeToTrayHint: "Terminals and agents keep running. Click the tray icon to bring the window back; quit from its menu.",
     },
     close: "Close",
     invalidNumberRange: (min: number, max: number) => `Enter a whole number between ${min} and ${max}`,
@@ -1117,6 +1120,12 @@ export const en = {
     viewerPrevTab: "Previous tab",
     viewerToggleMarkdownMode: "Toggle markdown edit/preview",
   },
+  /** D-058: tray icon menu (only while "keep running in the tray" is on). */
+  tray: {
+    show: `Show ${APP_NAME}`,
+    quit: `Quit ${APP_NAME}`,
+  },
+
   mascot: {
     // Sent to the mascot window (accessible name, right-click menu).
     aria: `${APP_NAME} robot snail: your agents' state`,

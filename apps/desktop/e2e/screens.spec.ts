@@ -57,6 +57,11 @@ for (const theme of ["dark", "light"] as const) {
     await page.evaluate(() => window.__e2e.pushHubSnapshot());
     await page.waitForTimeout(800);
     await page.screenshot({ path: `test-results/screens/workspace-agents-${theme}.png` });
+    // The decision note: a small pill in the top-right corner, the bottom rows stay visible.
+    await page.getByRole("button", { name: /^Allow once/ }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Allowed once" })).toBeVisible();
+    await page.waitForTimeout(500); // the rise animation
+    await page.screenshot({ path: `test-results/screens/workspace-permission-result-${theme}.png` });
     expect(errors, errors.join("\n")).toEqual([]);
   });
 }

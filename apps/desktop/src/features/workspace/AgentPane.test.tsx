@@ -139,6 +139,29 @@ describe("AgentPane", () => {
     expect(ipc.paneSendKeys).toHaveBeenCalledWith("p1", "Esc");
   });
 
+  it("moves focus to the first button and ignores a key typed just before it appeared", () => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    useHubStore.setState({ sessions: [waiting()] });
+    render(<AgentPane workspaceId="ws1" tab={tab()} visible />);
+    const allow = screen.getByRole("button", { name: /^Allow once/ });
+    expect(allow).toHaveFocus();
+    fireEvent.keyDown(allow, { key: "Enter" });
+    fireEvent.keyDown(allow, { key: "Escape" });
+    expect(ipc.paneSendKeys).not.toHaveBeenCalled();
+  });
+
+  it("does not take focus from text being typed elsewhere", () => {
+    const other = document.createElement("textarea");
+    other.value = "half a sentence";
+    document.body.appendChild(other);
+    other.focus();
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    useHubStore.setState({ sessions: [waiting()] });
+    render(<AgentPane workspaceId="ws1" tab={tab()} visible />);
+    expect(other).toHaveFocus();
+    other.remove();
+  });
+
   it("Enter inside the card (not on a button) allows once", () => {
     useHubStore.setState({ sessions: [waiting()] });
     render(<AgentPane workspaceId="ws1" tab={tab()} visible />);
@@ -182,6 +205,12 @@ describe("AgentPane", () => {
     expect(screen.queryByRole("button", { name: "Always allow in this project" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /^Deny/ }));
     expect(ipc.paneSendKeys).toHaveBeenCalledWith("p1", "n");
+  });
+
+  it.each(["AskUserQuestion", "ExitPlanMode"])("shows no card for Claude's %s question (older hub)", (tool) => {
+    useHubStore.setState({ sessions: [waiting({ agent: "claude-code", pendingPermission: { ...waiting().pendingPermission!, tool, command: null } })] });
+    render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
+    expect(screen.queryByRole("region", { name: "Permission request" })).toBeNull();
   });
 
   it("shows no card without permission details from the hub", () => {

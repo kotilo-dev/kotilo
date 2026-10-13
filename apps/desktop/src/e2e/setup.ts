@@ -22,8 +22,18 @@ const colorTheme = params.get("colorTheme");
 const appearance = colorTheme ? { darkTheme: colorTheme, lightTheme: colorTheme } : DEFAULT_SETTINGS.appearance;
 // `ai=local`: Settings → AI with every feature on the local endpoint ("Fully local").
 const aiLocal = params.get("ai") === "local";
+// `restore=agent`: the workspace comes back with a restored (not yet started) Claude tab.
+const restoreAgent = params.get("restore") === "agent";
+const restoredTerminals = {
+  "ws-demo": { tabs: [{ title: "claude", titleEdited: false, profileId: "pwsh", cwdRel: "", agentCommand: "claude" }], activeIndex: 0 },
+};
 
 const workspace = { id: "ws-demo", name: "orders-service", path: "C:\\src\\orders-service", expandedDirs: [] as string[] };
+// `workspaces=2`: a second workspace; `workspace_set_active` switches and emits `workspaces:changed`.
+const workspaceList = params.get("workspaces") === "2"
+  ? [workspace, { id: "ws-billing", name: "billing-api", path: "C:\\src\\billing-api", expandedDirs: [] as string[] }]
+  : [workspace];
+let activeWorkspaceId = workspace.id;
 // `panes=a,b`: pane ids `pty_spawn` hands out in turn (default: the Claude and Codex fixture panes).
 const paneIds = params.get("panes")?.split(",") ?? ["pane-claude", "pane-codex"];
 let spawned = 0;
@@ -123,7 +133,7 @@ mockIPC(
     const args = (payload ?? {}) as Record<string, unknown>;
     switch (cmd) {
       case "load_state":
-        return { ui: { language }, layout: {} };
+        return { ui: { language }, layout: {}, ...(restoreAgent ? { terminals: restoredTerminals } : {}) };
       case "save_state_slice":
         return null;
       case "settings_get":
@@ -133,13 +143,19 @@ mockIPC(
         return { ...DEFAULT_SETTINGS, theme, appearance, ...(args.settings as object | undefined) };
       case "fs_quick_open":
         return composerFx.quickOpen(String(args.query ?? ""));
+      case "clipboard_read_text":
+        return "hello";
       case "clipboard_save_image":
         return `${String(args.dirRel)}/screenshot-20261008-101500.png`;
       case "pty_write":
         composerFx.ptyWrites.push(String(args.data ?? ""));
         return null;
       case "workspace_list":
-        return { workspaces: [workspace], activeId: workspace.id };
+        return { workspaces: workspaceList, activeId: activeWorkspaceId };
+      case "workspace_set_active":
+        activeWorkspaceId = String(args.id);
+        void emit("workspaces:changed", { workspaces: workspaceList, activeId: activeWorkspaceId });
+        return null;
       case "fs_read_dir":
         return args.rel ? [] : [
           { name: "src", rel: "src", isDir: true },
