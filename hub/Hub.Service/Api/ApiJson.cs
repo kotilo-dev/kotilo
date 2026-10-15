@@ -62,6 +62,7 @@ public sealed record TaskProgressDto(int Completed, int InProgress, int Total);
 /// <summary>
 /// One session as seen by <c>/v1/sessions</c> and the <c>sessions</c> stream message. <c>state</c> keeps the C# names (M1 wire format).
 /// <c>unseen</c>: a turn finished after the user last looked and the session is Idle, Ended or Stale.
+/// <c>backgroundTasks</c>: labels of the background work a Working session's finished turn waits for (empty when none).
 /// </summary>
 public sealed record SessionDto(
     string SessionId,
@@ -85,7 +86,8 @@ public sealed record SessionDto(
     TaskProgressDto? Tasks,
     PendingPermissionDto? PendingPermission,
     DateTimeOffset? LastCompletedAt,
-    bool Unseen)
+    bool Unseen,
+    IReadOnlyList<string> BackgroundTasks)
 {
     public static SessionDto From(SessionInfo s) => new(
         s.SessionId,
@@ -111,7 +113,8 @@ public sealed record SessionDto(
             ? new PendingPermissionDto(p.Tool, p.Command, p.Path, p.Risk, p.Since)
             : null,
         s.LastCompletedAt,
-        s.IsUnseen);
+        s.IsUnseen,
+        s.BackgroundTasks);
 }
 
 public sealed record TotalsDto(long Input, long Output, long CacheCreate, long CacheRead, long Tokens, decimal CostUsd, bool HasUnpricedEntries, int Entries)

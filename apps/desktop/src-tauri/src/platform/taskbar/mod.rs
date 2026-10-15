@@ -144,10 +144,32 @@ pub fn set_badge(window: &tauri::WebviewWindow, count: u32, tone: Tone, descript
     });
     window.run_on_main_thread(move || {
         let icon = badge.as_ref().map(|(rgba, description)| (rgba.as_slice(), description.as_str()));
-        if let Err(err) = os::set_overlay(hwnd, icon) {
+        let error = os::set_overlay(hwnd, icon).err().map(|err| err.to_string());
+        let mut logged = LOGGED_ERRORS.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(err) = note_result(&mut logged, error) {
             log::warn!("taskbar: overlay icon not set: {err}");
         }
     })
+}
+
+/// Overlay failures already logged since the last success (0.3.2: some shells fail every
+/// update, e.g. "Not implemented" – logging each one flooded the log).
+static LOGGED_ERRORS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Records one overlay result; returns the error to log – each distinct error once. A
+/// success resets the list, so a failure after a success is logged again.
+fn note_result(logged: &mut Vec<String>, error: Option<String>) -> Option<String> {
+    match error {
+        None => {
+            logged.clear();
+            None
+        }
+        Some(err) if logged.contains(&err) => None,
+        Some(err) => {
+            logged.push(err.clone());
+            Some(err)
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -171,6 +193,19 @@ mod tests {
 
     fn white_pixels(rgba: &[u8]) -> usize {
         rgba.chunks(4).filter(|p| p == &[255, 255, 255, 255]).count()
+    }
+
+    #[test]
+    fn overlay_errors_are_logged_once_per_kind_until_a_success() {
+        let mut last = Vec::new();
+        let e = |s: &str| Some(s.to_string());
+        assert_eq!(note_result(&mut last, e("Not implemented")), e("Not implemented"));
+        assert_eq!(note_result(&mut last, e("Not implemented")), None);
+        assert_eq!(note_result(&mut last, e("Access is denied")), e("Access is denied"));
+        assert_eq!(note_result(&mut last, e("Not implemented")), None);
+        assert_eq!(note_result(&mut last, e("Access is denied")), None);
+        assert_eq!(note_result(&mut last, None), None);
+        assert_eq!(note_result(&mut last, e("Access is denied")), e("Access is denied"));
     }
 
     #[test]

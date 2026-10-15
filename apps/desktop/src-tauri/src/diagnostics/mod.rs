@@ -22,6 +22,10 @@ fn diagnostics_file_prefix() -> String {
 pub const DIAGNOSTICS_RETENTION: usize = 5;
 /// Spec §9.6: the active log file's last 2 MB only (rotated files are included whole).
 pub const MAX_ACTIVE_LOG_TAIL_BYTES: u64 = 2 * 1024 * 1024;
+/// 0.3.2: each hub log file is capped to its last 2 MB.
+pub const MAX_HUB_LOG_BYTES: u64 = 2 * 1024 * 1024;
+/// 0.3.2: hub log files dated up to this many days before the zip's date are included.
+pub const HUB_LOG_DAYS: u64 = 3;
 /// Spec §9.6: the whole zip must never exceed 10 MB.
 pub const MAX_ZIP_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
 
@@ -140,7 +144,11 @@ pub fn mask_text(text: &str, user_profile: &str, username: &str) -> String {
 // ---------------------------------------------------------------------------------
 
 pub fn tail_active_log(bytes: &[u8]) -> Vec<u8> {
-    let max = MAX_ACTIVE_LOG_TAIL_BYTES as usize;
+    tail_bytes(bytes, MAX_ACTIVE_LOG_TAIL_BYTES as usize)
+}
+
+/// The last `max` bytes of `bytes`, starting at a whole line.
+fn tail_bytes(bytes: &[u8], max: usize) -> Vec<u8> {
     if bytes.len() <= max {
         return bytes.to_vec();
     }
@@ -171,6 +179,53 @@ pub fn cap_log_files(mut files: Vec<(String, Vec<u8>)>, reserved: u64) -> Vec<(S
 
 fn active_log_file_name() -> String {
     format!("{LOG_FILE_STEM}.log")
+}
+
+/// The date in a hub log file name (Serilog's daily `hub-<yyyyMMdd>.log`, or
+/// `hub-<yyyyMMdd>_<nnn>.log` after a size roll).
+fn hub_log_date(name: &str) -> Option<chrono::NaiveDate> {
+    let rest = name.strip_prefix("hub-")?.strip_suffix(".log")?;
+    let digits = rest.get(..8)?;
+    if !(rest.len() == 8 || rest[8..].starts_with('_')) {
+        return None;
+    }
+    chrono::NaiveDate::parse_from_str(digits, "%Y%m%d").ok()
+}
+
+/// Pure (0.3.2): which hub log files go into the zip, oldest first — every `hub-*.log`
+/// dated within [`HUB_LOG_DAYS`] days before `today` (or later); the newest one alone when
+/// none is that recent.
+pub fn select_hub_logs(names: &[String], today: chrono::NaiveDate) -> Vec<String> {
+    let mut dated: Vec<(chrono::NaiveDate, &String)> =
+        names.iter().filter_map(|n| hub_log_date(n).map(|d| (d, n))).collect();
+    dated.sort();
+    let cutoff = today - chrono::Days::new(HUB_LOG_DAYS);
+    let recent: Vec<String> = dated.iter().filter(|(d, _)| *d >= cutoff).map(|(_, n)| (*n).clone()).collect();
+    if recent.is_empty() {
+        dated.last().map(|(_, n)| vec![(*n).clone()]).unwrap_or_default()
+    } else {
+        recent
+    }
+}
+
+/// The hub log files of `dir` selected by [`select_hub_logs`], each capped to its last
+/// [`MAX_HUB_LOG_BYTES`], as `(zip entry name, bytes)` oldest first. Unreadable → skipped.
+fn read_hub_logs(dir: &Path, today: chrono::NaiveDate) -> Vec<(String, Vec<u8>)> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let names: Vec<String> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .filter_map(|e| e.file_name().to_str().map(str::to_string))
+        .collect();
+    select_hub_logs(&names, today)
+        .into_iter()
+        .filter_map(|name| {
+            let bytes = std::fs::read(dir.join(&name)).ok()?;
+            Some((format!("hub-logs/{name}"), tail_bytes(&bytes, MAX_HUB_LOG_BYTES as usize)))
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------------
@@ -267,6 +322,8 @@ fn readme_text() -> String {
        file PATHS -- kept because they are usually needed to reproduce a problem. Tab\n\
        titles and any typed agent-launch commands are removed.\n\
      - logs/: the __NAME__ log files (rotated files whole, the active file's last 2 MB).\n\
+     - hub-logs/: the background service's log files of the last few days (each one's\n\
+       last 2 MB at most).\n\
      \n\
      What is NOT included:\n\
      - Terminal input/output, file contents, or agent prompts/responses.\n\
@@ -345,6 +402,8 @@ pub struct BuildZipInput {
     pub settings_json: serde_json::Value,
     pub state_json: serde_json::Value,
     pub log_dir: PathBuf,
+    /// 0.3.2: the hub's `logs` folder (`None` when the hub's data dir is unknown).
+    pub hub_log_dir: Option<PathBuf>,
     pub out_dir: PathBuf,
     pub user_profile: String,
     pub username: String,
@@ -438,11 +497,10 @@ pub fn build_zip(input: &BuildZipInput) -> std::io::Result<PathBuf> {
         let capped = if is_active { tail_active_log(&bytes) } else { bytes };
         let text = String::from_utf8_lossy(&capped);
         let masked = mask_text(&text, &input.user_profile, &input.username).into_bytes();
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(active_name.as_str())
-            .to_string();
+        let name = format!(
+            "logs/{}",
+            path.file_name().and_then(|n| n.to_str()).unwrap_or(active_name.as_str())
+        );
         if is_active {
             active_entry = Some((name, masked));
         } else {
@@ -450,12 +508,22 @@ pub fn build_zip(input: &BuildZipInput) -> std::io::Result<PathBuf> {
         }
     }
     let mut log_entries = rotated_entries;
+    // 0.3.2: hub logs (same masking) between the rotated app logs and the active one, so
+    // the size cap drops old app logs first.
+    let today = chrono::NaiveDate::parse_from_str(input.stamp.get(..8).unwrap_or(""), "%Y%m%d")
+        .unwrap_or_else(|_| chrono::Local::now().date_naive());
+    if let Some(dir) = &input.hub_log_dir {
+        for (name, bytes) in read_hub_logs(dir, today) {
+            let masked = mask_text(&String::from_utf8_lossy(&bytes), &input.user_profile, &input.username);
+            log_entries.push((name, masked.into_bytes()));
+        }
+    }
     log_entries.extend(active_entry);
     // Reserve a generous fixed budget for the small JSON/README entries above so
     // `cap_log_files`'s remaining budget is a safe (if slightly conservative) bound.
     let capped_logs = cap_log_files(log_entries, 64 * 1024);
     for (name, bytes) in capped_logs {
-        write_entry(&mut writer, &format!("logs/{name}"), &bytes)?;
+        write_entry(&mut writer, &name, &bytes)?;
     }
 
     writer.finish()?;
@@ -695,6 +763,7 @@ mod tests {
             settings_json: serde_json::json!({"theme": "dark"}),
             state_json: serde_json::json!({"layout": {"path": r"C:\Users\alice\ws\file.rs"}}),
             log_dir,
+            hub_log_dir: None,
             out_dir,
             user_profile: r"C:\Users\alice".to_string(),
             username: "alice".to_string(),
@@ -807,5 +876,67 @@ mod tests {
         assert_ne!(first, second);
         assert!(first.exists());
         assert!(second.exists());
+    }
+
+    // -- hub logs (0.3.2) ------------------------------------------------------------
+
+    fn day(y: i32, m: u32, d: u32) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    #[test]
+    fn select_hub_logs_keeps_the_last_days_oldest_first() {
+        let names: Vec<String> = [
+            "hub-20260925.log",
+            "hub-20260928.log",
+            "hub-20260926.log",
+            "hub-20260928_001.log",
+            "hub-20260920.log",
+            "other.log",
+            "hub-.log",
+            "hub-2026092x.log",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        assert_eq!(
+            select_hub_logs(&names, day(2026, 9, 28)),
+            ["hub-20260925.log", "hub-20260926.log", "hub-20260928.log", "hub-20260928_001.log"]
+        );
+        // Nothing recent: the newest one alone.
+        assert_eq!(select_hub_logs(&names, day(2026, 12, 1)), ["hub-20260928_001.log"]);
+        assert!(select_hub_logs(&["x.log".to_string()], day(2026, 9, 28)).is_empty());
+    }
+
+    #[test]
+    fn build_zip_includes_masked_capped_hub_logs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let log_dir = tmp.path().join("logs");
+        let hub_dir = tmp.path().join("hub").join("logs");
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::create_dir_all(&hub_dir).unwrap();
+        std::fs::write(hub_dir.join("hub-20260928.log"), "x\n".repeat(MAX_HUB_LOG_BYTES as usize)).unwrap();
+        std::fs::write(hub_dir.join("hub-20260927.log"), b"INFO C:\\Users\\alice\\repo\n").unwrap();
+        std::fs::write(hub_dir.join("hub-20260901.log"), b"old\n").unwrap();
+        let out_dir = tmp.path().join("diagnostics");
+
+        let mut input = sample_input(log_dir, out_dir);
+        input.hub_log_dir = Some(hub_dir);
+        let entries = read_zip_entries(&build_zip(&input).unwrap());
+        assert_eq!(entries["hub-logs/hub-20260927.log"], b"INFO %USERPROFILE%\\repo\n");
+        let newest = &entries["hub-logs/hub-20260928.log"];
+        assert!(newest.len() as u64 <= MAX_HUB_LOG_BYTES && !newest.is_empty());
+        assert!(!entries.contains_key("hub-logs/hub-20260901.log"));
+        let readme = String::from_utf8(entries["README.txt"].clone()).unwrap();
+        assert!(readme.contains("hub-logs/"));
+    }
+
+    #[test]
+    fn build_zip_without_a_hub_log_dir_has_no_hub_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut input = sample_input(tmp.path().join("logs"), tmp.path().join("diagnostics"));
+        input.hub_log_dir = Some(tmp.path().join("missing"));
+        let entries = read_zip_entries(&build_zip(&input).unwrap());
+        assert!(!entries.keys().any(|k| k.starts_with("hub-logs/")));
     }
 }

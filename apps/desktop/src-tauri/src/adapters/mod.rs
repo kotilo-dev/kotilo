@@ -403,6 +403,31 @@ pub(crate) mod tests {
         assert!(defs.get("codex").is_some());
     }
 
+    /// 0.3.2: Claude's permission dialog on screen (safety net when no PermissionRequest
+    /// hook arrives) — both dialog layouts match, ordinary output does not.
+    #[test]
+    fn repo_builtin_claude_permission_screen_rule_matches_the_dialogs_only() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../adapters");
+        let defs = Definitions::load(Some(&dir), None);
+        let claude = defs.get("claude-code").expect("claude-code");
+        let fixture = |name: &str| -> Vec<String> {
+            let text = std::fs::read_to_string(dir.join("claude-code/fixtures").join(name)).unwrap();
+            // A 40-row screen: the fixture at the bottom, blank rows above.
+            let mut rows = vec![String::new(); 40usize.saturating_sub(text.lines().count())];
+            rows.extend(text.lines().map(str::to_string));
+            rows
+        };
+        for name in ["screen-permission-three-options.txt", "screen-permission-yes-no.txt"] {
+            let hit = screen::first_match(&claude.rules, &fixture(name), |_| true).unwrap_or_else(|| panic!("{name}"));
+            assert_eq!(claude.rules[hit.index].state, screen::ScreenState::WaitingPermission, "{name}");
+        }
+        assert!(screen::first_match(&claude.rules, &fixture("screen-normal-output.txt"), |_| true).is_none());
+        // Only the bottom of the screen counts: the dialog scrolled up under later output.
+        let mut scrolled = fixture("screen-permission-yes-no.txt");
+        scrolled.extend((0..20).map(|i| format!("line {i}")));
+        assert!(screen::first_match(&claude.rules, &scrolled, |_| true).is_none());
+    }
+
     /// The permission card sends `allowOnce` / `deny` through `pane_send_keys`: a built-in
     /// adapter with keys must have both, and each must be one key, not literal text.
     #[test]

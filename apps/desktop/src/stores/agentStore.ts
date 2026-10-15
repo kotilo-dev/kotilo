@@ -12,6 +12,7 @@
  * henüz üzerine yazılmadan) ile yenisi `decideNotifications`'a verilir — saf karar `agentLogic.ts`'te.
  */
 import { create } from "zustand";
+import { sameJson } from "../lib/sameJson";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   agentAck,
@@ -98,6 +99,8 @@ function installAgentsChangedListener(get: Getter, set: Setter): void {
       return;
     }
     const prev = get().agents;
+    // 0.3.2: a repeated frame (same records) changes nothing and re-renders nothing.
+    if (sameJson(prev, next)) return;
     // M2: while the hub stream is connected its rule engine decides notifications (single
     // owner, see `installHubNotificationOwner`); the desktop decision is only the fallback.
     const notifications = useHubStore.getState().connected ? [] : decideNotifications(prev, next, windowFocused);

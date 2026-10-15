@@ -190,6 +190,11 @@ mockIPC(
         return [];
       case "pty_busy":
         return { busy: false, processes: [] };
+      case "pty_stop_leftovers":
+        // 0.3.2: like Rust, the leftovers exit and an empty list clears the strip.
+        window.__e2eLeftoverStops.push(String(args.paneId));
+        void emit("pty:leftover", { paneId: String(args.paneId), processes: [] });
+        return null;
       case "agents_definitions":
       case "agents_definitions_reload":
       case "agents_save_user_definition":
@@ -249,9 +254,12 @@ async function pushHubSnapshot(): Promise<void> {
 declare global {
   interface Window {
     __e2e: { emit: (type: string, data: unknown) => Promise<void>; pushHubSnapshot: () => Promise<void> };
+    /** Pane ids `pty_stop_leftovers` was called with. */
+    __e2eLeftoverStops: string[];
   }
 }
 
+window.__e2eLeftoverStops = [];
 window.__e2e = { emit: (type, data) => emit("hub:event", { type, data }), pushHubSnapshot };
 // The app registers its listeners after an async bootstrap; resend a few times so the first
 // snapshot is never lost (the spec also pushes once the page is ready).

@@ -22,7 +22,24 @@ public sealed class ModelContextTable
     public static ModelContextTable Empty { get; } = new([]);
 
     /// <summary>Parses <c>{ "models": { "claude-": 200000, … } }</c>.</summary>
-    public static ModelContextTable Parse(string json)
+    public static ModelContextTable Parse(string json) => new(ParseEntries(json));
+
+    /// <summary>
+    /// The shipped defaults with the user's entries on top: a user file copied from an older default must not hide
+    /// prefixes added later, while a prefix the user set keeps the user's value.
+    /// </summary>
+    public static ModelContextTable Merge(string defaultsJson, string userJson)
+    {
+        var merged = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (prefix, size) in ParseEntries(defaultsJson).Concat(ParseEntries(userJson)))
+        {
+            merged[prefix] = size;
+        }
+
+        return new ModelContextTable(merged);
+    }
+
+    private static List<KeyValuePair<string, long>> ParseEntries(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var list = new List<KeyValuePair<string, long>>();
@@ -37,7 +54,7 @@ public sealed class ModelContextTable
             }
         }
 
-        return new ModelContextTable(list);
+        return list;
     }
 
     public long? WindowFor(string? model)

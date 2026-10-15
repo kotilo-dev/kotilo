@@ -12,12 +12,15 @@ namespace Hub.Service.Hosting;
 /// <summary>
 /// Faz 6 data (spec §18): git status per project, customer labels, wait / cost reports and the daily summary.
 /// Git checks run on one background worker: 2 s after a <c>Stop</c> / <c>PostToolUse</c> in a project, every 60 s for
-/// projects with live sessions, and on request (Projects page) for the rest.
+/// projects with a working or recently active session, and on request (Projects page) for the rest.
 /// </summary>
 public sealed class InsightsService : IAsyncDisposable
 {
     public static readonly TimeSpan GitDebounce = TimeSpan.FromSeconds(2);
     public static readonly TimeSpan GitActiveInterval = TimeSpan.FromSeconds(60);
+
+    /// <summary>A live session that had an event this recently keeps its project in the 60 s git checks.</summary>
+    public static readonly TimeSpan GitRecentActivity = TimeSpan.FromMinutes(30);
     public static readonly TimeSpan SnapshotRetention = TimeSpan.FromDays(90);
 
     private readonly SessionRepository _sessions;
@@ -223,7 +226,7 @@ public sealed class InsightsService : IAsyncDisposable
                 if (now - lastActive >= GitActiveInterval)
                 {
                     lastActive = now;
-                    foreach (var s in _live().Where(s => s.State.IsLive() && !string.IsNullOrEmpty(s.ProjectRoot)))
+                    foreach (var s in _live().Where(s => NeedsPeriodicGitCheck(s, now)))
                     {
                         _gitDue.TryAdd(s.ProjectRoot, now);
                     }
@@ -253,6 +256,15 @@ public sealed class InsightsService : IAsyncDisposable
             Log.Error(ex, "Insights worker stopped");
         }
     }
+
+    /// <summary>
+    /// Idle sessions left open for hours do not change their project's git state; their project is still checked after
+    /// each Stop / PostToolUse and on request.
+    /// </summary>
+    internal static bool NeedsPeriodicGitCheck(SessionInfo s, DateTimeOffset now) =>
+        !string.IsNullOrEmpty(s.ProjectRoot)
+        && s.State.IsLive()
+        && (s.State == SessionState.Working || now - s.LastEventAt <= GitRecentActivity);
 
     private void Store(string root, GitStatus status)
     {

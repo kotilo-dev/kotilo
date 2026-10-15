@@ -5,7 +5,8 @@ namespace Hub.Infrastructure.Usage;
 
 /// <summary>
 /// Loads <c>models.json</c> (model prefix → context window, spec §18.4) from the data folder, creating it from the
-/// shipped default on first run. An invalid edit keeps the last good table.
+/// shipped default on first run. The shipped defaults always apply under the user's entries, so prefixes added in a
+/// later version reach users whose file was created earlier. An invalid edit keeps the last good table.
 /// </summary>
 public sealed class ModelContextProvider(string path)
 {
@@ -30,7 +31,7 @@ public sealed class ModelContextProvider(string path)
                 File.WriteAllText(path, DefaultJson());
             }
 
-            Current = ModelContextTable.Parse(File.ReadAllText(path));
+            Current = ModelContextTable.Merge(DefaultJson(), File.ReadAllText(path));
             return true;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)

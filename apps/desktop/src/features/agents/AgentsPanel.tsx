@@ -1,13 +1,15 @@
 /**
  * Agents panel (faz5-spec §2.2, §2.3). The list is derived from `agentStore.agents` with
  * `sortAgents` (the pure ordering is tested in `agentLogic.ts`) – this component only renders
- * and wires clicks. One global 1 s timer for the elapsed time (`useNowTick`).
+ * and wires clicks. One 1 s timer for the elapsed time (`useNow`, paused when not seen).
  */
 import { useEffect, useRef, useState } from "react";
 import { HeaderButton } from "../../app/HeaderButton";
 import { PanelHeader } from "../../app/PanelHeader";
 import { agentLabel } from "../../app/ui/agents";
 import { useStrings } from "../../app/strings";
+import { useNow } from "../../app/ui/useNow";
+import { useRouteStore } from "../../stores/routeStore";
 import { useAgentStore } from "../../stores/agentStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useTerminalStore, findTabByPaneIdInMap } from "../../stores/terminalStore";
@@ -17,16 +19,6 @@ import { navigateToAgent } from "./navigate";
 import { ContextMenu, type ContextMenuItem } from "../workspaces/ContextMenu";
 import { PaneStatusDot } from "../workspace/PaneStatus";
 import { visualStateForAgent } from "../workspace/paneSession";
-
-/** A single global 1 s "now" ticker – refreshes the elapsed-time labels. */
-function useNowTick(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
-}
 
 function AgentsMenuButton() {
   const strings = useStrings();
@@ -95,6 +87,10 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
   const workspaceName = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === agent.workspaceId)?.name ?? "");
   const byWorkspace = useTerminalStore((s) => s.byWorkspace);
   const tabTitle = findTabByPaneIdInMap(byWorkspace, agent.paneId)?.tab.title ?? strings.agents.noTab;
+  const background =
+    agent.state === "working" && agent.backgroundTasks && agent.backgroundTasks.length > 0
+      ? strings.workspace.background(agent.backgroundTasks.join(", "))
+      : undefined;
 
   return (
     <div
@@ -109,7 +105,7 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
           }
         }}
       >
-        <PaneStatusDot state={visualStateForAgent(agent.state)} />
+        <PaneStatusDot state={visualStateForAgent(agent.state)} label={background ? `${strings.status.working} · ${background}` : undefined} />
         <span className="shrink-0 text-muted">
           {agentLabel(agent)}
         </span>
@@ -129,7 +125,10 @@ export function AgentsPanel() {
   const init = useAgentStore((s) => s.init);
   const ready = useAgentStore((s) => s.ready);
   const agents = useAgentStore((s) => s.agents);
-  const now = useNowTick();
+  // One 1 s "now" for the elapsed labels; paused while the workspace route is not shown or the
+  // window is unfocused/hidden.
+  const onWorkspace = useRouteStore((s) => s.route === "workspace");
+  const now = useNow(1000, onWorkspace);
 
   useEffect(() => {
     void init();

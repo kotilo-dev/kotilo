@@ -8,6 +8,7 @@
  * (`setText`, `save`, `reload`, `keepMine`), ve ayrıca `load`/`release`.
  */
 import { create } from "zustand";
+import { batchFsChanges } from "../lib/fsBatch";
 import {
   type AppError,
   type Eol,
@@ -328,7 +329,7 @@ function installListenersOnce(get: Getter, set: Setter): void {
   if (listenersInstalled) return;
   listenersInstalled = true;
 
-  void onFsChanged(({ workspaceId, dirs }) => {
+  void onFsChanged(batchFsChanges(({ workspaceId, dirs }) => {
     for (const key of Object.keys(get().docs)) {
       const [ws, rel] = splitKey(key);
       if (ws !== workspaceId) continue;
@@ -343,7 +344,7 @@ function installListenersOnce(get: Getter, set: Setter): void {
       }
       void recheckExternal(get, set, ws, rel);
     }
-  });
+  }));
 
   void onFsRescan(({ workspaceId }) => {
     for (const key of Object.keys(get().docs)) {

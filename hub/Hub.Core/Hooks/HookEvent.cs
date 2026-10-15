@@ -83,6 +83,12 @@ public sealed record HookEvent(
     /// <summary>Tool run time the agent reported on its Post event (Qwen <c>duration_ms</c>, Cursor <c>duration</c>).</summary>
     public long? ToolDurationMs { get; init; }
 
+    /// <summary>
+    /// Claude Code <c>Stop</c>/<c>SubagentStop</c> <c>background_tasks</c> as short labels (clipped, at most 10); null when the
+    /// payload has no such array. Non-empty: the turn paused while background work runs. In memory only.
+    /// </summary>
+    public IReadOnlyList<string>? BackgroundTasks { get; init; }
+
     /// <summary>A TodoWrite plan (<c>tool_input.todos</c>, texts clipped by agenthub-hook). In memory only.</summary>
     public IReadOnlyList<TodoItem>? Todos { get; init; }
 }

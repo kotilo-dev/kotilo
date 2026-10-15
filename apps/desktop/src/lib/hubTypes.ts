@@ -86,6 +86,8 @@ export interface SessionDto {
   lastCompletedAt: IsoDateTime | null;
   /** D-056: a finished turn the user hasn't looked at yet (seen state is stored in the hub). */
   unseen: boolean;
+  /** 0.3.2: background work keeping the session Working after its turn; missing on older hubs. */
+  backgroundTasks?: string[];
 }
 
 export interface TransitionDto {

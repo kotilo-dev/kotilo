@@ -1,3 +1,41 @@
+# 0.3.2 – Performance and second-machine findings (planned 2026-10-15)
+
+User (priority): with several sessions open, one agent's script bottlenecked the machine and Kotilo-attributed CPU stayed after the agent was stopped and closed. Diagnostics zip (0.3.1, 3 pwsh panes): agents ended with `/exit` (`SessionEnd`) while their panes stayed open — the Job Object only kills on pane close. Screenshots: the permission card offered "Always allow" on a Yes/No prompt (its key `2` = No); the Context bar shows 38 % / 75 % where Claude shows 8 % / 15 % (1M window divided by 200k); status green/blue while "Waiting for 1 background agent"; status yellow while a permission prompt was on screen (no PermissionRequest hook in the log).
+
+User decisions (2026-10-15): leftover processes after the agent exits → a warning strip with a **Stop** button (no automatic kill); a turn that ends with background work still running stays **Working** until that work finishes.
+
+Verified in the Claude Code docs (hooks, statusline, model-config): `Stop`/`SubagentStop` carry `background_tasks` (non-empty = paused waiting for background work); `SessionStart` may carry `model`; Fable 5.x, Sonnet 5+, Haiku 5.5, Opus 4.7+ run with the 1M window by default; `permission_suggestions` is not an exact list of dialog options, so the dialog's options are read from the screen.
+
+## Track A – Hub (C#) · owns `hub/**`
+- [x] Context: `models.default.json` 1M for the default-1M families (longest prefix wins; Opus 4.6/Sonnet 4.6 stay 200k with the existing >200k bump); tests
+- [x] `Stop` with non-empty `background_tasks` keeps the session Working (no completed toast, no unseen); a later `Stop`/`SubagentStop` with empty `background_tasks` finishes it; fixtures + tests
+- [x] `UsageService`/`ProjectService`: drain the wake semaphore per iteration (like `StreamHub`); periodic 30 s refresh only while a block is active; tests
+- [x] `TranscriptUsageParser`: cheap `"usage"` marker check before `JsonDocument.Parse`
+- [x] Sessions that never end: non-Ended sessions without a live process and no event for N hours → Ended; git insights only for Working/recently active sessions; `transcript_offsets` pruned for files that no longer exist
+
+## Track B – Rust (desktop core + platform) · owns `apps/desktop/src-tauri/**`, `adapters/**`
+- [x] `apply_hook` `Stop`: non-empty `background_tasks` → stay Working; tests
+- [x] Leftover processes: after `SessionEnd` (or the record's removal) a pane whose shell still has non-shell descendants emits `pty:leftover { paneId, processes[] }`; command `pty_stop_leftovers(paneId)` terminates the shell's descendants (not the shell); cleared when they exit
+- [x] Pane close: remember every `(pid, creation time)` seen under the pane by the tick and terminate the survivors on teardown (orphans whose parent died are not reachable by the descendant walk); tests on the pure part
+- [x] Claude permission screen rule (`waitingPermission`, "Do you want to …?" + numbered options) as a safety net when no PermissionRequest hook arrives
+- [x] Diagnostics zip includes the hub logs (`%LOCALAPPDATA%\<slug>\hub\logs`, last 2 MB of the active file)
+- [x] Taskbar overlay failure logged once per error kind, not on every badge update
+- [x] Watcher batch: `HashSet` for dirs; `cmdline_cache` pruned to live pids
+- [x] CSP: allow WebAssembly (`'wasm-unsafe-eval'`) so the image addon's sixel decoder loads
+
+## Track C – Frontend · owns `apps/desktop/src/**`
+- [x] Permission card: read the pane's buffer tail, parse the numbered options of the visible dialog; "Always allow" only when option 2 is a "Yes, and don't ask again …" style answer (label taken from the screen), Yes/No dialogs show Allow once / Deny; unknown layout → Allow once / Deny / Answer in terminal; unit tests on the parser + e2e screenshot
+- [x] Leftover strip in the pane ("Agent exited – N processes still running: python.exe …" + Stop + dismiss); i18n EN/TR; e2e
+- [x] Background work label ("Background: backend-expert") where the status shows Working because of background tasks, if the hub/desktop exposes it
+- [x] `fs:changed`: coalesce per animation frame/250 ms, skip `set` when a dir listing is unchanged; hub/`agents:changed` frames skip `set` when equal
+- [x] 1 s timers paused while the window is unfocused or the view is hidden (AgentsPanel, AgentPane, Mission/Overview, mascot recompute)
+- [x] Timeline rail split: session/plan/activity above, changed files below, each with its own scroll; draggable splitter (react-resizable-panels like the left column), ratio in the `layout` slice (`timelineSplitSizes`, default 60/40, min sizes); e2e screenshot with a long activity list
+- [x] Status icons instead of plain dots (agents list, status bar): working = spinning arc (no spin with reduced motion), permission = shield with "!", input = chat bubble, done = check, idle = hollow circle, error = x; same colours, labelled from the i18n status names; e2e screenshots light/dark
+
+## Integration
+- [x] All checks (dotnet test 1057, cargo test 637+83 + clippy, npm test 935, e2e 84), DECISIONS D-060, manual tests G-1…G-11 in `docs/manual-tests.md`
+- [ ] Version 0.3.2; user tests on the second machine
+
 # 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059)
 
 User: agent states on the phone; ntfy with a generated UUID topic and a "Set up on phone" button that shows a QR the ntfy app can add directly; keep settings simple.

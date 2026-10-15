@@ -16,9 +16,26 @@ describe("PaneStatusDot", () => {
       </>,
     );
     expect(screen.getByRole("img", { name: "Needs permission" })).toHaveClass("animate-pulse-halo");
-    expect(screen.getByRole("img", { name: "Working" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Working" }).querySelector("svg")).toHaveClass("motion-safe:animate-spin");
     expect(screen.getByRole("img", { name: "Error" }).querySelector("svg")).not.toBeNull();
     expect(container.textContent ?? "").not.toMatch(EMOJI);
+  });
+});
+
+describe("PaneStatusDot shapes", () => {
+  it("draws a different icon per state", () => {
+    const states = ["working", "permission", "input", "done", "idle", "error"] as const;
+    const { container } = render(
+      <>
+        {states.map((st) => (
+          <PaneStatusDot key={st} state={st} />
+        ))}
+      </>,
+    );
+    const shapes = [...container.querySelectorAll("[data-state] svg")].map((svg) => svg.innerHTML);
+    expect(shapes).toHaveLength(states.length);
+    expect(new Set(shapes).size).toBe(states.length);
+    expect(screen.getByRole("img", { name: "Waiting for input" })).toHaveAttribute("data-state", "input");
   });
 });
 

@@ -585,6 +585,12 @@ export const tr: Strings = {
       fiveHour: "5 saatlik limit",
       weekly: "Haftalık limit",
     },
+    leftover: {
+      message: (count: number, names: string) => `Ajan çıktı – ${count} işlem hâlâ çalışıyor: ${names}`,
+      stop: "Durdur",
+      dismiss: "Kapat",
+    },
+    background: (tasks: string) => `Arka planda: ${tasks}`,
   },
 
   agentSetup: agentSetupTr,

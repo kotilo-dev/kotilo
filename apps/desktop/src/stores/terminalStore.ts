@@ -26,6 +26,7 @@ import {
 import { strings } from "../app/strings";
 import * as registry from "../features/terminal/terminalRegistry";
 import { restoreSplit, splitAfterRemove } from "../features/terminal/splitLayout";
+import { useLeftoverStore } from "./leftoverStore";
 
 export type TabStatus = "idle" | "starting" | "running" | "exited";
 
@@ -252,6 +253,7 @@ function applyExit(set: Setter, get: Getter, workspaceId: string, tabId: string,
   const tab = findTab(get, workspaceId, tabId);
   // Kullanıcının `closeTab`'ından sonra gelen bir `pty:exit` için sekme zaten yok — no-op (§4.7).
   if (!tab) return;
+  if (tab.paneId) useLeftoverStore.getState().clear(tab.paneId);
 
   if (isPlainShellTab(tab) && exitCode === 0) {
     registry.disposeTerminal(tabId);
@@ -442,6 +444,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     }
 
     const paneId = tab.paneId;
+    if (paneId) useLeftoverStore.getState().clear(paneId);
     registry.disposeTerminal(tabId);
     removeTabFromState(set, workspaceId, tabId);
     schedulePersist(get().byWorkspace);
@@ -537,6 +540,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     registry.dropChannel(tabId);
     entry?.term.reset();
     if (oldPaneId) {
+      useLeftoverStore.getState().clear(oldPaneId);
       markPaneKilled(oldPaneId);
       await ptyKill(oldPaneId).catch(() => {});
     }

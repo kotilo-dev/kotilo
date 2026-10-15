@@ -84,7 +84,8 @@ describe("Settings → Agents", () => {
     expect(screen.getByText(a.hints.folderTrust)).toBeInTheDocument();
     expect(screen.getByText(a.hints.hooksDisabled)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: a.repair })).toBeInTheDocument();
-    expect(screen.getByText(a.screenPermission)).toBeInTheDocument();
+    // Cursor, and Claude Code's screen safety net (0.3.2).
+    expect(screen.getAllByText(a.screenPermission).length).toBeGreaterThanOrEqual(1);
     // Protocol adapter: snippet + edit/delete.
     expect(screen.getByText("kotilo-hook --agent my-agent --event working")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: a.edit })).toBeInTheDocument();

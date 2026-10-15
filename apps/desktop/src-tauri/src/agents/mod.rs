@@ -120,6 +120,10 @@ pub struct Agent {
     pub since_ms: u64,
     pub source: Source,
     pub session_id: Option<String>,
+    /// 0.3.2: short labels of the background work (Claude Code `background_tasks`) a
+    /// finished turn is still waiting for; non-empty keeps the record Working. Metadata
+    /// only, never persisted.
+    pub background_tasks: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------------
@@ -140,6 +144,34 @@ const BLOCKED_NOTIFICATION_TYPES: [&str; 3] = [
     "elicitation_dialog",
     "elicitation_url_dialog",
 ];
+
+/// 0.3.2: at most this many background-task labels per record …
+const MAX_BACKGROUND_TASKS: usize = 10;
+/// … each at most this many characters.
+const MAX_BACKGROUND_LABEL_CHARS: usize = 60;
+/// Label of a background task without any of the label fields.
+const BACKGROUND_TASK_FALLBACK_LABEL: &str = "background task";
+
+/// 0.3.2: Claude Code's `Stop`/`SubagentStop` `background_tasks` (non-empty = the turn
+/// paused waiting for background work) as short labels — per task the first present of
+/// `description`, `agent_type`, `name`, `type`. `None` when the field is absent or not an
+/// array; an empty array gives `Some(vec![])`.
+pub fn background_task_labels(payload: &serde_json::Value) -> Option<Vec<String>> {
+    let tasks = payload.get("background_tasks")?.as_array()?;
+    Some(
+        tasks
+            .iter()
+            .take(MAX_BACKGROUND_TASKS)
+            .map(|task| {
+                ["description", "agent_type", "name", "type"]
+                    .iter()
+                    .find_map(|key| task.get(*key).and_then(|v| v.as_str()).map(str::trim).filter(|v| !v.is_empty()))
+                    .map(|label| label.chars().take(MAX_BACKGROUND_LABEL_CHARS).collect())
+                    .unwrap_or_else(|| BACKGROUND_TASK_FALLBACK_LABEL.to_string())
+            })
+            .collect(),
+    )
+}
 
 /// The hook-driven half of the state machine (spec §1.4 table, with every Faz 5 §4
 /// Revizyon override applied): given the previous record (if any) and one hook message,
@@ -227,6 +259,7 @@ pub fn apply_agent_hook(
             since_ms: ts_ms,
             source: Source::Hook,
             session_id: None,
+            background_tasks: Vec::new(),
         },
     };
 
@@ -237,6 +270,9 @@ pub fn apply_agent_hook(
         .map(str::to_string);
 
     let mut new_state = next.state;
+    let finished = if seen { AgentState::Idle } else { AgentState::Done };
+    // 0.3.2: Working only because a finished turn waits for background work.
+    let waiting_on_background = next.state == AgentState::Working && !next.background_tasks.is_empty();
 
     match event {
         "SessionStart" => {
@@ -247,7 +283,11 @@ pub fn apply_agent_hook(
                 new_state = AgentState::Idle;
             }
         }
-        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => {
+        "UserPromptSubmit" => {
+            new_state = AgentState::Working;
+            next.background_tasks.clear();
+        }
+        "PreToolUse" | "PostToolUse" => {
             new_state = AgentState::Working;
         }
         "PermissionRequest" => {
@@ -260,11 +300,33 @@ pub fn apply_agent_hook(
                 .unwrap_or("");
             if BLOCKED_NOTIFICATION_TYPES.contains(&notification_type) {
                 new_state = AgentState::Blocked;
+            } else if notification_type == "idle_prompt" && waiting_on_background {
+                // 0.3.2: idle at the prompt = no background work left.
+                new_state = finished;
             }
-            // Anything else (including `idle_prompt`) is ignored — state unchanged.
+            // Anything else (including `idle_prompt` otherwise) is ignored.
         }
-        "Stop" | "done" => {
-            new_state = if seen { AgentState::Idle } else { AgentState::Done };
+        "Stop" => {
+            // 0.3.2: a turn paused for background work stays Working until it finishes.
+            match background_task_labels(payload).filter(|labels| !labels.is_empty()) {
+                Some(labels) => {
+                    new_state = AgentState::Working;
+                    next.background_tasks = labels;
+                }
+                None => new_state = finished,
+            }
+        }
+        "SubagentStop" if waiting_on_background => {
+            // 0.3.2: the last background task finished → the paused turn is done; with
+            // tasks left, only the labels follow.
+            match background_task_labels(payload) {
+                Some(labels) if labels.is_empty() => new_state = finished,
+                Some(labels) => next.background_tasks = labels,
+                None => {}
+            }
+        }
+        "done" => {
+            new_state = finished;
         }
         "Interrupt" | "session-start" | "waiting-input" | "error" => {
             new_state = AgentState::Idle;
@@ -276,8 +338,8 @@ pub fn apply_agent_hook(
             new_state = AgentState::Blocked;
         }
         _ => {
-            // Unknown/uninteresting event (e.g. `SubagentStop`, spec §4 item 8: "not
-            // recorded" — treated the same as any sub-agent tool event, i.e. leaves the
+            // Unknown/uninteresting event (e.g. `SubagentStop` outside background work,
+            // spec §4 item 8: "not recorded" — treated the same as any sub-agent tool event, i.e. leaves the
             // pane's own state untouched) — no state change, but the record still gets
             // created/kept and re-stamped as Hook-sourced above.
         }
@@ -287,6 +349,9 @@ pub fn apply_agent_hook(
         next.session_id = Some(sid);
     }
 
+    if matches!(new_state, AgentState::Idle | AgentState::Done) {
+        next.background_tasks.clear();
+    }
     if new_state != next.state {
         next.since_ms = ts_ms;
     }
@@ -351,6 +416,11 @@ pub fn apply_cancel_fallback(prev: &Agent, signal: CancelSignal, now_ms: u64) ->
         return None;
     }
     if !matches!(prev.state, AgentState::Blocked | AgentState::Working) {
+        return None;
+    }
+    // 0.3.2: a turn waiting for background work produces no output of its own; silence
+    // after a keystroke says nothing about it (its hooks end it).
+    if !prev.background_tasks.is_empty() {
         return None;
     }
     let new_state = match signal {
@@ -442,6 +512,58 @@ pub fn apply_screen_event(agent: &mut Agent, event: ScreenEvent, seen: bool, rec
 // when a fresh `agents:changed` snapshot is owed.
 // ---------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------
+// Leftover processes (0.3.2): after an agent's record goes away while its pane lives on,
+// whatever it left running under the shell is reported (`pty:leftover`), never killed.
+// ---------------------------------------------------------------------------------
+
+/// How long after the record's removal the first check waits (the agent's own process
+/// is usually still exiting).
+const LEFTOVER_GRACE_MS: u64 = 2000;
+
+/// One pane being watched for leftovers.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LeftoverWatch {
+    pub since_ms: u64,
+    /// The process list last emitted (empty = nothing emitted, or cleared).
+    pub emitted: Vec<String>,
+}
+
+/// The `pty:leftover` payload; `processes: []` clears the pane's warning.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftoverEvent {
+    pub pane_id: String,
+    pub processes: Vec<String>,
+}
+
+/// Pure (0.3.2): one heuristic tick of a watched pane. `processes` = the non-shell
+/// processes under its shell now. Returns whether to keep watching and the list to emit,
+/// if any: a new agent record or nothing left ends the watch (emitting the clear only if
+/// a warning was shown); a changed list is emitted.
+pub fn leftover_step(
+    watch: &mut LeftoverWatch,
+    has_record: bool,
+    processes: Vec<String>,
+    now_ms: u64,
+) -> (bool, Option<Vec<String>>) {
+    let clear = |watch: &LeftoverWatch| (!watch.emitted.is_empty()).then(Vec::new);
+    if has_record {
+        return (false, clear(watch));
+    }
+    if now_ms < watch.since_ms.saturating_add(LEFTOVER_GRACE_MS) {
+        return (true, None);
+    }
+    if processes.is_empty() {
+        return (false, clear(watch));
+    }
+    if processes == watch.emitted {
+        return (true, None);
+    }
+    watch.emitted = processes.clone();
+    (true, Some(processes))
+}
+
 struct TrackedRecord {
     agent: Agent,
     presence_miss_count: u32,
@@ -472,8 +594,35 @@ struct TrackerState {
     visible_pane_id: Option<String>,
     window_focused: bool,
     /// Spec §4 item 11: `(pid, creation_time) -> cmdline` cache for `node.exe` pids.
+    /// 0.3.2: pruned to the pids of each heuristic tick's topology.
     cmdline_cache: HashMap<(u32, u64), Option<String>>,
     last_heuristic_tick_ms: u64,
+    /// 0.3.2: panes whose record went away while the pane lives on (see [`leftover_step`]).
+    leftover_watch: HashMap<String, LeftoverWatch>,
+    /// 0.3.2: `pty:leftover` payloads not emitted yet (drained by `run_loop`).
+    leftover_events: Vec<LeftoverEvent>,
+}
+
+impl TrackerState {
+    /// Starts watching a pane for leftovers (its record was just removed).
+    fn watch_leftovers(&mut self, pane_id: &str, now_ms: u64) {
+        self.leftover_watch.entry(pane_id.to_string()).or_insert(LeftoverWatch {
+            since_ms: now_ms,
+            emitted: Vec::new(),
+        });
+    }
+
+    /// Ends a pane's watch because an agent record appeared on it.
+    fn end_leftover_watch_for_record(&mut self, pane_id: &str) {
+        if let Some(mut watch) = self.leftover_watch.remove(pane_id) {
+            if let (_, Some(processes)) = leftover_step(&mut watch, true, Vec::new(), 0) {
+                self.leftover_events.push(LeftoverEvent {
+                    pane_id: pane_id.to_string(),
+                    processes,
+                });
+            }
+        }
+    }
 }
 
 fn is_seen(visible_pane_id: &Option<String>, window_focused: bool, pane_id: &str) -> bool {
@@ -555,6 +704,11 @@ impl AgentTracker {
         self.lock().records.values().map(|r| r.agent.clone()).collect()
     }
 
+    /// 0.3.2: the `pty:leftover` payloads queued since the last call.
+    pub fn take_leftover_events(&self) -> Vec<LeftoverEvent> {
+        std::mem::take(&mut self.lock().leftover_events)
+    }
+
     /// Spec §1.3/§1.4: applies one decoded [`agenthub_proto::HookMessage`]. Returns
     /// whether the visible agent list actually changed. `known_pane` is whether the
     /// `PtyRegistry` currently has this pane open — spec §4 finding 2: a hook message
@@ -611,6 +765,7 @@ impl AgentTracker {
                     state
                         .hook_ended_until
                         .insert(msg.pane_id.clone(), msg.ts_ms + HOOK_ENDED_WINDOW_MS);
+                    state.watch_leftovers(&msg.pane_id, now_ms());
                     // Faz 7 spec §1.2: hook-driven transitions are logged at `info` —
                     // short pane id, event, and the outcome (here: the record is gone).
                     log::info!("agent pane={} hook={} -> removed", short_pane_id(&msg.pane_id), msg.event);
@@ -633,6 +788,7 @@ impl AgentTracker {
                         agent.state
                     );
                 }
+                state.end_leftover_watch_for_record(&msg.pane_id);
                 let screen = state
                     .records
                     .remove(&msg.pane_id)
@@ -724,6 +880,7 @@ impl AgentTracker {
         let removed = state.records.remove(pane_id).is_some();
         state.hook_ended_until.remove(pane_id);
         state.last_applied_ts_ms.remove(pane_id);
+        state.leftover_watch.remove(pane_id);
         drop(state);
         if removed {
             self.mark_dirty();
@@ -742,6 +899,7 @@ impl AgentTracker {
         state.records.clear();
         state.hook_ended_until.clear();
         state.last_applied_ts_ms.clear();
+        state.leftover_watch.clear();
         drop(state);
         if had_anything {
             self.mark_dirty();
@@ -777,6 +935,7 @@ impl AgentTracker {
             None
         };
         let mut creation_time_cache: HashMap<u32, u64> = HashMap::new();
+        let live_pids: HashSet<u32> = topology.iter().flatten().map(|e| e.pid).collect();
         let defs = self.definitions();
 
         let mut state = self.lock();
@@ -799,11 +958,21 @@ impl AgentTracker {
         }
         state.hook_ended_until.retain(|id, _| live.contains(id.as_str()));
         state.last_applied_ts_ms.retain(|id, _| live.contains(id.as_str()));
+        state.leftover_watch.retain(|id, _| live.contains(id.as_str()));
 
         for pane in &panes {
             if do_heuristic {
                 if let Some(topo) = &topology {
-                    changed |= self.heuristic_tick_one(&mut state, pty, pane, topo, &mut creation_time_cache, &defs, now);
+                    changed |= self.heuristic_tick_one(
+                        &mut state,
+                        pty,
+                        pane,
+                        topo,
+                        &live_pids,
+                        &mut creation_time_cache,
+                        &defs,
+                        now,
+                    );
                 }
             }
             changed |= self.screen_tick_one(&mut state, pty, pane, &defs, now);
@@ -812,6 +981,10 @@ impl AgentTracker {
 
         if do_heuristic {
             state.last_heuristic_tick_ms = now;
+        }
+        if topology.is_some() {
+            // 0.3.2: the cache only ever needs this tick's processes.
+            state.cmdline_cache.retain(|(pid, _), _| live_pids.contains(pid));
         }
 
         drop(state);
@@ -832,6 +1005,7 @@ impl AgentTracker {
         pty: &PtyRegistry,
         pane: &crate::pty::PaneSummary,
         topology: &[crate::pty::ProcTopologyEntry],
+        live_pids: &HashSet<u32>,
         creation_time_cache: &mut HashMap<u32, u64>,
         defs: &Definitions,
         now: u64,
@@ -842,6 +1016,8 @@ impl AgentTracker {
             creation_time_cache,
             &mut crate::pty::process_creation_time_or_zero,
         );
+        // 0.3.2: remembered for pane teardown / `pty_stop_leftovers` (orphans).
+        pty.remember_descendants(&pane.pane_id, &descendants, live_pids);
         // Spec §4 finding 4: presence + classification must see the same BUG-1 union
         // `pty_busy` does (`pty::pane_process_union`) — the descendant walk alone can
         // miss a Job-assigned pid it doesn't reach (e.g. a packaged/MSIX shell profile).
@@ -861,7 +1037,7 @@ impl AgentTracker {
             }
         }
 
-        match state.records.get(&pane.pane_id) {
+        let changed = match state.records.get(&pane.pane_id) {
             None => {
                 let suppressed = state.hook_ended_until.contains_key(&pane.pane_id);
                 if let (false, Some(adapter_id)) = (suppressed, matched) {
@@ -884,6 +1060,7 @@ impl AgentTracker {
                             since_ms: now,
                             source: Source::Heuristic,
                             session_id: None,
+                            background_tasks: Vec::new(),
                         }),
                     );
                     true
@@ -914,6 +1091,7 @@ impl AgentTracker {
                         record.agent.kind
                     );
                     state.records.remove(&pane.pane_id);
+                    state.watch_leftovers(&pane.pane_id, now);
                     true
                 } else {
                     if let Some(record) = state.records.get_mut(&pane.pane_id) {
@@ -922,6 +1100,57 @@ impl AgentTracker {
                     false
                 }
             }
+        };
+
+        if state.leftover_watch.contains_key(&pane.pane_id) {
+            self.leftover_tick_one(state, pty, pane, &union, now);
+        }
+        changed
+    }
+
+    /// 0.3.2: one watched pane's leftover check (see [`leftover_step`]): the non-shell
+    /// processes of this tick's descendant/job union plus remembered orphans still alive.
+    fn leftover_tick_one(
+        &self,
+        state: &mut TrackerState,
+        pty: &PtyRegistry,
+        pane: &crate::pty::PaneSummary,
+        union: &[crate::pty::ProcSnapshotEntry],
+        now: u64,
+    ) {
+        let has_record = state.records.contains_key(&pane.pane_id);
+        let processes = if has_record {
+            Vec::new()
+        } else {
+            let shell_image_name = pty
+                .shell_info(&pane.pane_id)
+                .map(|(_, name)| name)
+                .unwrap_or_default();
+            let mut pairs: Vec<(u32, Option<String>)> =
+                union.iter().map(|e| (e.pid, Some(e.name.clone()))).collect();
+            let known: HashSet<u32> = pairs.iter().map(|(pid, _)| *pid).collect();
+            pairs.extend(pty.remembered_survivors(&pane.pane_id, &known));
+            let mut names = crate::pty::leftover_names(&pairs, pane.shell_pid, &shell_image_name);
+            names.sort_by_key(|n| n.to_ascii_lowercase());
+            names
+        };
+        let Some(watch) = state.leftover_watch.get_mut(&pane.pane_id) else {
+            return;
+        };
+        let (keep, emit) = leftover_step(watch, has_record, processes, now);
+        if !keep {
+            state.leftover_watch.remove(&pane.pane_id);
+        }
+        if let Some(processes) = emit {
+            log::info!(
+                "agent pane={} leftover processes: {}",
+                short_pane_id(&pane.pane_id),
+                processes.len()
+            );
+            state.leftover_events.push(LeftoverEvent {
+                pane_id: pane.pane_id.clone(),
+                processes,
+            });
         }
     }
 
@@ -1057,14 +1286,18 @@ pub async fn run_loop(app: tauri::AppHandle) {
         // borrow them for one tick without holding anything (let alone a std `Mutex`
         // guard) across an `.await`.
         let app_for_tick = app.clone();
-        let dirty = tauri::async_runtime::spawn_blocking(move || {
+        let (dirty, leftovers) = tauri::async_runtime::spawn_blocking(move || {
             let tracker = app_for_tick.state::<AgentTracker>();
             let pty = app_for_tick.state::<PtyRegistry>();
             tracker.tick(&pty);
-            tracker.take_dirty()
+            (tracker.take_dirty(), tracker.take_leftover_events())
         })
         .await
-        .unwrap_or(false);
+        .unwrap_or_default();
+
+        for event in leftovers {
+            let _ = app.emit("pty:leftover", event);
+        }
 
         if dirty {
             if let Some(tracker) = app.try_state::<AgentTracker>() {
@@ -1102,6 +1335,7 @@ mod tests {
             since_ms,
             source,
             session_id: None,
+            background_tasks: Vec::new(),
         }
     }
 
@@ -1238,6 +1472,185 @@ mod tests {
 
         let not_seen = apply_hook(Some(&prev), "p1", "w1", "Stop", &json!({}), 20, false);
         assert_eq!(upsert(not_seen).state, AgentState::Done);
+    }
+
+    // -- 0.3.2: background tasks ---------------------------------------------------------
+
+    /// Claude Code `Stop` input while two background agents still run (docs: hooks,
+    /// `background_tasks`); unknown fields stay unread.
+    fn stop_with_background() -> serde_json::Value {
+        json!({
+            "session_id": "s1",
+            "hook_event_name": "Stop",
+            "stop_hook_active": false,
+            "background_tasks": [
+                {"id": "t1", "type": "agent", "agent_type": "backend-expert", "status": "running"},
+                {"id": "t2", "type": "bash", "description": "  npm run build -- --watch and a very long tail that goes past sixty chars  "},
+                {"id": "t3"}
+            ]
+        })
+    }
+
+    #[test]
+    fn background_task_labels_take_the_first_present_field_and_cap() {
+        let labels = background_task_labels(&stop_with_background()).unwrap();
+        assert_eq!(labels[0], "backend-expert");
+        assert!(labels[1].starts_with("npm run build -- --watch"));
+        assert_eq!(labels[1].chars().count(), MAX_BACKGROUND_LABEL_CHARS);
+        assert_eq!(labels[2], BACKGROUND_TASK_FALLBACK_LABEL);
+        assert_eq!(background_task_labels(&json!({"background_tasks": []})), Some(vec![]));
+        assert_eq!(background_task_labels(&json!({})), None);
+        let many: Vec<serde_json::Value> = (0..30).map(|i| json!({"name": format!("t{i}")})).collect();
+        assert_eq!(
+            background_task_labels(&json!({"background_tasks": many})).unwrap().len(),
+            MAX_BACKGROUND_TASKS
+        );
+    }
+
+    #[test]
+    fn stop_with_background_tasks_stays_working_with_labels() {
+        let prev = hook_agent(AgentState::Working, 10);
+        let a = upsert(apply_hook(Some(&prev), "p1", "w1", "Stop", &stop_with_background(), 20, false));
+        assert_eq!(a.state, AgentState::Working);
+        assert_eq!(a.since_ms, 10);
+        assert_eq!(a.background_tasks.len(), 3);
+        let wire = serde_json::to_value(&a).unwrap();
+        assert_eq!(wire["backgroundTasks"][0], "backend-expert");
+    }
+
+    #[test]
+    fn stop_with_empty_or_absent_background_tasks_finishes_and_clears() {
+        let mut prev = hook_agent(AgentState::Working, 10);
+        prev.background_tasks = vec!["x".into()];
+        for payload in [json!({"background_tasks": []}), json!({})] {
+            let a = upsert(apply_hook(Some(&prev), "p1", "w1", "Stop", &payload, 20, false));
+            assert_eq!(a.state, AgentState::Done);
+            assert!(a.background_tasks.is_empty());
+        }
+    }
+
+    #[test]
+    fn subagent_stop_finishes_a_turn_waiting_on_background_work() {
+        let paused = upsert(apply_hook(Some(&hook_agent(AgentState::Working, 10)), "p1", "w1", "Stop", &stop_with_background(), 20, true));
+        // One task left: labels follow, still Working.
+        let one_left = json!({"background_tasks": [{"agent_type": "frontend-expert"}]});
+        let a = upsert(apply_hook(Some(&paused), "p1", "w1", "SubagentStop", &one_left, 30, true));
+        assert_eq!((a.state, a.background_tasks.clone()), (AgentState::Working, vec!["frontend-expert".to_string()]));
+        // Absent field: nothing changes.
+        let b = upsert(apply_hook(Some(&a), "p1", "w1", "SubagentStop", &json!({}), 35, true));
+        assert_eq!(b.background_tasks, a.background_tasks);
+        // Empty: finished (seen → Idle).
+        let c = upsert(apply_hook(Some(&b), "p1", "w1", "SubagentStop", &json!({"background_tasks": []}), 40, true));
+        assert_eq!(c.state, AgentState::Idle);
+        assert!(c.background_tasks.is_empty());
+        assert_eq!(c.since_ms, 40);
+    }
+
+    #[test]
+    fn subagent_stop_outside_background_work_changes_nothing() {
+        let prev = hook_agent(AgentState::Working, 10);
+        let a = upsert(apply_hook(Some(&prev), "p1", "w1", "SubagentStop", &json!({"background_tasks": []}), 20, false));
+        assert_eq!(a.state, AgentState::Working);
+        assert_eq!(a.since_ms, 10);
+    }
+
+    #[test]
+    fn idle_prompt_ends_background_waiting_and_prompt_submit_clears_labels() {
+        let paused = upsert(apply_hook(Some(&hook_agent(AgentState::Working, 10)), "p1", "w1", "Stop", &stop_with_background(), 20, false));
+        let idle = json!({"notification_type": "idle_prompt"});
+        let a = upsert(apply_hook(Some(&paused), "p1", "w1", "Notification", &idle, 30, false));
+        assert_eq!(a.state, AgentState::Done);
+        assert!(a.background_tasks.is_empty());
+        // Without background work idle_prompt is still ignored.
+        let plain = hook_agent(AgentState::Working, 10);
+        assert_eq!(upsert(apply_hook(Some(&plain), "p1", "w1", "Notification", &idle, 30, false)).state, AgentState::Working);
+
+        let b = upsert(apply_hook(Some(&paused), "p1", "w1", "UserPromptSubmit", &json!({}), 40, false));
+        assert_eq!(b.state, AgentState::Working);
+        assert!(b.background_tasks.is_empty());
+        // Tool events of background agents keep the labels.
+        let c = upsert(apply_hook(Some(&paused), "p1", "w1", "PreToolUse", &json!({}), 40, false));
+        assert_eq!(c.background_tasks.len(), 3);
+    }
+
+    #[test]
+    fn cancel_fallback_leaves_background_waiting_alone() {
+        let mut prev = hook_agent(AgentState::Working, 10);
+        prev.background_tasks = vec!["x".into()];
+        assert!(apply_cancel_fallback(&prev, CancelSignal::Idle, 100).is_none());
+    }
+
+    // -- 0.3.2: leftover processes ---------------------------------------------------------
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn leftover_step_waits_out_the_grace_then_emits_changes_and_clears() {
+        let mut watch = LeftoverWatch {
+            since_ms: 1000,
+            emitted: Vec::new(),
+        };
+        assert_eq!(leftover_step(&mut watch, false, names(&["claude.exe"]), 1500), (true, None));
+        let at = 1000 + LEFTOVER_GRACE_MS;
+        assert_eq!(leftover_step(&mut watch, false, names(&["python.exe"]), at), (true, Some(names(&["python.exe"]))));
+        assert_eq!(leftover_step(&mut watch, false, names(&["python.exe"]), at + 1), (true, None));
+        assert_eq!(
+            leftover_step(&mut watch, false, names(&["node.exe", "python.exe"]), at + 2),
+            (true, Some(names(&["node.exe", "python.exe"])))
+        );
+        assert_eq!(leftover_step(&mut watch, false, Vec::new(), at + 3), (false, Some(Vec::new())));
+    }
+
+    #[test]
+    fn leftover_step_ends_quietly_when_nothing_was_shown() {
+        let mut watch = LeftoverWatch {
+            since_ms: 0,
+            emitted: Vec::new(),
+        };
+        assert_eq!(leftover_step(&mut watch, false, Vec::new(), 10_000), (false, None));
+        assert_eq!(leftover_step(&mut watch, true, names(&["x.exe"]), 10_000), (false, None));
+        let mut shown = LeftoverWatch {
+            since_ms: 0,
+            emitted: names(&["x.exe"]),
+        };
+        assert_eq!(leftover_step(&mut shown, true, Vec::new(), 10_000), (false, Some(Vec::new())));
+    }
+
+    #[test]
+    fn leftover_event_serializes_for_the_ui() {
+        let wire = serde_json::to_value(LeftoverEvent {
+            pane_id: "p1".into(),
+            processes: names(&["python.exe"]),
+        })
+        .unwrap();
+        assert_eq!(wire, json!({"paneId": "p1", "processes": ["python.exe"]}));
+    }
+
+    #[test]
+    fn tracker_session_end_starts_a_leftover_watch_and_a_new_record_clears_it() {
+        let tracker = AgentTracker::new();
+        tracker.on_hook(&hook_msg("p1", "UserPromptSubmit", 100, json!({})), true);
+        tracker.on_hook(&hook_msg("p1", "SessionEnd", 200, json!({})), true);
+        assert!(tracker.lock().leftover_watch.contains_key("p1"));
+        // A warning was shown; then a new session starts on the pane.
+        tracker.lock().leftover_watch.get_mut("p1").unwrap().emitted = names(&["python.exe"]);
+        tracker.on_hook(&hook_msg("p1", "SessionStart", 300, json!({})), true);
+        assert!(!tracker.lock().leftover_watch.contains_key("p1"));
+        assert_eq!(
+            tracker.take_leftover_events(),
+            [LeftoverEvent {
+                pane_id: "p1".into(),
+                processes: Vec::new()
+            }]
+        );
+        assert!(tracker.take_leftover_events().is_empty());
+        // pane_died drops a watch without an event.
+        tracker.on_hook(&hook_msg("p1", "SessionEnd", 400, json!({})), true);
+        tracker.pane_died("p1");
+        assert!(tracker.lock().leftover_watch.is_empty());
+        assert!(tracker.take_leftover_events().is_empty());
     }
 
     #[test]

@@ -117,6 +117,7 @@ pub async fn diagnostics_collect(
         settings_json,
         state_json,
         log_dir: logging::log_dir(),
+        hub_log_dir: crate::hub::data_dir(&|k| std::env::var(k).ok()).map(|d| d.join("logs")),
         out_dir: logging::diagnostics_dir(),
         user_profile,
         username,

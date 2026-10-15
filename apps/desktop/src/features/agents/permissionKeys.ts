@@ -11,6 +11,8 @@ export interface PermissionKeys {
   allowOnce: string;
   /** Only when the agent offers a persistent "always" option. */
   alwaysAllow?: string;
+  /** The "always" option's text as the agent shows it (read from the screen, 0.3.2). */
+  alwaysLabel?: string;
   deny: string;
 }
 

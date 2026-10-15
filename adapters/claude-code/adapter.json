@@ -15,5 +15,13 @@
       "Notification", "Stop", "StopFailure", "SubagentStart", "SubagentStop", "SessionEnd"
     ]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "screenRules": [
+    {
+      "id": "permission-dialog",
+      "state": "waitingPermission",
+      "pattern": "Do you want to [^\\n]{1,200}\\?[^\\n]*\\n(?:[^\\n]*\\n){0,4}[ \\t│❯›>]*1\\. Yes|Do you want to [^\\n]{1,200}\\?(?:[^\\n]*\\n){1,12}[^\\n]*Esc to cancel",
+      "lines": 14
+    }
+  ]
 }

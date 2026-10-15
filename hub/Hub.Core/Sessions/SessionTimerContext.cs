@@ -13,4 +13,7 @@ public interface ISessionEnvironment
 public sealed record SessionOptions
 {
     public TimeSpan StaleAfter { get; init; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>A session without events (and transcript writes) this long and without a known process ends as inactive.</summary>
+    public TimeSpan InactiveEndAfter { get; init; } = TimeSpan.FromHours(12);
 }

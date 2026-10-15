@@ -12,7 +12,7 @@
 //! at startup" cost the spec calls out as unwanted (§8.10). `-mini` only tracks paths
 //! it has actually seen an event for.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
@@ -137,6 +137,9 @@ fn handle_debounce_result(
         .unwrap_or_default();
 
     let mut dirs: Vec<String> = Vec::new();
+    // 0.3.2: membership check for `dirs` (a big batch made `Vec::contains` quadratic);
+    // `dirs` itself keeps the batch's first-seen order.
+    let mut dir_set: HashSet<String> = HashSet::new();
     // Faz 6 §10.3, review finding #5: the whole debounce batch's effect on the quick-open
     // index is applied in one `apply_events` call (one `entries()` lock acquisition)
     // instead of once per event.
@@ -149,7 +152,7 @@ fn handle_debounce_result(
         let parent = event.path.parent().unwrap_or(&event.path);
         match to_rel_ci(root, parent) {
             Some(rel) => {
-                if !is_hidden_rel(&rel, &hidden) && !dirs.contains(&rel) {
+                if !is_hidden_rel(&rel, &hidden) && dir_set.insert(rel.clone()) {
                     dirs.push(rel);
                 }
             }

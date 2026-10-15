@@ -77,6 +77,18 @@ public class TranscriptUsageParserTests
         kind.Should().Be(TranscriptLineKind.NoUsage);
     }
 
+    [Theory]
+    [InlineData("""{"type":"user","message":{"content":"hi"}}""", TranscriptLineKind.NoUsage)]
+    [InlineData("""{"type":"user","message":{"content":"hi"}""", TranscriptLineKind.Invalid)]
+    [InlineData("""{"type":"user"} trailing""", TranscriptLineKind.Invalid)]
+    [InlineData("""[1,2]""", TranscriptLineKind.Invalid)]
+    [InlineData("""{"type":"assistant","message":{"usage":{"input_tokens":1}""", TranscriptLineKind.Invalid)]
+    public void Lines_without_the_usage_marker_are_only_checked_for_well_formedness(string line, TranscriptLineKind expected)
+    {
+        Parse(line, out var kind).Should().BeNull();
+        kind.Should().Be(expected);
+    }
+
     [Fact]
     public void Half_written_line_is_invalid()
     {

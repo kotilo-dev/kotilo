@@ -5,6 +5,7 @@
  * Rule 5: activity and diffs only live in memory.
  */
 import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { registerCommand } from "../../app/commands";
 import { strings as liveStrings, useStrings } from "../../app/strings";
 import { AgentAvatar } from "../../app/ui/AgentAvatar";
@@ -168,6 +169,9 @@ function useActivePaneId(workspaceId: string | null): string | null {
   });
 }
 
+const SPLIT_HANDLE_CLASS =
+  "h-[3px] shrink-0 cursor-row-resize bg-border transition-colors hover:bg-accent data-[resize-handle-active]:bg-accent";
+
 function TimelineBody() {
   const strings = useStrings();
   const workspaceId = useWorkspaceStore((s) => s.activeId);
@@ -182,6 +186,8 @@ function TimelineBody() {
   );
   const key = session ? sessionKey({ agent: session.agent, sessionId: session.sessionId }) : null;
   const activity = useActivityStore((s) => (key ? s.bySession[key] : undefined));
+  const split = useLayoutStore((s) => s.layout.timelineSplitSizes);
+  const setSplit = useLayoutStore((s) => s.setTimelineSplitSizes);
 
   useEffect(() => {
     if (session) void useActivityStore.getState().ensure({ agent: session.agent, sessionId: session.sessionId });
@@ -197,18 +203,37 @@ function TimelineBody() {
   if (!workspaceId) return <div className="p-3 text-xs text-muted">{strings.timeline.noWorkspace}</div>;
 
   const entries = activity?.entries ?? [];
+  // 0.3.2: two panes with their own scroll, so a long activity list never pushes the changed
+  // files out of reach; the split is kept in the layout slice like the left column's.
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-3.5 py-3">
-      <SessionLine session={session} />
-      {activity?.plan && <PlanSection plan={activity.plan} />}
-      {session && <ActivitySection entries={entries} loading={activity?.status !== "ready"} />}
-      <ChangedFilesSection
-        workspaceId={workspaceId}
-        workspacePath={workspacePath ?? ""}
-        projectRoot={session?.projectRoot ?? null}
-        entries={entries}
-      />
-    </div>
+    <PanelGroup
+      direction="vertical"
+      className="min-h-0 flex-1"
+      onLayout={(sizes) => {
+        const [top, bottom] = sizes;
+        if (top === undefined || bottom === undefined) return;
+        setSplit({ activity: top, changes: bottom });
+      }}
+    >
+      <Panel id="timeline-activity" defaultSize={split.activity} minSize={20}>
+        <div className="flex h-full min-h-0 flex-col gap-[18px] overflow-y-auto px-3.5 py-3" data-testid="timeline-activity-pane">
+          <SessionLine session={session} />
+          {activity?.plan && <PlanSection plan={activity.plan} />}
+          {session && <ActivitySection entries={entries} loading={activity?.status !== "ready"} />}
+        </div>
+      </Panel>
+      <PanelResizeHandle className={SPLIT_HANDLE_CLASS} />
+      <Panel id="timeline-changes" defaultSize={split.changes} minSize={15}>
+        <div className="h-full min-h-0 overflow-y-auto px-3.5 py-3" data-testid="timeline-changes-pane">
+          <ChangedFilesSection
+            workspaceId={workspaceId}
+            workspacePath={workspacePath ?? ""}
+            projectRoot={session?.projectRoot ?? null}
+            entries={entries}
+          />
+        </div>
+      </Panel>
+    </PanelGroup>
   );
 }
 
@@ -376,7 +401,7 @@ function ChangedFilesSection({
     );
 
   return (
-    <section className="mt-auto rounded-card border border-border-subtle bg-surface-3 p-3" aria-label={strings.timeline.changedFiles} data-testid="timeline-changes">
+    <section className="rounded-card border border-border-subtle bg-surface-3 p-3" aria-label={strings.timeline.changedFiles} data-testid="timeline-changes">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-small font-semibold text-text">
           {strings.timeline.changedFiles}

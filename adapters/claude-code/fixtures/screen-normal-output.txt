@@ -1,0 +1,10 @@
+● The migration needs two steps:
+  1. Back up the database
+  2. Run the migration script
+
+  Do you want to run the backup now? I can also skip it.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ >                                                                    │
+╰──────────────────────────────────────────────────────────────────────╯
+  ? for shortcuts

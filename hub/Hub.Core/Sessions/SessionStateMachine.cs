@@ -7,6 +7,8 @@ public static class SessionStateMachine
 {
     public const string ProcessExitedReason = "process_exited";
 
+    public const string InactiveReason = "inactive";
+
     /// <summary>Applies a hook event. Returns the updated session and, if the state changed, the transition.</summary>
     /// <param name="zone">Local zone for reset times in error messages without one; defaults to the machine's.</param>
     public static (SessionInfo Session, SessionStateChanged? Change) Apply(SessionInfo? current, HookEvent e, TimeZoneInfo? zone = null)
@@ -47,7 +49,7 @@ public static class SessionStateMachine
             case HookEventKind.SessionStart:
                 target = SessionState.Idle;
                 detail = e.Source;
-                s = s with { CurrentTool = null, TurnStartedAt = null, EndedAt = null, EndReason = null, ActiveSubagents = 0 };
+                s = s with { CurrentTool = null, TurnStartedAt = null, EndedAt = null, EndReason = null, ActiveSubagents = 0, BackgroundTasks = [] };
                 if (e.Source is "compact" or "clear")
                 {
                     // Older context readings describe the conversation before the compaction (spec §18.4).
@@ -59,7 +61,8 @@ public static class SessionStateMachine
 
             case HookEventKind.UserPromptSubmit:
                 target = SessionState.Working;
-                s = s with { TurnStartedAt = at, CurrentTool = null, LastNotification = null };
+                // A new turn: its own Stop says again whether background work is still running.
+                s = s with { TurnStartedAt = at, CurrentTool = null, LastNotification = null, BackgroundTasks = [] };
                 break;
 
             case HookEventKind.PreToolUse:
@@ -111,6 +114,13 @@ public static class SessionStateMachine
                 s = s with { CurrentTool = requested, PendingPermission = PendingFrom(e, requested, at) };
                 break;
 
+            case HookEventKind.Notification when s.BackgroundTasks.Count > 0
+                && string.Equals(e.NotificationType, "idle_prompt", StringComparison.OrdinalIgnoreCase):
+                // idle_prompt fires only when no background agent runs: the work the last turn waited for is over.
+                target = SessionState.Idle;
+                s = EndTurn(s, at, ref turnDuration) with { Error = null };
+                break;
+
             case HookEventKind.Notification:
                 var kind = NotificationClassifier.Classify(e.NotificationType, e.Message);
                 if (kind == NotificationKind.Permission && IsQuestionTool(s.CurrentTool))
@@ -139,6 +149,13 @@ public static class SessionStateMachine
 
                 break;
 
+            case HookEventKind.Stop when e.BackgroundTasks is { Count: > 0 } background:
+                // Paused, not done: Claude Code wakes the session again when the background work finishes. No completed
+                // transition, so no toast and nothing unseen yet.
+                target = SessionState.Working;
+                s = s with { CurrentTool = null, TurnStartedAt = s.TurnStartedAt ?? at, BackgroundTasks = background };
+                break;
+
             case HookEventKind.Stop:
             case HookEventKind.StopFailure:
                 var error = e.Kind == HookEventKind.StopFailure
@@ -152,7 +169,7 @@ public static class SessionStateMachine
                     turnDuration = at - started;
                 }
 
-                s = s with { CurrentTool = null, TurnStartedAt = null, LastCompletedAt = at, ActiveSubagents = 0 };
+                s = s with { CurrentTool = null, TurnStartedAt = null, LastCompletedAt = at, ActiveSubagents = 0, BackgroundTasks = [] };
                 break;
 
             case HookEventKind.SubagentStart:
@@ -161,13 +178,27 @@ public static class SessionStateMachine
 
             case HookEventKind.SubagentStop:
                 s = s with { ActiveSubagents = Math.Max(0, s.ActiveSubagents - 1) };
+                if (s.BackgroundTasks.Count > 0 && e.BackgroundTasks is { } remaining)
+                {
+                    if (remaining.Count > 0)
+                    {
+                        s = s with { BackgroundTasks = remaining };
+                    }
+                    else
+                    {
+                        // The background work the last turn waited for is over: finish it like a normal Stop.
+                        target = SessionState.Idle;
+                        s = EndTurn(s, at, ref turnDuration) with { Error = null };
+                    }
+                }
+
                 break;
 
             case HookEventKind.Interrupt:
                 // A cancelled turn: back to the prompt, nothing finished.
                 target = SessionState.Idle;
                 detail = "interrupt";
-                s = s with { CurrentTool = null, TurnStartedAt = null, ActiveSubagents = 0 };
+                s = s with { CurrentTool = null, TurnStartedAt = null, ActiveSubagents = 0, BackgroundTasks = [] };
                 break;
 
             case HookEventKind.PostCompact:
@@ -179,7 +210,7 @@ public static class SessionStateMachine
             case HookEventKind.SessionEnd:
                 target = SessionState.Ended;
                 detail = e.Reason;
-                s = s with { CurrentTool = null, EndedAt = at, EndReason = e.Reason };
+                s = s with { CurrentTool = null, EndedAt = at, EndReason = e.Reason, BackgroundTasks = [] };
                 break;
 
             default:
@@ -189,7 +220,10 @@ public static class SessionStateMachine
         return target is { } to ? Transition(s, to, at, detail, TransitionTrigger.HookEvent, turnDuration) : (s, null);
     }
 
-    /// <summary>Periodic check: process exit → Ended, long silence while Working → Stale.</summary>
+    /// <summary>
+    /// Periodic check: process exit → Ended, long silence while Working → Stale, very long silence without a known
+    /// process (an agent that never sent SessionEnd and whose process the hook could not identify) → Ended.
+    /// </summary>
     public static (SessionInfo Session, SessionStateChanged? Change) Evaluate(
         SessionInfo s, DateTimeOffset now, ISessionEnvironment env, SessionOptions options)
     {
@@ -202,6 +236,13 @@ public static class SessionStateMachine
         {
             var ended = s with { CurrentTool = null, EndedAt = now, EndReason = ProcessExitedReason };
             return Transition(ended, SessionState.Ended, now, ProcessExitedReason, TransitionTrigger.ProcessExited, null);
+        }
+
+        if (s.ParentPid is null && now - s.LastEventAt > options.InactiveEndAfter
+            && !(env.GetTranscriptLastWrite(s.TranscriptPath) is { } written && now - written <= options.InactiveEndAfter))
+        {
+            var ended = s with { CurrentTool = null, EndedAt = now, EndReason = InactiveReason, BackgroundTasks = [] };
+            return Transition(ended, SessionState.Ended, now, InactiveReason, TransitionTrigger.StaleTimer, null);
         }
 
         if (s.State == SessionState.Working && now - s.LastEventAt > options.StaleAfter)
@@ -271,7 +312,7 @@ public static class SessionStateMachine
             turnDuration = at - started;
         }
 
-        return s with { CurrentTool = null, TurnStartedAt = null, LastCompletedAt = at, ActiveSubagents = 0 };
+        return s with { CurrentTool = null, TurnStartedAt = null, LastCompletedAt = at, ActiveSubagents = 0, BackgroundTasks = [] };
     }
 
     /// <summary>

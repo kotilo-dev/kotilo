@@ -1,6 +1,17 @@
 {
-  "comment": "Context window size (tokens) per model id prefix; the longest matching prefix wins. Used only when the statusLine gives no context reading (spec 18.4). Sessions above this size are treated as 1M extended context.",
+  "comment": "Context window size (tokens) per model id prefix; the longest matching prefix wins. Used only when the statusLine gives no context reading (spec 18.4). Sessions above this size are treated as 1M extended context. Fable 5.x, Sonnet 5+, Haiku 5.5 and Opus 4.7+ run with the 1M window by default; entries here stay in effect under your own (a prefix you set wins).",
   "models": {
-    "claude-": 200000
+    "claude-": 200000,
+    "claude-fable-5": 1000000,
+    "claude-fable-6": 1000000,
+    "claude-sonnet-5": 1000000,
+    "claude-sonnet-6": 1000000,
+    "claude-haiku-5-5": 1000000,
+    "claude-haiku-6": 1000000,
+    "claude-opus-4-7": 1000000,
+    "claude-opus-4-8": 1000000,
+    "claude-opus-4-9": 1000000,
+    "claude-opus-5": 1000000,
+    "claude-opus-6": 1000000
   }
 }

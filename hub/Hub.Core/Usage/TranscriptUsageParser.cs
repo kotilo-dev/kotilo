@@ -26,6 +26,25 @@ public static class TranscriptUsageParser
 {
     private static readonly byte[] UsageMarker = "\"usage\""u8.ToArray();
 
+    private static bool IsJsonObject(ReadOnlySpan<byte> line)
+    {
+        var reader = new Utf8JsonReader(line);
+        try
+        {
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+            {
+                return false;
+            }
+
+            reader.Skip();
+            return !reader.Read();
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     public static TranscriptLineKind TryParse(ReadOnlySpan<byte> line, string? fallbackSessionId, out UsageEntry? entry)
     {
         entry = null;
@@ -33,6 +52,13 @@ public static class TranscriptUsageParser
         if (line.IsEmpty)
         {
             return TranscriptLineKind.NoUsage;
+        }
+
+        // Cheap pre-filter before building a document: most lines (user, system, tool results) carry no usage. They are
+        // only checked for being well-formed (no allocation), so the parser health counts stay the same.
+        if (line.IndexOf(UsageMarker) < 0)
+        {
+            return IsJsonObject(line) ? TranscriptLineKind.NoUsage : TranscriptLineKind.Invalid;
         }
 
         JsonDocument doc;
@@ -53,12 +79,7 @@ public static class TranscriptUsageParser
                 return TranscriptLineKind.Invalid;
             }
 
-            // Cheap pre-filter, then the spec's type check.
-            if (line.IndexOf(UsageMarker) < 0)
-            {
-                return TranscriptLineKind.NoUsage;
-            }
-
+            // The spec's type check.
             if (Str(root, "type") is { } type && type != "assistant")
             {
                 return TranscriptLineKind.NoUsage;

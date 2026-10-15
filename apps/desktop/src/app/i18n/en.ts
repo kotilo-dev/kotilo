@@ -599,6 +599,15 @@ export const en = {
       fiveHour: "5-hour limit",
       weekly: "Weekly limit",
     },
+    /** 0.3.2: processes still running after the agent exited. */
+    leftover: {
+      message: (count: number, names: string) =>
+        `Agent exited – ${count === 1 ? "1 process" : `${count} processes`} still running: ${names}`,
+      stop: "Stop",
+      dismiss: "Dismiss",
+    },
+    /** 0.3.2: the turn ended but background work (e.g. a subagent) still runs. */
+    background: (tasks: string) => `Background: ${tasks}`,
   },
 
   /** M3: Settings → Agents cards and the custom agent wizard (`agentSetup.en.ts`). */

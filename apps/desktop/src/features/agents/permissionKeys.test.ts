@@ -31,6 +31,6 @@ describe("permissionKeys (from adapter definitions)", () => {
 
   it("knows which agents detect permission prompts on screen", () => {
     const defs = builtinDefinitions();
-    expect(defs.filter(hasScreenPermissionRule).map((d) => d.id)).toEqual(["cursor"]);
+    expect(defs.filter(hasScreenPermissionRule).map((d) => d.id)).toEqual(["claude-code", "cursor"]);
   });
 });

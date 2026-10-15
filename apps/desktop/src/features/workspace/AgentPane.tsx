@@ -8,7 +8,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useStrings } from "../../app/i18n";
 import { agentDisplayName } from "../../app/ui";
+import { useAppActive } from "../../app/ui/useAppActive";
+import { useNow } from "../../app/ui/useNow";
 import { gitHead, paneSendKeys } from "../../lib/ipc";
+import { useRouteStore } from "../../stores/routeStore";
 import type { PendingPermission } from "../../lib/hubTypes";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
 import { useAgentStore } from "../../stores/agentStore";
@@ -17,15 +20,45 @@ import type { TerminalTab } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { formatElapsed } from "../agents/agentLogic";
 import { hasScreenPermissionRule, isQuestionTool, permissionKeysOf } from "../agents/permissionKeys";
-import { focusTerminal } from "../terminal/terminalRegistry";
+import { parsePromptOptions, screenPermissionKeys, type PromptOption } from "../agents/promptOptions";
+import { focusTerminal, readBufferTail } from "../terminal/terminalRegistry";
 import { TerminalView } from "../terminal/TerminalView";
 import { Composer } from "../composer/Composer";
 import { AgentHeaderStrip, type HeaderLimit } from "./AgentHeaderStrip";
 import { matchSession, paneVisualState, statusFamily, type PaneVisualState } from "./paneSession";
+import { LeftoverStrip } from "./LeftoverStrip";
 import { PermissionCard, PermissionResult, type PermissionDecision } from "./PermissionCard";
 
 const RESULT_VISIBLE_MS = 2500;
 const BRANCH_POLL_MS = 15000;
+/** The card appears on the hook; the agent may draw its dialog a few hundred ms later. */
+const DIALOG_RETRY_MS = 250;
+const DIALOG_WAIT_MS = 1500;
+const DIALOG_ROWS = 60;
+
+/**
+ * The numbered options of the dialog at the bottom of the tab's screen while `requestKey` is
+ * open (0.3.2): read on open and again every 250 ms for 1.5 s until a dialog is found.
+ */
+function useScreenOptions(tabId: string, requestKey: string | null): PromptOption[] {
+  const [found, setFound] = useState<{ key: string; options: PromptOption[] } | null>(null);
+  useEffect(() => {
+    if (!requestKey) return;
+    const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = () => {
+      const options = parsePromptOptions(readBufferTail(tabId, DIALOG_ROWS));
+      if (options.length > 0) {
+        setFound({ key: requestKey, options });
+        return;
+      }
+      if (Date.now() - started < DIALOG_WAIT_MS) timer = setTimeout(read, DIALOG_RETRY_MS);
+    };
+    read();
+    return () => clearTimeout(timer);
+  }, [tabId, requestKey]);
+  return found && found.key === requestKey ? found.options : [];
+}
 
 /** §7.4 frame: working = thin amber border + 4px halo; waiting = stronger blocked border + glow. */
 export function frameStyle(state: PaneVisualState | null): CSSProperties | undefined {
@@ -42,17 +75,6 @@ export function frameStyle(state: PaneVisualState | null): CSSProperties | undef
     return { border: `1px solid ${mix("working", 28)}`, boxShadow: `0 0 0 4px ${mix("working", 5)}` };
   }
   return { border: "1px solid var(--border)" };
-}
-
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
 }
 
 function useBranch(workspaceId: string, active: boolean): string | null {
@@ -121,8 +143,12 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
   const screenPermission = hasScreenPermissionRule(definition);
   const state = paneVisualState(session, agent, screenPermission);
   const hasAgent = state !== null && tab.status === "running";
-  const now = useNow(visible && hasAgent);
-  const branch = useBranch(workspaceId, visible && hasAgent);
+  // Timers run only while the pane can be seen: its tab shown, the workspace route active and
+  // the window focused (`useNow` also checks the window).
+  const onWorkspace = useRouteStore((st) => st.route === "workspace");
+  const appActive = useAppActive();
+  const now = useNow(1000, visible && hasAgent && onWorkspace);
+  const branch = useBranch(workspaceId, visible && hasAgent && onWorkspace && appActive);
 
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [result, setResult] = useState<{ decision: PermissionDecision; keyName: string; at: number } | null>(null);
@@ -138,6 +164,9 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
 
   const sinceMs = session ? Date.parse(session.stateSince) : (agent?.sinceMs ?? now);
   const elapsed = state && state !== "idle" ? formatElapsed(now, sinceMs) : null;
+
+  const backgroundTasks = session?.backgroundTasks ?? agent?.backgroundTasks ?? [];
+  const background = state === "working" && backgroundTasks.length > 0 ? s.workspace.background(backgroundTasks.join(", ")) : null;
 
   const limit: HeaderLimit | null = adapterId
     ? limits
@@ -157,6 +186,7 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
     : permission && agent
       ? `${adapterId}:${agent.paneId}:${agent.sinceMs}`
       : null;
+  const screenOptions = useScreenOptions(tab.id, hasAgent && permission ? requestKey : null);
   const showCard = hasAgent && permission !== null && requestKey !== dismissed && !(result && result.at >= Date.parse(permission.since));
 
   function decide(decision: PermissionDecision, keyName: string) {
@@ -182,9 +212,11 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
           tokens={session ? session.tokens : null}
           costUsd={session?.costUsd ?? null}
           limit={limit}
+          background={background}
           actions={split ? <SplitButton split={split} /> : undefined}
         />
       )}
+      {paneId && <LeftoverStrip paneId={paneId} />}
       <div className="relative flex min-h-0 flex-1" data-pane-state={hasAgent ? state : undefined} style={hasAgent ? frameStyle(state) : undefined}>
         <TerminalView workspaceId={workspaceId} tab={tab} visible={visible} />
         {showCard && permission && (
@@ -194,7 +226,7 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
             projectName={projectName}
             waiting={formatElapsed(now, Date.parse(permission.since))}
             permission={permission}
-            keys={permissionKeysOf(definition)}
+            keys={screenPermissionKeys(permissionKeysOf(definition), screenOptions, adapterId === "claude-code")}
             autoFocus={visible && document.hasFocus()}
             onDecide={decide}
             onAnswerInTerminal={() => {

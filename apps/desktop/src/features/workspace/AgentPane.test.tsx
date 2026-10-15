@@ -15,7 +15,7 @@ const ipc = vi.hoisted(() => ({
 vi.mock("../../lib/ipc", () => ipc);
 
 const focusTerminal = vi.hoisted(() => vi.fn());
-vi.mock("../terminal/terminalRegistry", () => ({ focusTerminal }));
+vi.mock("../terminal/terminalRegistry", () => ({ focusTerminal, readBufferTail: () => [] }));
 vi.mock("../composer/Composer", () => ({
   Composer: ({ paneId, agentName }: { paneId: string; agentName: string }) => <div data-testid={`composer-${paneId}`}>{agentName}</div>,
 }));

@@ -402,6 +402,32 @@ public class SessionStateMachineTests
             change!.Trigger.Should().Be(TransitionTrigger.ProcessExited);
         }
 
+        [Theory]
+        [InlineData(SessionState.Idle)]
+        [InlineData(SessionState.WaitingInput)]
+        [InlineData(SessionState.Stale)]
+        public void Long_inactive_session_without_a_known_process_ends(SessionState state)
+        {
+            var (s, change) = SessionStateMachine.Evaluate(Session(state, T0, pid: null), T0.AddHours(13), _env, _options);
+
+            s.State.Should().Be(SessionState.Ended);
+            s.EndReason.Should().Be(SessionStateMachine.InactiveReason);
+            change!.Detail.Should().Be(SessionStateMachine.InactiveReason);
+        }
+
+        [Fact]
+        public void Inactive_end_waits_for_the_window_a_live_process_and_transcript_writes()
+        {
+            SessionStateMachine.Evaluate(Session(SessionState.Idle, T0, pid: null), T0.AddHours(11), _env, _options)
+                .Change.Should().BeNull("within 12 h");
+            SessionStateMachine.Evaluate(Session(SessionState.Idle, T0, pid: 100), T0.AddHours(30), _env, _options)
+                .Change.Should().BeNull("the process is alive");
+
+            _env.TranscriptLastWrite = T0.AddHours(10);
+            SessionStateMachine.Evaluate(Session(SessionState.Idle, T0, pid: null), T0.AddHours(13), _env, _options)
+                .Change.Should().BeNull("the transcript was written recently");
+        }
+
         [Fact]
         public void Ended_session_is_not_evaluated_again()
         {

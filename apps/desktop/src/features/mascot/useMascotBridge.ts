@@ -190,8 +190,13 @@ export function installMascotBridge(): () => void {
     }),
   ];
 
-  // Done expires, DND / quiet hours and usage blocks change with time alone.
-  const tick = setInterval(recompute, TICK_MS);
+  // Done expires, DND / quiet hours and usage blocks change with time alone. Not while the
+  // mascot is off: store changes still recompute (the "turn it on?" offer needs them). The main
+  // window's focus does not matter here: the mascot is meant to be seen from other windows.
+  const tick = setInterval(() => {
+    if (settings()?.buddy.mascotEnabled === false) return;
+    recompute();
+  }, TICK_MS);
   const reload = setInterval(() => void useMascotSettingsStore.getState().load(), SETTINGS_RELOAD_MS);
 
   if (settings()) sendConfig();

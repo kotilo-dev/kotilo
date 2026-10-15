@@ -1,0 +1,15 @@
+● Pushing the branch.
+
+────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   git push --force origin main
+   Force-push main
+
+ Permission rule Bash(git push:*) requires confirmation for this command.
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend · ctrl+e to explain

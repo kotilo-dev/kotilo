@@ -44,6 +44,12 @@ public sealed record SessionInfo(
 
     public int ActiveSubagents { get; init; }
 
+    /// <summary>
+    /// Labels of the background work a finished turn is waiting for (Claude Code <c>Stop.background_tasks</c>); the session
+    /// stays Working while this is non-empty. In memory only (never persisted).
+    /// </summary>
+    public IReadOnlyList<string> BackgroundTasks { get; init; } = [];
+
     /// <summary>Set while <see cref="State"/> is <see cref="SessionState.Error"/>.</summary>
     public SessionError? Error { get; init; }
 

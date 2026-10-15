@@ -70,6 +70,8 @@ Fields:
 
 **Seen state (0.3, D-056).** `lastCompletedAt` is when the session's last turn finished, or `null`. `unseen` is `true` when a turn finished after the user last looked and `state` is `Idle`, `Ended` or `Stale`; an `Error` session is never unseen. The user "looks" through one of the `seen` routes above or by sending a new prompt (the session goes `Working`). The seen time is persisted, so it survives a hub restart, and both routes push a fresh `sessions` frame. Sessions that come only from the 7-day history (`includeEnded=true`) always have `unseen: false`.
 
+**Background work (0.3.2).** `backgroundTasks` lists short labels (at most 10, each up to 60 characters) of the background work a Claude Code turn is still waiting on, taken from the `background_tasks` array of its `Stop`/`SubagentStop` hook; empty when there is none. While it is non-empty the session stays `Working` (no completed transition, toast or unseen). It finishes on a later `Stop` or `SubagentStop` with an empty list, or an `idle_prompt` notification; a new prompt clears it. The labels are kept in memory only.
+
 ### Activity (memory only)
 
 `GET /v1/sessions/{agent}/{id}/activity` → `{ entries, plan }` for a session the hub tracks (`404` otherwise; a known session without tool events answers `{ entries: [], plan: null }`).

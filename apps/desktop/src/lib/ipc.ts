@@ -175,6 +175,21 @@ export function onPtyExit(handler: (payload: PtyExitPayload) => void): Promise<U
   return listen<PtyExitPayload>("pty:exit", (e) => handler(e.payload));
 }
 
+/** 0.3.2: the agent exited but processes it started still run under the pane's shell; `[]` = cleared. */
+export interface PtyLeftoverPayload {
+  paneId: string;
+  processes: string[];
+}
+
+export function onPtyLeftover(handler: (payload: PtyLeftoverPayload) => void): Promise<UnlistenFn> {
+  return listen<PtyLeftoverPayload>("pty:leftover", (e) => handler(e.payload));
+}
+
+/** Terminates the shell's descendants (not the shell) of a pane with leftovers. */
+export async function ptyStopLeftovers(paneId: string): Promise<void> {
+  await invoke<void>("pty_stop_leftovers", { paneId });
+}
+
 /** D8 derisk: pane'in Job Object'indeki PID listesi (isim ile, cmdline opsiyonel). Faz 5 için korunur. */
 export interface PtyProcessInfo {
   pid: number;
@@ -612,6 +627,8 @@ export interface Agent {
   source: AgentSource;
   /** The agent's own session id from its last hook; `null` for heuristic records (M2: hub session lookup). */
   sessionId: string | null;
+  /** 0.3.2: background work the agent waits for after its turn (e.g. a subagent name); empty when none. */
+  backgroundTasks?: string[];
 }
 
 export async function agentsList(): Promise<Agent[]> {

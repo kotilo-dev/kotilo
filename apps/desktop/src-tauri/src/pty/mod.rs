@@ -660,6 +660,10 @@ struct PaneHandle {
     shell_image_name: String,
     /// M3: shared with the reader thread, which feeds it while enabled.
     screen: Arc<Mutex<PaneScreen>>,
+    /// 0.3.2: every descendant the `agents` heuristic tick has seen under this pane's
+    /// shell (see [`merge_seen_descendants`]) — teardown and `pty_stop_leftovers` also
+    /// reach orphans whose parent died, which the descendant walk no longer finds.
+    seen_descendants: Vec<SeenProc>,
 }
 
 /// Shared PTY pane table. Managed as Tauri app state (`.manage(PtyRegistry::default())`).
@@ -755,6 +759,33 @@ impl PtyRegistry {
         let screen = self.panes().get(pane_id).map(|p| p.screen.clone())?;
         let rows = lock_screen(&screen).rows();
         rows
+    }
+
+    /// 0.3.2: folds this tick's descendant walk into the pane's remembered set (see
+    /// [`merge_seen_descendants`]). `live` is every pid in this tick's process topology.
+    pub(crate) fn remember_descendants(&self, pane_id: &str, observed: &[ProcSnapshotEntry], live: &HashSet<u32>) {
+        if let Some(pane) = self.panes().get_mut(pane_id) {
+            merge_seen_descendants(&mut pane.seen_descendants, observed, live);
+        }
+    }
+
+    /// 0.3.2: the pane's remembered descendants that are still the same process, minus
+    /// `exclude` (see [`surviving_seen`]). Empty for an unknown pane / off Windows.
+    pub(crate) fn remembered_survivors(&self, pane_id: &str, exclude: &HashSet<u32>) -> Vec<(u32, Option<String>)> {
+        let seen = self
+            .panes()
+            .get(pane_id)
+            .map(|p| p.seen_descendants.clone())
+            .unwrap_or_default();
+        #[cfg(windows)]
+        {
+            surviving_seen(&seen, exclude, process_creation_time)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (seen, exclude);
+            Vec::new()
+        }
     }
 
     /// Removes and returns a single pane's handle *without* holding the registry lock
@@ -1058,6 +1089,7 @@ pub fn pty_spawn(
                 shell_pid: pid,
                 shell_image_name,
                 screen: screen.clone(),
+                seen_descendants: Vec::new(),
                 #[cfg(windows)]
                 job,
             },
@@ -1530,15 +1562,8 @@ pub fn decide_busy(job_procs: &[(u32, Option<String>)], shell_pid: u32, shell_im
     let shell_image_lower = shell_image_name.to_ascii_lowercase();
     let mut names: Vec<String> = Vec::new();
     for (pid, name) in job_procs {
-        if *pid == shell_pid {
-            continue;
-        }
         let Some(name) = name else { continue };
-        let lower = name.to_ascii_lowercase();
-        if lower == shell_image_lower {
-            continue;
-        }
-        if CONSOLE_HOST_IMAGES.contains(&lower.as_str()) {
+        if in_shell_set(*pid, name, shell_pid, &shell_image_lower) {
             continue;
         }
         let display = strip_exe_suffix(name);
@@ -1550,6 +1575,102 @@ pub fn decide_busy(job_procs: &[(u32, Option<String>)], shell_pid: u32, shell_im
         busy: !names.is_empty(),
         processes: names,
     }
+}
+
+/// The "shell set" [`decide_busy`] leaves out: the shell itself, a process with the
+/// shell's image name, and the console host. `shell_image_lower` is lowercase already.
+fn in_shell_set(pid: u32, name: &str, shell_pid: u32, shell_image_lower: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    pid == shell_pid || lower == shell_image_lower || CONSOLE_HOST_IMAGES.contains(&lower.as_str())
+}
+
+/// 0.3.2: at most this many process names in a `pty:leftover` event.
+pub const MAX_LEFTOVER_NAMES: usize = 8;
+
+/// Pure (0.3.2 leftover strip): the image names (as reported, e.g. `python.exe`) of every
+/// process [`decide_busy`] would count as busy, deduplicated case-insensitively, at most
+/// [`MAX_LEFTOVER_NAMES`]. Empty = nothing but the shell is left.
+pub fn leftover_names(procs: &[(u32, Option<String>)], shell_pid: u32, shell_image_name: &str) -> Vec<String> {
+    let shell_image_lower = shell_image_name.to_ascii_lowercase();
+    let mut names: Vec<String> = Vec::new();
+    for (pid, name) in procs {
+        let Some(name) = name else { continue };
+        if in_shell_set(*pid, name, shell_pid, &shell_image_lower)
+            || names.iter().any(|n| n.eq_ignore_ascii_case(name))
+        {
+            continue;
+        }
+        names.push(name.clone());
+        if names.len() == MAX_LEFTOVER_NAMES {
+            break;
+        }
+    }
+    names
+}
+
+/// Pure (0.3.2, `pty_stop_leftovers`): the pids to terminate — every process outside the
+/// shell set (so never the shell itself or the console host), each once. A process whose
+/// name is unknown is left alone.
+pub fn leftover_kill_targets(procs: &[(u32, Option<String>)], shell_pid: u32, shell_image_name: &str) -> Vec<u32> {
+    let shell_image_lower = shell_image_name.to_ascii_lowercase();
+    let mut pids: Vec<u32> = Vec::new();
+    for (pid, name) in procs {
+        let Some(name) = name else { continue };
+        if !in_shell_set(*pid, name, shell_pid, &shell_image_lower) && !pids.contains(pid) {
+            pids.push(*pid);
+        }
+    }
+    pids
+}
+
+/// 0.3.2: one process the `agents` tick saw under a pane's shell. `creation_time` tells a
+/// recycled pid apart from the process that was seen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeenProc {
+    pub pid: u32,
+    pub creation_time: u64,
+    pub name: String,
+}
+
+/// Upper bound of a pane's remembered descendants (oldest dropped first).
+pub const SEEN_DESCENDANTS_CAP: usize = 512;
+
+/// Pure (0.3.2): prunes `seen` of pids that no longer exist (`live` = every pid of this
+/// tick's topology), then adds every `observed` descendant with a known creation time
+/// that isn't remembered yet, keeping at most [`SEEN_DESCENDANTS_CAP`] (newest win).
+pub fn merge_seen_descendants(seen: &mut Vec<SeenProc>, observed: &[ProcSnapshotEntry], live: &HashSet<u32>) {
+    seen.retain(|p| live.contains(&p.pid));
+    for entry in observed {
+        if entry.creation_time == 0
+            || seen.iter().any(|p| p.pid == entry.pid && p.creation_time == entry.creation_time)
+        {
+            continue;
+        }
+        seen.push(SeenProc {
+            pid: entry.pid,
+            creation_time: entry.creation_time,
+            name: entry.name.clone(),
+        });
+    }
+    if seen.len() > SEEN_DESCENDANTS_CAP {
+        let excess = seen.len() - SEEN_DESCENDANTS_CAP;
+        seen.drain(..excess);
+    }
+}
+
+/// Pure (0.3.2): the remembered processes that are still the same process (their pid's
+/// current creation time, via `creation_time_of`, matches the remembered one), as
+/// `(pid, name)`, minus `exclude` (pids already handled elsewhere: the job's, the walk's).
+pub fn surviving_seen(
+    seen: &[SeenProc],
+    exclude: &HashSet<u32>,
+    mut creation_time_of: impl FnMut(u32) -> Option<u64>,
+) -> Vec<(u32, Option<String>)> {
+    seen.iter()
+        .filter(|p| !exclude.contains(&p.pid))
+        .filter(|p| creation_time_of(p.pid) == Some(p.creation_time))
+        .map(|p| (p.pid, Some(p.name.clone())))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------------
@@ -1839,12 +1960,18 @@ fn reap_stray_descendants(pane: &PaneHandle) {
     let Some(job) = pane.job.as_ref() else {
         return;
     };
-    let job_pid_set: HashSet<u32> = job_pids_of(job.0).into_iter().collect();
+    let mut handled: HashSet<u32> = job_pids_of(job.0).into_iter().collect();
+    handled.insert(pane.shell_pid);
     let snapshot = system_process_snapshot();
     for entry in walk_descendants(&snapshot, pane.shell_pid) {
-        if !job_pid_set.contains(&entry.pid) {
+        if handled.insert(entry.pid) {
             terminate_pid(entry.pid);
         }
+    }
+    // 0.3.2: orphans whose parent died are out of the walk's reach; the tick remembered
+    // them (same process = same creation time).
+    for (pid, _) in surviving_seen(&pane.seen_descendants, &handled, process_creation_time) {
+        terminate_pid(pid);
     }
 }
 
@@ -1880,6 +2007,37 @@ pub fn pty_busy(registry: State<'_, PtyRegistry>, pane_id: String) -> AppResult<
             processes: Vec::new(),
         })
     }
+}
+
+/// 0.3.2 (leftover strip's Stop button): terminates everything still running under the
+/// pane's shell — the descendant walk, the Job Object and the remembered orphans — except
+/// the shell itself and the console host. The `agents` tick then emits the cleared
+/// `pty:leftover`. Unknown pane → no-op.
+#[tauri::command(async)]
+pub fn pty_stop_leftovers(registry: State<'_, PtyRegistry>, pane_id: String) -> AppResult<()> {
+    let Some((shell_pid, shell_image_name)) = registry.shell_info(&pane_id) else {
+        return Ok(());
+    };
+    #[cfg(windows)]
+    {
+        let mut procs = pane_process_union(&registry, &pane_id, shell_pid);
+        let known: HashSet<u32> = procs.iter().map(|(pid, _)| *pid).collect();
+        procs.extend(registry.remembered_survivors(&pane_id, &known));
+        let targets = leftover_kill_targets(&procs, shell_pid, &shell_image_name);
+        log::info!(
+            "pty pane={} stop leftovers: {} process(es)",
+            crate::agents::short_pane_id(&pane_id),
+            targets.len()
+        );
+        for pid in targets {
+            terminate_pid(pid);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (shell_pid, shell_image_name);
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------------
@@ -3101,6 +3259,7 @@ mod teardown_lock_tests {
                 shell_pid: 0,
                 shell_image_name: "fake.exe".to_string(),
                 screen: Arc::new(Mutex::new(PaneScreen::new(24, 80))),
+                seen_descendants: Vec::new(),
             },
         );
         flag
@@ -3426,6 +3585,7 @@ mod bug1_msix_pwsh_tests {
                 shell_pid,
                 shell_image_name: "pwsh.exe".to_string(),
                 screen: Arc::new(Mutex::new(PaneScreen::new(24, 80))),
+                seen_descendants: Vec::new(),
             },
         );
 
@@ -3678,6 +3838,7 @@ mod graceful_close_tests {
                 shell_pid,
                 shell_image_name: "fake.exe".to_string(),
                 screen: Arc::new(Mutex::new(PaneScreen::new(24, 80))),
+                seen_descendants: Vec::new(),
             },
         );
         written
@@ -3799,5 +3960,103 @@ mod graceful_close_tests {
         insert_probe_pane_with_pid(&registry, "pane-a", DEAD_PID);
         registry.clear();
         assert!(registry.panes().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod leftover_tests {
+    use super::*;
+
+    fn procs(list: &[(u32, &str)]) -> Vec<(u32, Option<String>)> {
+        list.iter().map(|(pid, name)| (*pid, Some(name.to_string()))).collect()
+    }
+
+    fn entry(pid: u32, name: &str, creation_time: u64) -> ProcSnapshotEntry {
+        ProcSnapshotEntry {
+            pid,
+            ppid: 1,
+            name: name.to_string(),
+            creation_time,
+        }
+    }
+
+    #[test]
+    fn leftover_names_skip_the_shell_set_and_dedupe() {
+        let list = procs(&[
+            (10, "pwsh.exe"),
+            (11, "conhost.exe"),
+            (12, "python.exe"),
+            (13, "PYTHON.EXE"),
+            (14, "node.exe"),
+            (15, "pwsh.exe"),
+            (16, "OpenConsole.exe"),
+        ]);
+        assert_eq!(leftover_names(&list, 10, "pwsh.exe"), ["python.exe", "node.exe"]);
+        assert!(leftover_names(&procs(&[(10, "pwsh.exe"), (11, "conhost.exe")]), 10, "pwsh.exe").is_empty());
+        assert!(leftover_names(&[(20, None)], 10, "pwsh.exe").is_empty());
+    }
+
+    #[test]
+    fn leftover_names_are_capped() {
+        let names: Vec<String> = (0..20).map(|i| format!("tool{i}.exe")).collect();
+        let list: Vec<(u32, Option<String>)> = names.iter().enumerate().map(|(i, n)| (100 + i as u32, Some(n.clone()))).collect();
+        assert_eq!(leftover_names(&list, 1, "cmd.exe").len(), MAX_LEFTOVER_NAMES);
+    }
+
+    #[test]
+    fn kill_targets_never_include_the_shell_or_console_host() {
+        let list = procs(&[(10, "pwsh.exe"), (11, "conhost.exe"), (12, "python.exe"), (12, "python.exe"), (13, "node.exe")]);
+        let mut with_unknown = list.clone();
+        with_unknown.push((14, None));
+        assert_eq!(leftover_kill_targets(&with_unknown, 10, "pwsh.exe"), [12, 13]);
+    }
+
+    #[test]
+    fn merge_seen_prunes_dead_pids_adds_new_ones_and_skips_unknown_times() {
+        let mut seen = vec![SeenProc {
+            pid: 5,
+            creation_time: 50,
+            name: "old.exe".into(),
+        }];
+        let live: HashSet<u32> = [7, 8, 9].into_iter().collect();
+        merge_seen_descendants(&mut seen, &[entry(7, "python.exe", 70), entry(8, "job-only.exe", 0)], &live);
+        assert_eq!(seen.iter().map(|p| p.pid).collect::<Vec<_>>(), [7]);
+        // Seen again: not duplicated. Recycled pid (new creation time): a separate entry.
+        merge_seen_descendants(&mut seen, &[entry(7, "python.exe", 70), entry(9, "node.exe", 90)], &live);
+        merge_seen_descendants(&mut seen, &[entry(7, "other.exe", 71)], &live);
+        assert_eq!(
+            seen.iter().map(|p| (p.pid, p.creation_time)).collect::<Vec<_>>(),
+            [(7, 70), (9, 90), (7, 71)]
+        );
+    }
+
+    #[test]
+    fn merge_seen_keeps_the_newest_within_the_cap() {
+        let mut seen = Vec::new();
+        let observed: Vec<ProcSnapshotEntry> = (1..=600).map(|pid| entry(pid, "x.exe", 1000 + pid as u64)).collect();
+        let live: HashSet<u32> = (1..=600).collect();
+        merge_seen_descendants(&mut seen, &observed, &live);
+        assert_eq!(seen.len(), SEEN_DESCENDANTS_CAP);
+        assert_eq!(seen[0].pid, 600 - SEEN_DESCENDANTS_CAP as u32 + 1);
+        assert_eq!(seen.last().map(|p| p.pid), Some(600));
+    }
+
+    #[test]
+    fn surviving_seen_needs_a_matching_creation_time_and_skips_excluded_pids() {
+        let seen = vec![
+            SeenProc { pid: 1, creation_time: 10, name: "a.exe".into() },
+            SeenProc { pid: 2, creation_time: 20, name: "b.exe".into() },
+            SeenProc { pid: 3, creation_time: 30, name: "c.exe".into() },
+            SeenProc { pid: 4, creation_time: 40, name: "d.exe".into() },
+        ];
+        let exclude: HashSet<u32> = [3].into_iter().collect();
+        // pid 1 alive and the same; pid 2 recycled; pid 4 gone.
+        let now = |pid: u32| match pid {
+            1 => Some(10),
+            2 => Some(25),
+            3 => Some(30),
+            _ => None,
+        };
+        assert_eq!(surviving_seen(&seen, &exclude, now), [(1, Some("a.exe".to_string()))]);
     }
 }

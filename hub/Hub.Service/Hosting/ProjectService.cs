@@ -164,6 +164,12 @@ public sealed class ProjectService : IAsyncDisposable
 
                 await _wake.WaitAsync(TimeSpan.FromSeconds(5), ct);
                 await Task.Delay(Debounce, ct);
+
+                // One pass handles every event of a burst (the dirty sets hold them all).
+                while (_wake.CurrentCount > 0)
+                {
+                    await _wake.WaitAsync(ct);
+                }
             }
         }
         catch (OperationCanceledException)

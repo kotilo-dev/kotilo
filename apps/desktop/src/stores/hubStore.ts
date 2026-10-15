@@ -3,6 +3,7 @@
  * screen. Notifications are dispatched to `notificationHandler`, set by the toast owner.
  */
 import { create } from "zustand";
+import { sameJson } from "../lib/sameJson";
 import { hubRequest, onHubEvent, onHubStatus } from "../lib/ipc";
 import type { HealthDto, LimitDto, NotificationDto, SessionDto, StreamMessage, TaskCounts, UsageCurrent } from "../lib/hubTypes";
 
@@ -32,7 +33,18 @@ export function observeHubNotifications(observer: (n: NotificationDto) => void):
   return () => notificationObservers.delete(observer);
 }
 
-export const useHubStore = create<HubState>((set) => ({
+/** Skips frames equal to what the store already holds (0.3.2: no re-render for a repeat). */
+function setIfChanged<K extends "sessions" | "usage" | "limits" | "health" | "taskCounts">(
+  get: () => HubState,
+  set: (partial: Partial<HubState>) => void,
+  key: K,
+  value: HubState[K],
+): void {
+  if (sameJson(get()[key], value)) return;
+  set({ [key]: value } as Partial<HubState>);
+}
+
+export const useHubStore = create<HubState>((set, get) => ({
   connected: false,
   sessions: [],
   usage: null,
@@ -42,19 +54,19 @@ export const useHubStore = create<HubState>((set) => ({
   apply: (message) => {
     switch (message.type) {
       case "sessions":
-        set({ sessions: message.data });
+        setIfChanged(get, set, "sessions", message.data);
         break;
       case "usage":
-        set({ usage: message.data });
+        setIfChanged(get, set, "usage", message.data);
         break;
       case "limits":
-        set({ limits: message.data });
+        setIfChanged(get, set, "limits", message.data);
         break;
       case "health":
-        set({ health: message.data });
+        setIfChanged(get, set, "health", message.data);
         break;
       case "tasks":
-        set({ taskCounts: message.data });
+        setIfChanged(get, set, "taskCounts", message.data);
         break;
       case "notification":
         notificationHandler?.(message.data);

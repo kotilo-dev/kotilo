@@ -29,6 +29,12 @@ export interface LeftSplitSizes {
   agents: number;
 }
 
+/** 0.3.2: the timeline rail's vertical split (session/plan/activity above, changed files below). */
+export interface TimelineSplitSizes {
+  activity: number;
+  changes: number;
+}
+
 export interface LayoutSlice {
   leftVisible: boolean;
   terminalVisible: boolean;
@@ -38,6 +44,7 @@ export interface LayoutSlice {
   /** M4: the workspace timeline rail (right of the column group) and its width in px. */
   timelineVisible: boolean;
   timelineWidth: number;
+  timelineSplitSizes: TimelineSplitSizes;
 }
 
 export const DEFAULT_LAYOUT: LayoutSlice = {
@@ -48,6 +55,7 @@ export const DEFAULT_LAYOUT: LayoutSlice = {
   leftSplitSizes: { workspaces: 55, agents: 45 },
   timelineVisible: true,
   timelineWidth: 300,
+  timelineSplitSizes: { activity: 60, changes: 40 },
 };
 
 export const TIMELINE_MIN_WIDTH = 220;
@@ -94,6 +102,12 @@ export function mergeWithDefaults(partial: unknown): LayoutSlice {
     agents: isFiniteNumber(leftSplitRaw.agents) ? leftSplitRaw.agents : DEFAULT_LAYOUT.leftSplitSizes.agents,
   };
 
+  const timelineSplitRaw = (p.timelineSplitSizes ?? {}) as Partial<TimelineSplitSizes>;
+  const timelineSplitSizes: TimelineSplitSizes =
+    isFiniteNumber(timelineSplitRaw.activity) && isFiniteNumber(timelineSplitRaw.changes)
+      ? { activity: timelineSplitRaw.activity, changes: timelineSplitRaw.changes }
+      : DEFAULT_LAYOUT.timelineSplitSizes;
+
   return {
     leftVisible: typeof p.leftVisible === "boolean" ? p.leftVisible : DEFAULT_LAYOUT.leftVisible,
     terminalVisible: typeof p.terminalVisible === "boolean" ? p.terminalVisible : DEFAULT_LAYOUT.terminalVisible,
@@ -102,6 +116,7 @@ export function mergeWithDefaults(partial: unknown): LayoutSlice {
     leftSplitSizes,
     timelineVisible: typeof p.timelineVisible === "boolean" ? p.timelineVisible : DEFAULT_LAYOUT.timelineVisible,
     timelineWidth: isFiniteNumber(p.timelineWidth) ? clampTimelineWidth(p.timelineWidth) : DEFAULT_LAYOUT.timelineWidth,
+    timelineSplitSizes,
   };
 }
 
@@ -118,6 +133,7 @@ interface LayoutStore {
   /** Yalnızca görünen panellerin boyutu güncellenir; gizli panellerin son bilinen boyutu korunur. */
   setColumnSizes: (sizes: Partial<ColumnSizes>) => void;
   setLeftSplitSizes: (sizes: Partial<LeftSplitSizes>) => void;
+  setTimelineSplitSizes: (sizes: TimelineSplitSizes) => void;
   toggleTimeline: () => void;
   /** Clamped to `TIMELINE_MIN_WIDTH`…`TIMELINE_MAX_WIDTH`. */
   setTimelineWidth: (width: number) => void;
@@ -187,6 +203,14 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       ...get().layout,
       leftSplitSizes: { ...get().layout.leftSplitSizes, ...partial },
     };
+    set({ layout });
+    scheduleSave(layout);
+  },
+
+  setTimelineSplitSizes: (sizes) => {
+    const current = get().layout.timelineSplitSizes;
+    if (current.activity === sizes.activity && current.changes === sizes.changes) return;
+    const layout = { ...get().layout, timelineSplitSizes: sizes };
     set({ layout });
     scheduleSave(layout);
   },

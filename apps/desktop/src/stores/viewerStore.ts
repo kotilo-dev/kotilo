@@ -7,6 +7,7 @@
  * state slice'ında, 500ms debounce.
  */
 import { create } from "zustand";
+import { batchFsChanges } from "../lib/fsBatch";
 import {
   fsExists,
   loadState,
@@ -212,12 +213,12 @@ function installListeners(get: Getter, set: Setter): void {
     });
   });
 
-  void onFsChanged(({ workspaceId, dirs }) => {
+  void onFsChanged(batchFsChanges(({ workspaceId, dirs }) => {
     // finding #11: `dirs` yalnızca üst düzey değişen klasörleri listeler (ör. bir klasör dışarıdan
     // yeniden adlandırılınca yalnızca onun *ebeveyni* gelir, kendi altındaki iç içe yollar değil) —
     // eşitlik yerine soyundan gelme kontrolü, iç içe sekmelerin de denetlenmesini sağlar.
     void checkTouchedTabs(get, set, workspaceId, (rel) => dirs.some((d) => isSameOrDescendant(parentRel(rel), d)));
-  });
+  }));
 
   void onFsRescan(({ workspaceId }) => {
     void checkTouchedTabs(get, set, workspaceId, () => true);

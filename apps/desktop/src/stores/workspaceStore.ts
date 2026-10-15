@@ -5,6 +5,7 @@
  * frontend UI durumudur (backend yalnızca `expandedDirs`'i kalıcı yazar, kaynak değildir).
  */
 import { create } from "zustand";
+import { batchFsChanges } from "../lib/fsBatch";
 import {
   type AppError,
   type DirEntry,
@@ -123,9 +124,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   init: async () => {
     if (!listenersInstalled) {
       listenersInstalled = true;
-      void onFsChanged(({ workspaceId, dirs }) => {
-        for (const dir of dirs) void reloadDir(get, set, workspaceId, dir);
-      });
+      void onFsChanged(
+        batchFsChanges(({ workspaceId, dirs }) => {
+          for (const dir of dirs) void reloadDir(get, set, workspaceId, dir);
+        }),
+      );
       void onFsRescan(({ workspaceId }) => {
         const cache = get().dirCache[workspaceId] ?? {};
         for (const rel of Object.keys(cache)) void reloadDir(get, set, workspaceId, rel);
@@ -403,6 +406,9 @@ async function reloadDir(get: Getter, set: Setter, workspaceId: string, rel: str
   const beforeEntries: DirEntry[] = Array.isArray(before) ? before : [];
   try {
     const entries = await fsReadDir(workspaceId, rel);
+    // 0.3.2: an unchanged listing keeps its array, so the tree does not re-render.
+    const current = get().dirCache[workspaceId]?.[rel];
+    if (Array.isArray(current) && sameEntries(current, entries)) return;
     setDirState(set, workspaceId, rel, entries);
     // §8.17: artık listede olmayan alt klasörlerin dirCache/expanded/selected girdileri (prefix ile) temizlenir.
     const newDirRels = new Set(entries.filter((e) => e.isDir).map((e) => e.rel));
@@ -414,6 +420,10 @@ async function reloadDir(get: Getter, set: Setter, workspaceId: string, rel: str
   } catch (e) {
     setDirState(set, workspaceId, rel, { error: toAppError(e) });
   }
+}
+
+function sameEntries(a: DirEntry[], b: DirEntry[]): boolean {
+  return a.length === b.length && a.every((e, i) => e.name === b[i]!.name && e.rel === b[i]!.rel && e.isDir === b[i]!.isDir);
 }
 
 function pruneLocalState(set: Setter, workspaceId: string, rel: string) {

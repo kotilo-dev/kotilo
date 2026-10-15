@@ -29,7 +29,13 @@ describe("mergeWithDefaults", () => {
       leftSplitSizes: DEFAULT_LAYOUT.leftSplitSizes,
       timelineVisible: DEFAULT_LAYOUT.timelineVisible,
       timelineWidth: DEFAULT_LAYOUT.timelineWidth,
+      timelineSplitSizes: DEFAULT_LAYOUT.timelineSplitSizes,
     });
+  });
+
+  it("restores the timeline rail split, or the default for a partial one", () => {
+    expect(mergeWithDefaults({ timelineSplitSizes: { activity: 70, changes: 30 } }).timelineSplitSizes).toEqual({ activity: 70, changes: 30 });
+    expect(mergeWithDefaults({ timelineSplitSizes: { activity: 70 } }).timelineSplitSizes).toEqual(DEFAULT_LAYOUT.timelineSplitSizes);
   });
 
   it("restores the timeline rail and clamps its width", () => {

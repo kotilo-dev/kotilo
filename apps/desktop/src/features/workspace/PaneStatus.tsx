@@ -1,6 +1,6 @@
 /**
  * Pane state visuals (DESIGN_SYSTEM §2.3, §6, §10): a 26px state pill for the header strip
- * and a small dot for lists/status bar. Each state differs by shape or motion as well as
+ * and a 12px state icon for lists/status bar. Each state differs by shape or motion as well as
  * color — Working spins + shimmers, waiting states pulse, errors carry a warning icon.
  */
 import { useStrings } from "../../app/i18n";
@@ -14,6 +14,7 @@ const PILL_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
   error: "bg-error-bg text-error-ink",
 };
 
+/** The dot inside the pill (non-working, non-error states). */
 const DOT_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
   working: "bg-working",
   blocked: "bg-blocked animate-pulse-halo",
@@ -75,25 +76,85 @@ export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffi
   );
 }
 
+const ICON_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
+  working: "text-working",
+  blocked: "text-blocked animate-pulse-halo rounded-full",
+  done: "text-done",
+  idle: "text-idle",
+  error: "text-error",
+};
+
+/** 0.3.2: one small glyph per state (same colours as before, now also a distinct shape). */
+function StateGlyph({ state, size }: { state: PaneVisualState; size: number }) {
+  const common = {
+    "aria-hidden": true,
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2.6,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (state) {
+    case "working":
+      return (
+        <svg {...common} strokeWidth={3} className="motion-safe:animate-spin">
+          <path d="M21 12a9 9 0 1 1-9-9" />
+        </svg>
+      );
+    case "permission":
+      return (
+        <svg {...common}>
+          <path d="M12 2.5l8.5 3.5v5.5c0 5-3.6 8.4-8.5 10-4.9-1.6-8.5-5-8.5-10V6z" />
+          <path d="M12 8v4.5M12 16.2h.01" />
+        </svg>
+      );
+    case "input":
+      return (
+        <svg {...common}>
+          <path d="M4 4.5h16v11.5H10l-6 4.5z" />
+          <path d="M8.5 10.3h.01M12 10.3h.01M15.5 10.3h.01" strokeWidth={3.2} />
+        </svg>
+      );
+    case "done":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9.5" />
+          <path d="M7.8 12.3l2.9 2.9 5.6-6" />
+        </svg>
+      );
+    case "idle":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8.5" />
+        </svg>
+      );
+    case "error":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9.5" />
+          <path d="M9 9l6 6M15 9l-6 6" />
+        </svg>
+      );
+  }
+}
+
 /** Compact state marker for lists and the status bar; labelled for screen readers. */
 export function PaneStatusDot({ state, label }: { state: PaneVisualState; label?: string }) {
   const family = statusFamily(state);
   const toLabel = usePaneStateLabel();
   const text = label ?? toLabel(state);
-  if (family === "error") {
-    return (
-      <span role="img" aria-label={text} title={text} data-state={state} className="inline-flex shrink-0 text-error">
-        <WarningIcon size={10} />
-      </span>
-    );
-  }
   return (
     <span
       role="img"
       aria-label={text}
       title={text}
       data-state={state}
-      className={`inline-block h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[family]}`}
-    />
+      className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${ICON_CLASS[family]}`}
+    >
+      <StateGlyph state={state} size={12} />
+    </span>
   );
 }

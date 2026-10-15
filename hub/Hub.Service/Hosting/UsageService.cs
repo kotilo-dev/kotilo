@@ -39,6 +39,7 @@ public sealed class UsageService : IAsyncDisposable
     private static readonly TimeSpan Retention = TimeSpan.FromDays(90);
     private static readonly TimeSpan FullSweepInterval = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan OffsetPruneInterval = TimeSpan.FromHours(1);
     private static readonly TimeSpan Debounce = TimeSpan.FromSeconds(1);
 
     private readonly AppPaths _paths;
@@ -179,13 +180,21 @@ public sealed class UsageService : IAsyncDisposable
             var pruned = _repository.Prune(DateTimeOffset.UtcNow - Retention);
             _ruleState.Prune(DateTimeOffset.UtcNow - TimeSpan.FromDays(30));
             Log.Information("Usage retention removed {Rows} rows", pruned);
+            PruneOffsets();
 
             var lastSweep = DateTimeOffset.UtcNow;
+            var lastOffsetPrune = DateTimeOffset.UtcNow;
             var lastRefresh = DateTimeOffset.UtcNow;
             while (!ct.IsCancellationRequested)
             {
                 await _wake.WaitAsync(TimeSpan.FromSeconds(5), ct);
                 await Task.Delay(Debounce, ct);
+
+                // One pass handles every event of a burst: without draining, each watcher event would cost a pass.
+                while (_wake.CurrentCount > 0)
+                {
+                    await _wake.WaitAsync(ct);
+                }
 
                 var changed = false;
                 if (_pricingChanged)
@@ -218,6 +227,11 @@ public sealed class UsageService : IAsyncDisposable
                 {
                     lastSweep = now;
                     changed |= ScanAll(DateTime.UtcNow - Backfill).RowsWritten > 0;
+                    if (now - lastOffsetPrune >= OffsetPruneInterval)
+                    {
+                        lastOffsetPrune = now;
+                        PruneOffsets();
+                    }
                 }
 
                 foreach (var source in _sources.OfType<IPollingUsageSource>())
@@ -229,8 +243,7 @@ public sealed class UsageService : IAsyncDisposable
                     }
                 }
 
-                // Remaining time and burn rate move with the clock even without new data.
-                if (changed || now - lastRefresh >= RefreshInterval)
+                if (changed || NeedsClockRefresh(Current, now, lastRefresh, TimeZoneInfo.Local))
                 {
                     lastRefresh = now;
                     Refresh(backfillDone: true);
@@ -248,6 +261,14 @@ public sealed class UsageService : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Refresh without new data (it reloads 35 days of rows): only while a block is active, whose remaining time and burn
+    /// rate move with the clock (the refresh after its end clears it), and once when the local day changes.
+    /// </summary>
+    internal static bool NeedsClockRefresh(UsageSnapshot current, DateTimeOffset now, DateTimeOffset lastRefresh, TimeZoneInfo zone) =>
+        now - lastRefresh >= RefreshInterval
+        && (current.ActiveBlock is not null || UsageAggregator.LocalDate(current.At, zone) != UsageAggregator.LocalDate(now, zone));
+
     /// <summary>Every source in turn; they share offsets and usage rows. Each pass is reported on its own (limits are per agent).</summary>
     private ScanResult ScanAll(DateTime since)
     {
@@ -262,6 +283,15 @@ public sealed class UsageService : IAsyncDisposable
         }
 
         return total;
+    }
+
+    /// <summary>Read offsets of deleted transcripts would otherwise stay forever.</summary>
+    private void PruneOffsets()
+    {
+        if (Context.Offsets.PruneMissing() is var removed and > 0)
+        {
+            Log.Information("Removed {Rows} read offsets of deleted files", removed);
+        }
     }
 
     /// <summary>Writes queued protocol usage; returns the rows written.</summary>

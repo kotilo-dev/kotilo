@@ -49,6 +49,10 @@ public sealed class HubFixture : IAsyncLifetime
     public static byte[] CodexEvent(string sessionId, string name, string extra = "", string? paneId = "pane-9") =>
         Encoding.UTF8.GetBytes(
             $$$"""{"v":1,"agent":"codex","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","paneId":{{{(paneId is null ? "null" : "\"" + paneId + "\"")}}},"payload":{"session_id":"{{{sessionId}}}","cwd":"C:\\src\\demo","hook_event_name":"{{{name}}}"{{{extra}}}}}""");
+
+    public static byte[] ClaudeEvent(string sessionId, string name, string extra = "") =>
+        Encoding.UTF8.GetBytes(
+            $$$"""{"v":1,"agent":"claude-code","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","payload":{"session_id":"{{{sessionId}}}","cwd":"C:\\src\\demo","hook_event_name":"{{{name}}}"{{{extra}}}}}""");
 }
 
 public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
@@ -162,6 +166,25 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
 
         (await Http.GetAsync("/v1/sessions/codex/nope/transitions")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await Http.GetAsync("/v1/sessions?includeEnded=true")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Turn_waiting_for_background_work_stays_working_with_its_labels()
+    {
+        var id = "bg-" + Guid.NewGuid().ToString("N");
+        hub.Host.Pipeline.EnqueueHook(HubFixture.ClaudeEvent(id, "UserPromptSubmit"));
+        hub.Host.Pipeline.EnqueueHook(HubFixture.ClaudeEvent(id, "Stop", ""","background_tasks":[{"type":"subagent","agent_type":"backend-expert"}]"""));
+        var session = await WaitForAsync(async () =>
+            (await SessionAsync(id)) is { } s && s.GetProperty("backgroundTasks").GetArrayLength() > 0 ? s : default);
+
+        session.GetProperty("state").GetString().Should().Be("Working");
+        session.GetProperty("unseen").GetBoolean().Should().BeFalse();
+        session.GetProperty("backgroundTasks")[0].GetString().Should().Be("backend-expert");
+
+        hub.Host.Pipeline.EnqueueHook(HubFixture.ClaudeEvent(id, "Stop", ""","background_tasks":[]"""));
+        session = await WaitForAsync(async () => (await SessionAsync(id)) is { } s && s.GetProperty("state").GetString() == "Idle" ? s : default);
+        session.GetProperty("backgroundTasks").GetArrayLength().Should().Be(0);
+        session.GetProperty("unseen").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

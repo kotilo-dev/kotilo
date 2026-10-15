@@ -42,6 +42,7 @@ import { navigateToAgent } from "../features/agents/navigate";
 import { installLaunchCommands } from "../features/agents/launch";
 import { installUnseenWork } from "../features/agents/unseenWork";
 import { useDefinitionsStore } from "../stores/definitionsStore";
+import { installLeftoverListener } from "../stores/leftoverStore";
 
 const WORKSPACE_SHORTCUT_COUNT = 9;
 
@@ -90,6 +91,7 @@ export function App() {
     void init();
     initHubStore();
     void useDefinitionsStore.getState().init();
+    installLeftoverListener();
   }, [init]);
 
   useEffect(() => {

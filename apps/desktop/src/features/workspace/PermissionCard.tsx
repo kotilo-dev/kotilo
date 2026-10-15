@@ -9,6 +9,7 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useStrings } from "../../app/i18n";
 import type { PendingPermission } from "../../lib/hubTypes";
 import type { PermissionKeys } from "../agents/permissionKeys";
+import { shortAlwaysLabel } from "../agents/promptOptions";
 
 /** Enter/Space/Esc right after the card took focus were typed before it appeared. */
 const FOCUS_GRACE_MS = 400;
@@ -140,10 +141,11 @@ export function PermissionCard(p: PermissionCardProps) {
             {p.keys.alwaysAllow && (
               <button
                 type="button"
+                title={p.keys.alwaysLabel}
                 onClick={() => p.onDecide("always", p.keys!.alwaysAllow!)}
-                className="h-[38px] rounded-button border border-border bg-surface-5 px-4 text-ui font-medium text-text"
+                className="h-[38px] max-w-full truncate rounded-button border border-border bg-surface-5 px-4 text-ui font-medium text-text"
               >
-                {s.permission.alwaysAllow}
+                {p.keys.alwaysLabel ? shortAlwaysLabel(p.keys.alwaysLabel) : s.permission.alwaysAllow}
               </button>
             )}
             <button

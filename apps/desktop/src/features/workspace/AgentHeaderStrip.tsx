@@ -28,6 +28,8 @@ export interface AgentHeaderStripProps {
   tokens: number | null;
   costUsd: number | null;
   limit: HeaderLimit | null;
+  /** 0.3.2: "Background: …" while the turn waits for background work. */
+  background?: string | null;
   /** Panel actions at the end of the strip (M4: the split button). */
   actions?: ReactNode;
 }
@@ -54,6 +56,7 @@ export function AgentHeaderStrip(p: AgentHeaderStripProps) {
       <span aria-live={urgent ? "assertive" : "polite"}>
         <PaneStatePill state={p.state} suffix={p.elapsed ?? undefined} />
       </span>
+      {p.background && <span className="min-w-0 max-w-[16rem] truncate text-meta text-muted" title={p.background}>{p.background}</span>}
       <div className="flex-1" />
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1 text-small text-text-3">
         <div className="flex flex-col gap-1">

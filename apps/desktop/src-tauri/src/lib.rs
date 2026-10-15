@@ -180,6 +180,7 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             pty::pty_busy,
+            pty::pty_stop_leftovers,
             pty::pty_processes,
             commands::agents::agents_list,
             commands::agents::agent_ack,

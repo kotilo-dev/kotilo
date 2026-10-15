@@ -33,6 +33,51 @@ public sealed class TranscriptOffsetStore(Database db)
             """,
             new { path, offset = offset.Offset, lastWrite = offset.LastWriteUtc.Ticks });
     }
+
+    /// <summary>
+    /// Removes the rows of files that no longer exist. Only keys that are full paths count (Droid's <c>path#field</c> rows
+    /// follow their file; <c>db:</c> and other cursor keys are kept), and nothing is removed while the drive is missing.
+    /// </summary>
+    /// <returns>The rows removed.</returns>
+    public int PruneMissing()
+    {
+        using var c = db.Open();
+        var missing = c.Query<string>("SELECT path FROM transcript_offsets").Where(IsMissingFile).ToList();
+        if (missing.Count == 0)
+        {
+            return 0;
+        }
+
+        using var tx = c.BeginTransaction();
+        var removed = missing.Sum(path => c.Execute("DELETE FROM transcript_offsets WHERE path = @path", new { path }, tx));
+        tx.Commit();
+        return removed;
+    }
+
+    internal static bool IsMissingFile(string key)
+    {
+        if (!IsGoneFile(key))
+        {
+            return false;
+        }
+
+        var hash = key.LastIndexOf('#');
+        return hash < 0 || IsGoneFile(key[..hash]);
+    }
+
+    private static bool IsGoneFile(string path)
+    {
+        try
+        {
+            return Path.IsPathFullyQualified(path)
+                && Path.GetPathRoot(path) is { Length: > 0 } root && Directory.Exists(root)
+                && !File.Exists(path);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
 }
 
 /// <summary><c>notification_log</c> as the persisted hysteresis / once-per-period state (spec §13).</summary>

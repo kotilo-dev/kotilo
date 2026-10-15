@@ -158,3 +158,21 @@ Preparation: a build that contains the fixes (0.3.1 installer, or `npm --prefix 
 | F-13 | Allow a request from the card | A small note ("Allowed once…") shows in the top-right corner for ~2 s; the agent's prompt rows at the bottom stay readable |
 | F-14 | Add a second workspace; hover its name, then use **Switch**; double-click the other one; right-click → **Make active** | Arrow cursor over names (no text cursor); each of the three switches the active workspace (● moves, its files show) |
 | F-15 | Copy a line of text; right-click into Claude's prompt, then into a plain PowerShell prompt; in Claude also try Shift+right click | Each pastes the text exactly once; selecting text and right-clicking still copies it |
+
+## Performance and second-machine fixes (0.3.2, D-060)
+
+Preparation: a 0.3.2 build; Claude Code installed; Task Manager → Details sorted by CPU; two or three Claude panes open.
+
+| # | Steps | Expected |
+|---|---|---|
+| G-1 | In a Claude pane ask for a long-running script (e.g. `python -c "while True: pass"` started in the background); `/exit` Claude but keep the tab | A strip "Agent exited – 1 process still running: python.exe" appears within a few seconds; **Stop** ends the process (Task Manager) and the strip goes away |
+| G-2 | Same as G-1, then close the tab instead of pressing Stop | The script process is gone from Task Manager within a few seconds |
+| G-3 | Make Claude ask for a command that matches an `ask` rule while auto mode is on (only "1. Yes / 2. No") | The pane turns red (needs permission) even if no hook arrives; the card shows **Allow once / Deny / Answer in terminal**, no "Always" |
+| G-4 | A normal Bash permission with the 3-option dialog | The card shows a second button with Claude's own "don't ask again …" text; pressing it picks option 2 in the terminal |
+| G-5 | Let a background subagent run ("Waiting for 1 background agent to finish") | Status stays yellow (Working) with "Background: <name>" until the subagent finishes; only then blue/done and the completed toast |
+| G-6 | Opus 5.5 session with ~150k tokens: compare the pane's Context bar with Claude's `/context` | Both show about 15 % (1M window), not 75 % |
+| G-7 | After a busy agent turn, leave Kotilo idle and unfocused for 5 minutes | kotilo, kotilo-hub and WebView2 processes stay near 0 % CPU |
+| G-8 | Timeline with a long activity list: drag the splitter between Activity and Changed files; restart the app | Both parts scroll on their own; the split is kept after the restart |
+| G-9 | Agents list and pane status in each state (working, permission, question, done, idle) | Each state has its own small icon in the state colour; the working icon spins unless reduced motion is on |
+| G-10 | Open an image with sixel output (e.g. `img2sixel`), then check the log | The image renders; no "WebAssembly … Content Security Policy" error in the log |
+| G-11 | Settings → About → diagnostics zip | Contains `hub-logs/` with the recent hub log; no repeated "taskbar: overlay icon not set" lines in the app log |

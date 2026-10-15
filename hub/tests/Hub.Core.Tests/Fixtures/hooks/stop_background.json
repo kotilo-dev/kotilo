@@ -1,0 +1,21 @@
+{
+  "receivedAt": "2026-09-30T18:12:00Z",
+  "hookPid": 1101,
+  "parentPid": 900,
+  "payload": {
+    "session_id": "abc123",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\C--src-alpha\\abc123.jsonl",
+    "cwd": "C:\\src\\alpha",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "background_tasks": [
+      { "id": "a1", "type": "subagent", "agent_type": "backend-expert", "status": "running" },
+      { "id": "b2", "type": "shell", "description": "npm run dev\nwatching", "status": "running" },
+      { "id": "c3", "type": "monitor" },
+      { "id": "d4" },
+      "workflow",
+      42
+    ],
+    "session_crons": []
+  }
+}
