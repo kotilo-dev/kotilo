@@ -149,8 +149,8 @@ jobs:
             @{ key = 'windows-x86_64'; filter = "*_$($version)_x64-setup.exe" },
             @{ key = 'windows-aarch64'; filter = "*_$($version)_arm64-setup.exe" },
             @{ key = 'linux-x86_64'; filter = "*_$($version)_amd64.AppImage" },
-            @{ key = 'linux-x86_64-deb'; filter = "*_$($version)_amd64.deb"},
-            @{ key = 'linux-x86_64-rpm'; filter = "*-$($version)-*.x86_64.rpm"}
+            @{ key = 'linux-x86_64-deb'; filter = "*_$($version)_amd64.deb" },
+            @{ key = 'linux-x86_64-rpm'; filter = "*-$($version)-*.x86_64.rpm" }
           )
           foreach ($p in $targets) {
             $installer = Get-ChildItem upload -File -Filter $p.filter | Select-Object -First 1
