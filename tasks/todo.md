@@ -15,7 +15,7 @@ Goal: AGENTS.md rule 7 holds in CI. The `desktop-unix` and `hub-unix` jobs (PR #
 - [x] `ProjectRootResolverTests.Fixed_root_inside_a_repo_stays_its_own_root`: real bug – the fixed-root check rewrote paths to `\`, so a fixed root never matched on Unix; now compares with the platform separator
 
 ## CI
-- [ ] Drop `continue-on-error` from `desktop-unix` and `hub-unix` once both stay green (done in the last U-1 commit; tick when that run is green)
+- [x] Drop `continue-on-error` from `desktop-unix` and `hub-unix`: all six CI jobs green on 53bb22d
 
 ## Next (U-2)
 - Unix shell detection (`$SHELL`, bash/zsh/fish) – `pty` detects only Windows shells, so no terminal opens on macOS/Linux yet
