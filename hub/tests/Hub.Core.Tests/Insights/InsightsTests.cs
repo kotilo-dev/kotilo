@@ -164,7 +164,7 @@ public sealed class CostReportTests
             [Beta] = new(1, "CTC", "#60CDFF"),
         },
         root => root == Buddy,
-        root => Path.GetFileName(root));
+        SessionInfo.ProjectNameFrom);
 
     [Fact]
     public void Customer_grouping_has_unassigned_and_buddy_rows_and_matches_the_total()
@@ -392,7 +392,7 @@ public sealed class DailySummaryTests
             new Dictionary<string, string> { [Alpha] = "API durum sorgusu", [Beta] = "Faz 2 planı" },
             new Dictionary<string, int> { [Alpha] = 12 },
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Beta },
-            root => Path.GetFileName(root),
+            SessionInfo.ProjectNameFrom,
             _ => true);
 
         input.Projects[0].Commits.Should().HaveCount(20);

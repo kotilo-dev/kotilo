@@ -28,6 +28,12 @@ public sealed class ToolInstallerTests : IDisposable
     [Fact]
     public void Locked_target_is_reported_not_thrown()
     {
+        // FileShare.None locks the file only on Windows.
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var source = Directory.CreateDirectory(_dir.File("app")).FullName;
         var target = Directory.CreateDirectory(_dir.File("bin")).FullName;
         File.WriteAllText(Path.Combine(source, "kotilo-hook.exe"), "new content");

@@ -88,7 +88,8 @@ public sealed class AdapterApiTests(HubFixture hub) : IClassFixture<HubFixture>
             status.Should().Be(HttpStatusCode.Accepted);
         }
 
-        await Send("session-start", $$"""{"sessionId":"{{session}}","cwd":"C:\\src\\proto"}""", 0);
+        var cwd = OperatingSystem.IsWindows() ? @"C:\src\proto" : "/src/proto";
+        await Send("session-start", $$"""{"sessionId":"{{session}}","cwd":{{JsonSerializer.Serialize(cwd)}}}""", 0);
         await Send("waiting-permission", $$"""{"sessionId":"{{session}}","tool":"shell","command":"git push","risk":"network"}""", 10);
         await Send("usage", $$"""{"sessionId":"{{session}}","model":"local-7b","inputTokens":1500,"outputTokens":300,"costUsd":0.25}""", 20);
 
@@ -114,7 +115,7 @@ public sealed class AdapterApiTests(HubFixture hub) : IClassFixture<HubFixture>
 
         row.Should().NotBeNull("the usage event is stored by the usage worker");
         row!.Agent.Should().Be("my-agent");
-        row.ProjectRoot.Should().Be(@"C:\src\proto", "the project comes from the session");
+        row.ProjectRoot.Should().Be(cwd, "the project comes from the session");
         (row.Input, row.Output, row.CostUsd).Should().Be((1500L, 300L, 0.25m));
     }
 
