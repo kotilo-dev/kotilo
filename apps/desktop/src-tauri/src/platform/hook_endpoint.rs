@@ -14,6 +14,12 @@ pub fn endpoint_name(pid: u32) -> String {
     os::endpoint_name(pid)
 }
 
+/// Removes what the endpoint leaves on disk (the Unix socket file); call on app exit, since
+/// the listener task is never dropped. Nothing to do for a named pipe.
+pub fn remove(name: &str) {
+    os::remove(name);
+}
+
 /// Accepts hook connections on one endpoint. Never panics: every failure comes back from
 /// [`HookListener::accept`] so the caller can log it and retry with a backoff.
 pub struct HookListener(os::Listener);
@@ -39,6 +45,8 @@ mod os {
     pub fn endpoint_name(pid: u32) -> String {
         format!(r"\\.\pipe\{}-{pid}", crate::brand::EXE_PREFIX)
     }
+
+    pub fn remove(_name: &str) {}
 
     pub struct Listener {
         name: String,
@@ -121,6 +129,10 @@ mod os {
 
     pub fn endpoint_name(pid: u32) -> String {
         format!("/tmp/{}-{pid}.sock", crate::brand::EXE_PREFIX)
+    }
+
+    pub fn remove(name: &str) {
+        let _ = std::fs::remove_file(name);
     }
 
     pub struct Listener {

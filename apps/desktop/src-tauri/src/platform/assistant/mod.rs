@@ -119,7 +119,9 @@ impl Assistant {
                     let status = match register(Some(&gesture)) {
                         Ok(()) => HotkeyStatus::Ok,
                         Err(_) => {
-                            log::warn!("assistant: hotkey {} not registered (taken)", gesture.text);
+                            if super::features().global_hotkeys {
+                                log::warn!("assistant: hotkey {} not registered (taken)", gesture.text);
+                            }
                             HotkeyStatus::Taken
                         }
                     };

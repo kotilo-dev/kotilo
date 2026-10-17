@@ -16,6 +16,9 @@ pub fn is_complete(dir: &Path) -> bool {
 
 /// Uses the bundled ConPTY when `use_bundled` and its files are installed; logs the choice.
 pub fn select(use_bundled: bool) {
+    if !super::features().bundled_conpty {
+        return;
+    }
     let dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|p| p.join(FOLDER)));
     match dir {
         Some(dir) if use_bundled && is_complete(&dir) => match os::add_dll_directory(&dir) {
