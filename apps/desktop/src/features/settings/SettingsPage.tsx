@@ -15,6 +15,8 @@ import { AboutSection, AgentsSection, AppearanceSection, EditorSection, FilesSec
 import { Button, Notice, Page, PageHeader } from "./controls";
 import { DictationSection, NotificationsSection, ProjectsSection, TasksSection, UsageSection, type HubSectionProps } from "./HubSections";
 import { asAppError, useHubResource } from "./hubData";
+import { platformFeatures } from "../../lib/platform";
+import type { PlatformFeatures } from "../../lib/ipc";
 import { validateHubSettings } from "./hubSettings";
 import { validateAi } from "./aiSettings";
 
@@ -33,11 +35,14 @@ export type SettingsSectionId =
   | "dictation"
   | "about";
 
-type Section = { id: SettingsSectionId; app: ComponentType } | { id: SettingsSectionId; hub: ComponentType<HubSectionProps> };
+/** `needs`: shown only where that OS feature exists (U-2). */
+type Section = ({ id: SettingsSectionId; app: ComponentType } | { id: SettingsSectionId; hub: ComponentType<HubSectionProps> }) & {
+  needs?: keyof PlatformFeatures;
+};
 
 const SECTIONS: readonly Section[] = [
   { id: "appearance", app: AppearanceSection },
-  { id: "mascot", app: MascotSection },
+  { id: "mascot", app: MascotSection, needs: "mascot" },
   { id: "editor", app: EditorSection },
   { id: "terminal", app: TerminalSection },
   { id: "files", app: FilesSection },
@@ -47,9 +52,14 @@ const SECTIONS: readonly Section[] = [
   { id: "usage", hub: UsageSection },
   { id: "projects", hub: ProjectsSection },
   { id: "tasks", hub: TasksSection },
-  { id: "dictation", hub: DictationSection },
+  { id: "dictation", hub: DictationSection, needs: "dictation" },
   { id: "about", app: AboutSection },
 ];
+
+function visibleSections(): readonly Section[] {
+  const features = platformFeatures();
+  return SECTIONS.filter((x) => !x.needs || features[x.needs]);
+}
 
 /** Selected section; kept across route switches and settable from elsewhere (e.g. "Open settings → Agents"). */
 export const useSettingsPageStore = create<{ section: SettingsSectionId; setSection: (s: SettingsSectionId) => void }>((set) => ({
@@ -90,7 +100,8 @@ export function SettingsPage() {
   const t = s.settingsPage;
   const section = useSettingsPageStore((st) => st.section);
   const setSection = useSettingsPageStore((st) => st.setSection);
-  const current = SECTIONS.find((x) => x.id === section) ?? SECTIONS[0]!;
+  const sections = visibleSections();
+  const current = sections.find((x) => x.id === section) ?? sections[0]!;
 
   const hub = useHubResource<HubSettings>("/v1/settings");
   const [draft, setDraft] = useState<HubSettings | null>(null);
@@ -183,7 +194,7 @@ export function SettingsPage() {
       <div className="flex min-h-0 flex-1 gap-6">
         <nav aria-label={t.sectionsLabel} className="w-52 shrink-0">
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {SECTIONS.map((x) => (
+            {sections.map((x) => (
               <li key={x.id}>
                 <button
                   type="button"

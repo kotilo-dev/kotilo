@@ -5,7 +5,7 @@
  */
 import { Icon } from "./icons";
 import { useStrings } from "./i18n";
-import { ROUTES, routeShortcut, type RouteDef } from "./routes";
+import { routeShortcut, visibleRoutes, type RouteDef } from "./routes";
 import { useRouteStore } from "../stores/routeStore";
 import { useHubStore } from "../stores/hubStore";
 
@@ -56,7 +56,7 @@ function RailButton({ def, index }: { def: RouteDef; index: number }) {
 
 export function NavRail() {
   const s = useStrings();
-  const indexed = ROUTES.map((def, index) => ({ def, index }));
+  const indexed = visibleRoutes().map((def, index) => ({ def, index }));
   return (
     <nav
       aria-label={s.nav.label}

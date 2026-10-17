@@ -50,6 +50,42 @@ pub fn shell_family() -> ShellFamily {
     }
 }
 
+/// Features that need OS code which exists only on some systems (U-2). The UI hides what is
+/// `false` instead of offering settings that do nothing. All of these are Windows-only today.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Features {
+    /// System-wide shortcuts (dictation, assistant).
+    pub global_hotkeys: bool,
+    /// Dictation: overlay and typing the text into the focused window.
+    pub dictation: bool,
+    /// The desktop mascot window.
+    pub mascot: bool,
+    /// The "while you were away" summary (needs the user's idle time).
+    pub away_summary: bool,
+    /// Microsoft's bundled ConPTY.
+    pub bundled_conpty: bool,
+    /// Importing Windows Terminal colour schemes.
+    pub windows_terminal_schemes: bool,
+}
+
+pub fn features() -> Features {
+    let windows = cfg!(windows);
+    Features {
+        global_hotkeys: windows,
+        dictation: windows,
+        mascot: windows,
+        away_summary: windows,
+        bundled_conpty: windows,
+        windows_terminal_schemes: windows,
+    }
+}
+
+/// `"windows"`, `"macos"` or `"linux"` (Rust's `std::env::consts::OS`).
+pub fn os_id() -> &'static str {
+    std::env::consts::OS
+}
+
 /// File name of an executable on this platform (`name.exe` on Windows).
 pub fn exe_name(stem: &str) -> String {
     format!("{stem}{}", std::env::consts::EXE_SUFFIX)
