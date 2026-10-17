@@ -1,3 +1,26 @@
+# U-1 – Builds and tests pass on macOS and Linux (planned 2026-10-17)
+
+Goal: AGENTS.md rule 7 holds in CI. The `desktop-unix` and `hub-unix` jobs (PR #1) turn green and become blocking. No Linux/macOS release yet (U-2 Linux core package, U-3 macOS with an Apple Developer account).
+
+## Rust
+- [x] Hook endpoint in the platform layer (`platform/hook_endpoint.rs`): named pipe on Windows, Unix socket `<temp>/<exePrefix>-<pid>.sock` (mode 0600, removed on drop) elsewhere; `ipc_server` only accepts connections
+- [x] `agenthub-hook`: `endpoint_for_pid` + Unix socket `real_connect` (was a no-op stub); tests
+- [x] Dictation overlay window handle through `os::handle` (was a Windows-only `hwnd()` call)
+- [x] Transparent windows on macOS: `macos-private-api` feature + `app.macOSPrivateApi`
+- [x] `pty`: no unused `job` placeholder off Windows
+- [x] Clippy `-D warnings` and `cargo test --workspace` green on macOS and Linux: hook integration test over the real endpoint (passes over the Unix socket); terminal links resolve `/...` absolute paths; `image_filename` splits on both separators; Windows-only tests gated (shell detection, Git Bash drive links, case-insensitive watcher paths)
+
+## Hub
+- [x] The 15 failing tests: Windows path fixtures → platform-neutral fixtures (or Windows-only where the behaviour is Windows-only: npm `.cmd` shim, locked install target)
+- [x] `ProjectRootResolverTests.Fixed_root_inside_a_repo_stays_its_own_root`: real bug – the fixed-root check rewrote paths to `\`, so a fixed root never matched on Unix; now compares with the platform separator
+
+## CI
+- [ ] Drop `continue-on-error` from `desktop-unix` and `hub-unix` once both stay green (done in the last U-1 commit; tick when that run is green)
+
+## Next (U-2)
+- Unix shell detection (`$SHELL`, bash/zsh/fish) – `pty` detects only Windows shells, so no terminal opens on macOS/Linux yet
+- Process tree query for the hook sidecar (`process_chain` is a stub off Windows: agents that drop the pane environment are not mapped)
+
 # 0.3.2 – Performance and second-machine findings (planned 2026-10-15)
 
 User (priority): with several sessions open, one agent's script bottlenecked the machine and Kotilo-attributed CPU stayed after the agent was stopped and closed. Diagnostics zip (0.3.1, 3 pwsh panes): agents ended with `/exit` (`SessionEnd`) while their panes stayed open — the Job Object only kills on pane close. Screenshots: the permission card offered "Always allow" on a Yes/No prompt (its key `2` = No); the Context bar shows 38 % / 75 % where Claude shows 8 % / 15 % (1M window divided by 200k); status green/blue while "Waiting for 1 background agent"; status yellow while a permission prompt was on screen (no PermissionRequest hook in the log).
