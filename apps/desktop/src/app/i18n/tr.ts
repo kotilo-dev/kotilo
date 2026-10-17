@@ -771,6 +771,7 @@ export const tr: Strings = {
     activateTooltip: "Etkinleştir (dosyalarını göster)",
     activeTooltip: "Etkin çalışma alanı",
     activate: "Geç",
+    otherWorkspaces: (count: number) => `Diğer çalışma alanları (${count})`,
     loading: "Yükleniyor…",
     folderNotFound: "Klasör bulunamadı",
     searchNoResults: "Eşleşme yok",

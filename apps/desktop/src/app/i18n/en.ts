@@ -795,6 +795,7 @@ export const en = {
     activateTooltip: "Make active (show its files)",
     activeTooltip: "Active workspace",
     activate: "Switch",
+    otherWorkspaces: (count: number) => `Other workspaces (${count})`,
     loading: "Loading…",
     folderNotFound: "Folder not found",
     searchNoResults: "No matches",

@@ -10,6 +10,8 @@ export type DirState = DirEntry[] | "loading" | { error: AppError } | undefined;
 
 export type Row =
   | { kind: "root"; workspaceId: string; workspace: Workspace; depth: 0; expanded: boolean }
+  /** Header above the inactive workspaces when one is active; not selectable. */
+  | { kind: "group"; workspaceId: ""; count: number; depth: 0 }
   | { kind: "dir"; workspaceId: string; rel: string; name: string; depth: number; expanded: boolean }
   | { kind: "file"; workspaceId: string; rel: string; name: string; depth: number }
   | { kind: "loading"; workspaceId: string; rel: string; depth: number }
@@ -60,10 +62,17 @@ function pushChildren(
   }
 }
 
-/** Workspace order = display order (roots in `workspaces` array order). */
+/**
+ * Workspace order = display order (roots in `workspaces` array order). With an active workspace,
+ * it and its tree come first and the others follow under a "group" header, so a closed workspace
+ * never reads as a folder of the open one's tree.
+ */
 export function flattenVisible({ workspaces, dirCache, expanded, activeId }: FlattenInputs): Row[] {
   const rows: Row[] = [];
-  for (const workspace of workspaces) {
+  const active = activeId ? workspaces.find((w) => w.id === activeId) : undefined;
+  const others = active ? workspaces.filter((w) => w !== active) : workspaces;
+  for (const workspace of active ? [active, ...others] : workspaces) {
+    if (active && workspace === others[0]) rows.push({ kind: "group", workspaceId: "", count: others.length, depth: 0 });
     const expandedSet = expanded[workspace.id] ?? new Set<string>();
     const canExpand = activeId === undefined || activeId === workspace.id;
     const rootExpanded = canExpand && expandedSet.has("");

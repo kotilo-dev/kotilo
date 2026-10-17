@@ -20,6 +20,21 @@ test("workspace switching · button, double click, context menu", async ({ page 
   await page.waitForTimeout(1200);
   await expectActive(page, "orders-service");
 
+  // The active workspace and its tree come first; the others sit under their own header.
+  const activeRoot = root(page, "orders-service");
+  if (await activeRoot.getByText("▶").isVisible()) await activeRoot.getByText("▶").click();
+  await expect(page.getByTitle("README.md", { exact: true })).toBeVisible();
+  const header = page.getByText("Other workspaces (1)");
+  await expect(header).toBeVisible();
+  const [readmeBox, headerBox, billingBox] = await Promise.all([
+    page.getByTitle("README.md", { exact: true }).boundingBox(),
+    header.boundingBox(),
+    page.getByTitle("billing-api", { exact: true }).boundingBox(),
+  ]);
+  expect(readmeBox!.y).toBeLessThan(headerBox!.y);
+  expect(headerBox!.y).toBeLessThan(billingBox!.y);
+  await page.screenshot({ path: "test-results/screens/workspace-groups.png" });
+
   // Names are not text fields: the normal arrow cursor.
   const billingName = page.getByTitle("billing-api", { exact: true });
   expect(await billingName.evaluate((el) => getComputedStyle(el).cursor)).toBe("default");

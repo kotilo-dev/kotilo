@@ -78,8 +78,11 @@ export function editingAnchorExists(rows: Row[], editing: Editing): boolean {
   return findAnchorIndex(rows, editing.workspaceId, editing.dirRel) !== null;
 }
 
+type SelectableRow = Extract<Row, { kind: "root" | "dir" | "file" }>;
+
 function rowKey(row: DisplayRow): string {
   if (row.kind === "root") return `root:${row.workspaceId}`;
+  if (row.kind === "group") return "group";
   if (row.kind === "creating") return `creating:${row.workspaceId}:${row.dirRel}`;
   return `${row.kind}:${row.workspaceId}:${row.rel}`;
 }
@@ -156,12 +159,12 @@ export function Tree() {
     return false;
   }
 
-  function selectableRows(): Row[] {
-    return rows.filter((r): r is Row => r.kind === "root" || r.kind === "dir" || r.kind === "file");
+  function selectableRows(): SelectableRow[] {
+    return rows.filter((r): r is SelectableRow => r.kind === "root" || r.kind === "dir" || r.kind === "file");
   }
 
-  function selectedRow(): Row | undefined {
-    return rows.find(matchesSelected);
+  function selectedRow(): SelectableRow | undefined {
+    return selectableRows().find(matchesSelected);
   }
 
   function moveSelection(delta: number) {
@@ -433,6 +436,17 @@ export function Tree() {
       );
     }
 
+    if (row.kind === "group") {
+      return (
+        <div
+          className="flex items-end border-t border-border-subtle px-2 pb-1 text-label font-semibold uppercase tracking-wide text-muted"
+          style={{ height: ROW_HEIGHT }}
+        >
+          {strings.workspaces.otherWorkspaces(row.count)}
+        </div>
+      );
+    }
+
     if (row.kind === "error") {
       return (
         <div
@@ -491,17 +505,19 @@ export function Tree() {
           else openContextMenu(e, fileMenuItems(workspaceId, rel));
         }}
       >
-        <span
-          className="mr-1 w-3.5 shrink-0 select-none text-muted"
-          onClick={(e) => {
-            // The active root's arrow toggles its tree; inactive roots have no arrow (no tree shown).
-            if (!isRoot || isEditingThis) return;
-            e.stopPropagation();
-            if (isActive) toggleExpanded(workspaceId, "");
-          }}
-        >
-          {isDir && (!isRoot || isActive) ? (rowExpanded ? "▼" : "▶") : ""}
-        </span>
+        {(!isRoot || isActive) && (
+          <span
+            className="mr-1 w-3.5 shrink-0 select-none text-muted"
+            onClick={(e) => {
+              // The active root's arrow toggles its tree; inactive roots have no arrow (no tree shown).
+              if (!isRoot || isEditingThis) return;
+              e.stopPropagation();
+              toggleExpanded(workspaceId, "");
+            }}
+          >
+            {isDir ? (rowExpanded ? "▼" : "▶") : ""}
+          </span>
+        )}
         {isRoot && (
           <button
             type="button"
@@ -515,7 +531,7 @@ export function Tree() {
             {isActive ? "●" : "○"}
           </button>
         )}
-        <span className="mr-1 shrink-0">{iconFor(name, isDir, rowExpanded)}</span>
+        {!isRoot && <span className="mr-1 shrink-0">{iconFor(name, isDir, rowExpanded)}</span>}
         {isEditingThis ? (
           <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
             {editing?.kind === "rename-workspace" ? (
@@ -535,7 +551,7 @@ export function Tree() {
           </div>
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate" title={name}>
+            <span className={`min-w-0 flex-1 truncate${isActive ? " font-semibold" : ""}`} title={name}>
               {name}
             </span>
             {isRoot && !isActive && (

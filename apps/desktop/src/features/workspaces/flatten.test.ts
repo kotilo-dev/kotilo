@@ -24,12 +24,23 @@ describe("flattenVisible", () => {
     const expanded = { a: new Set([""]), b: new Set([""]) };
     const rows = flattenVisible({ workspaces: [ws("a", "a-ws"), ws("b", "b-ws")], dirCache, expanded, activeId: "b" });
     expect(rows.map((r) => [r.kind, r.workspaceId, r.kind === "root" ? r.expanded : null])).toEqual([
-      ["root", "a", false],
       ["root", "b", true],
       ["file", "b", null],
+      ["group", "", null],
+      ["root", "a", false],
     ]);
     const none = flattenVisible({ workspaces: [ws("a", "a-ws")], dirCache, expanded, activeId: null });
     expect(none).toHaveLength(1);
+  });
+
+  it("aktif workspace en üstte; diğerleri kendi sıralarıyla grup başlığının altında", () => {
+    const list = [ws("a", "a-ws"), ws("b", "b-ws"), ws("c", "c-ws")];
+    const rows = flattenVisible({ workspaces: list, dirCache: {}, expanded: {}, activeId: "b" });
+    expect(rows.map((r) => (r.kind === "group" ? `group:${r.count}` : r.workspaceId))).toEqual(["b", "group:2", "a", "c"]);
+    const alone = flattenVisible({ workspaces: [ws("a", "a-ws")], dirCache: {}, expanded: {}, activeId: "a" });
+    expect(alone.map((r) => r.kind)).toEqual(["root"]);
+    const none = flattenVisible({ workspaces: list, dirCache: {}, expanded: {}, activeId: null });
+    expect(none.map((r) => r.kind)).toEqual(["root", "root", "root"]);
   });
 
   it("workspace sırası korunur", () => {
