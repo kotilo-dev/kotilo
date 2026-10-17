@@ -4,6 +4,10 @@ public sealed class ToolInstallerTests : IDisposable
 {
     private readonly TempDir _dir = new();
 
+    // The tools' file names on this OS (`kotilo-hook.exe` on Windows, `kotilo-hook` elsewhere).
+    private static readonly string Hook = Platform.Executable.Name("kotilo-hook");
+    private static readonly string StatusLine = Platform.Executable.Name("kotilo-statusline");
+
     public void Dispose() => _dir.Dispose();
 
     [Fact]
@@ -11,18 +15,18 @@ public sealed class ToolInstallerTests : IDisposable
     {
         var source = Directory.CreateDirectory(_dir.File("app")).FullName;
         var target = _dir.File("bin");
-        File.WriteAllText(Path.Combine(source, "kotilo-hook.exe"), "v1");
+        File.WriteAllText(Path.Combine(source, Hook), "v1");
         File.WriteAllText(Path.Combine(source, "kotilo-hook.dll"), "dll");
-        File.WriteAllText(Path.Combine(source, "kotilo-statusline.exe"), "sl");
+        File.WriteAllText(Path.Combine(source, StatusLine), "sl");
         File.WriteAllText(Path.Combine(source, "Hub.Service.exe"), "not a tool");
 
         ToolInstaller.Sync(source, target, out var failures).Should().BeTrue();
         failures.Should().BeEmpty();
-        Directory.GetFiles(target).Select(Path.GetFileName).Should().BeEquivalentTo(["kotilo-hook.exe", "kotilo-hook.dll", "kotilo-statusline.exe"]);
+        Directory.GetFiles(target).Select(Path.GetFileName).Should().BeEquivalentTo([Hook, "kotilo-hook.dll", StatusLine]);
 
-        File.WriteAllText(Path.Combine(source, "kotilo-hook.exe"), "v2-longer");
+        File.WriteAllText(Path.Combine(source, Hook), "v2-longer");
         ToolInstaller.Sync(source, target, out _).Should().BeTrue();
-        File.ReadAllText(Path.Combine(target, "kotilo-hook.exe")).Should().Be("v2-longer");
+        File.ReadAllText(Path.Combine(target, Hook)).Should().Be("v2-longer");
     }
 
     [Fact]
@@ -36,13 +40,13 @@ public sealed class ToolInstallerTests : IDisposable
 
         var source = Directory.CreateDirectory(_dir.File("app")).FullName;
         var target = Directory.CreateDirectory(_dir.File("bin")).FullName;
-        File.WriteAllText(Path.Combine(source, "kotilo-hook.exe"), "new content");
-        File.WriteAllText(Path.Combine(target, "kotilo-hook.exe"), "old");
+        File.WriteAllText(Path.Combine(source, Hook), "new content");
+        File.WriteAllText(Path.Combine(target, Hook), "old");
 
-        using (new FileStream(Path.Combine(target, "kotilo-hook.exe"), FileMode.Open, FileAccess.Read, FileShare.None))
+        using (new FileStream(Path.Combine(target, Hook), FileMode.Open, FileAccess.Read, FileShare.None))
         {
             ToolInstaller.Sync(source, target, out var failures).Should().BeFalse();
-            failures.Should().ContainSingle().Which.Should().StartWith("kotilo-hook.exe");
+            failures.Should().ContainSingle().Which.Should().StartWith(Hook);
         }
     }
 
@@ -56,14 +60,14 @@ public sealed class ToolInstallerTests : IDisposable
             File.WriteAllText(Path.Combine(target, f), "jit");
         }
 
-        File.WriteAllText(Path.Combine(source, "kotilo-hook.exe"), "native");
-        File.WriteAllText(Path.Combine(source, "kotilo-statusline.exe"), "managed host");
+        File.WriteAllText(Path.Combine(source, Hook), "native");
+        File.WriteAllText(Path.Combine(source, StatusLine), "managed host");
         File.WriteAllText(Path.Combine(source, "kotilo-statusline.dll"), "still managed");
 
         ToolInstaller.Sync(source, target, out _).Should().BeTrue();
 
         Directory.GetFiles(target).Select(Path.GetFileName).Should().BeEquivalentTo(
-            ["kotilo-hook.exe", "kotilo-statusline.exe", "kotilo-statusline.dll"], "only the AOT tool loses its managed files");
+            [Hook, StatusLine, "kotilo-statusline.dll"], "only the AOT tool loses its managed files");
     }
 
     [Fact]
