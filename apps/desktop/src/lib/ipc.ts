@@ -88,7 +88,7 @@ export async function saveStateSlice(
  * (JSON sayı dizisi serileştirmesi yok; doğrudan `new Uint8Array(buf)` ile `xterm.write()`'a
  * verilir — bkz. tauri-2.12.0/src/ipc/channel.rs).
  */
-export type ShellKind = "pwsh" | "powershell" | "cmd" | "gitbash" | "wsl";
+export type ShellKind = "pwsh" | "powershell" | "cmd" | "gitbash" | "wsl" | "bash" | "zsh" | "fish";
 
 export interface ShellProfile {
   id: ShellKind;
@@ -98,7 +98,10 @@ export interface ShellProfile {
   args: string[];
 }
 
-/** Yalnızca bu makinede bulunan profiller, sıra: pwsh, powershell, cmd, gitbash, wsl. İlki varsayılan. */
+/**
+ * Yalnızca bu makinede bulunan profiller. Windows: pwsh, powershell, cmd, gitbash, wsl; macOS/Linux:
+ * oturum kabuğu (`$SHELL`), sonra zsh, bash, fish, pwsh. İlki varsayılan.
+ */
 export async function ptyProfiles(): Promise<ShellProfile[]> {
   return invoke<ShellProfile[]>("pty_profiles");
 }
@@ -525,6 +528,23 @@ export interface AppInfo {
   os: string;
   /** faz7-spec §11: UTC date (`YYYY-MM-DD`) from `build.rs`'s `AGENTHUB_BUILD_DATE`. */
   buildDate: string;
+  /** U-2: `"windows"`, `"macos"` or `"linux"` (missing from an older backend). */
+  platform?: string;
+  /** U-2: OS-dependent features that exist here; see `lib/platform.ts`. */
+  features?: PlatformFeatures;
+}
+
+/** U-2: features that need OS code which exists only on some systems (all Windows-only today). */
+export interface PlatformFeatures {
+  /** System-wide shortcuts (dictation, assistant). */
+  globalHotkeys: boolean;
+  /** Dictation: overlay and typing the text into the focused window. */
+  dictation: boolean;
+  mascot: boolean;
+  /** The "while you were away" summary. */
+  awaySummary: boolean;
+  bundledConpty: boolean;
+  windowsTerminalSchemes: boolean;
 }
 
 /** ConPTY'ye özel yeniden akış/imleç sezgileri için Windows build numarası + About bölümü verisi. */

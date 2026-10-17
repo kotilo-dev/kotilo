@@ -156,7 +156,7 @@ public sealed class GitRunner
         {
             try
             {
-                var candidate = Path.Combine(dir.Trim('"'), "git.exe");
+                var candidate = Path.Combine(dir.Trim('"'), Platform.Executable.Name("git"));
                 if (File.Exists(candidate))
                 {
                     return candidate;

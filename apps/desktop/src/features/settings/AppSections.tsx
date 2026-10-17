@@ -10,6 +10,7 @@ import { openLogsFolder } from "../../app/diagnosticsActions";
 import type { ShellKind, ThemeName } from "../../lib/ipc";
 import { useHelpStore } from "../help/helpStore";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { platformFeatures } from "../../lib/platform";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
 import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, Select } from "./controls";
@@ -99,6 +100,7 @@ export function TerminalSection() {
   const profiles = useTerminalStore((st) => st.profiles);
   const detected = getTerminalFontSuggestion();
   const usesDetected = detected !== null && effectiveTerminalFont(terminal.fontFamily) !== terminal.fontFamily;
+  const features = platformFeatures();
 
   return (
     <div className="flex max-w-md flex-col gap-5">
@@ -120,14 +122,16 @@ export function TerminalSection() {
       </Field>
       <Checkbox checked={terminal.copyOnSelect} onChange={(v) => update({ terminal: { copyOnSelect: v } })} label={s.settings.terminal.copyOnSelect} />
       <Checkbox checked={terminal.warnMultilinePaste} onChange={(v) => update({ terminal: { warnMultilinePaste: v } })} label={s.settings.terminal.warnMultilinePaste} />
-      <Checkbox
-        checked={terminal.bundledConpty}
-        onChange={(v) => update({ terminal: { bundledConpty: v } })}
-        label={s.settings.terminal.bundledConpty}
-        hint={s.settings.terminal.bundledConptyHint}
-      />
+      {features.bundledConpty && (
+        <Checkbox
+          checked={terminal.bundledConpty}
+          onChange={(v) => update({ terminal: { bundledConpty: v } })}
+          label={s.settings.terminal.bundledConpty}
+          hint={s.settings.terminal.bundledConptyHint}
+        />
+      )}
       <TerminalSchemePicker />
-      <WtSchemeImport />
+      {features.windowsTerminalSchemes && <WtSchemeImport />}
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import { APP_NAME } from "../constants";
 import type { AgentKind, AppInfo, ErrorCode } from "../../lib/ipc";
 import type { HelpDocId } from "../../features/help/helpDocs";
+import { webviewName } from "../../lib/platform";
 import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
@@ -1033,19 +1034,19 @@ export const en = {
     },
     buildDate: (date: string) => `Built ${date}`,
     description:
-      "A Windows desktop workspace for running and watching AI coding agents side by side: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, your own agents and plain shells, with live status, permissions, usage and a file viewer.",
+      "A desktop workspace for running and watching AI coding agents side by side: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, your own agents and plain shells, with live status, permissions, usage and a file viewer.",
     contactLabel: "Contact:",
     copyEmail: "Copy",
     reportingProblem: "Reporting a problem: use Collect diagnostics and attach the zip to your report.",
     collectDiagnostics: "Collect diagnostics",
-    webview2: (version: string) => `WebView2 ${version}`,
-    os: (os: string) => `Windows ${os}`,
+    webview: (name: string, version: string) => `${name} ${version}`,
+    os: (os: string) => os,
     copyVersionInfo: "Copy version info",
     // Pasted into bug reports: kept in English in every UI language.
     versionInfoBlock: (info: AppInfo) => {
       const dirty = info.gitSha.endsWith("-dirty");
       const sha = dirty ? info.gitSha.slice(0, -"-dirty".length) : info.gitSha;
-      return `${APP_NAME} ${info.version} (${sha}${dirty ? ", dirty" : ""}), built ${info.buildDate}, Windows ${info.os}, WebView2 ${info.webview2}`;
+      return `${APP_NAME} ${info.version} (${sha}${dirty ? ", dirty" : ""}), built ${info.buildDate}, ${info.os}, ${webviewName(info.platform)} ${info.webview2}`;
     },
     creditsIntro: "Built with ",
     creditsAnd: " and ",

@@ -1,6 +1,7 @@
 //! The hook endpoint's transport (D-007, AGENTS.md rule 7): a named pipe
 //! `\\.\pipe\<exePrefix>-<pid>` on Windows, a Unix domain socket
-//! `<temp dir>/<exePrefix>-<pid>.sock` elsewhere. `ipc_server` only sees
+//! `/tmp/<exePrefix>-<pid>.sock` elsewhere (a fixed folder, not `$TMPDIR`: a hook started
+//! with an empty environment must find the same path). `ipc_server` only sees
 //! [`HookListener::accept`] and a readable [`HookConnection`]; the one-message-per-connection
 //! protocol is the same on both. `agenthub-hook`'s platform layer builds the same names.
 
@@ -11,6 +12,12 @@ pub use self::os::HookConnection;
 /// The endpoint for the Kotilo process `pid` (passed to every pane as `AGENTHUB_ENDPOINT`).
 pub fn endpoint_name(pid: u32) -> String {
     os::endpoint_name(pid)
+}
+
+/// Removes what the endpoint leaves on disk (the Unix socket file); call on app exit, since
+/// the listener task is never dropped. Nothing to do for a named pipe.
+pub fn remove(name: &str) {
+    os::remove(name);
 }
 
 /// Accepts hook connections on one endpoint. Never panics: every failure comes back from
@@ -38,6 +45,8 @@ mod os {
     pub fn endpoint_name(pid: u32) -> String {
         format!(r"\\.\pipe\{}-{pid}", crate::brand::EXE_PREFIX)
     }
+
+    pub fn remove(_name: &str) {}
 
     pub struct Listener {
         name: String,
@@ -119,10 +128,11 @@ mod os {
     pub type HookConnection = UnixStream;
 
     pub fn endpoint_name(pid: u32) -> String {
-        std::env::temp_dir()
-            .join(format!("{}-{pid}.sock", crate::brand::EXE_PREFIX))
-            .to_string_lossy()
-            .into_owned()
+        format!("/tmp/{}-{pid}.sock", crate::brand::EXE_PREFIX)
+    }
+
+    pub fn remove(name: &str) {
+        let _ = std::fs::remove_file(name);
     }
 
     pub struct Listener {
@@ -174,10 +184,8 @@ mod os {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
         #[test]
-        fn endpoint_name_is_a_socket_in_the_temp_dir() {
-            let name = endpoint_name(1234);
-            assert!(name.ends_with(&format!("{}-1234.sock", crate::brand::EXE_PREFIX)), "{name}");
-            assert!(PathBuf::from(&name).starts_with(std::env::temp_dir()));
+        fn endpoint_name_is_a_socket_in_tmp() {
+            assert_eq!(endpoint_name(1234), format!("/tmp/{}-1234.sock", crate::brand::EXE_PREFIX));
         }
 
         #[tokio::test]

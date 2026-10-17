@@ -51,7 +51,7 @@ pub fn migrate_legacy_data() -> Vec<Migration> {
         return Vec::new();
     }
     let mut done = Vec::new();
-    if let Some(roaming) = std::env::var_os("APPDATA").map(PathBuf::from) {
+    if let Some(roaming) = crate::platform::roaming_data_dir() {
         done.push(migrate_dir(&roaming, SLUG, LEGACY_SLUGS, &[]));
     }
     let local = crate::logging::local_app_data_dir();

@@ -308,7 +308,12 @@ impl<P: Platform> Controller<P> {
         };
         let error = self.platform.register_hotkey(id, Some(gesture)).err();
         if let Some(e) = error {
-            log::warn!("dictation: hotkey {} not registered: {e:?}", gesture.text);
+            // Without global hotkeys on this OS (U-2) a failure is expected, not news.
+            if crate::platform::features().global_hotkeys {
+                log::warn!("dictation: hotkey {} not registered: {e:?}", gesture.text);
+            } else {
+                log::debug!("dictation: no global hotkeys on this OS; {} not registered", gesture.text);
+            }
         }
         HotkeyStatus { gesture: gesture.text.clone(), error }
     }

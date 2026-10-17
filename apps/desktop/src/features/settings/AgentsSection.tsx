@@ -13,6 +13,7 @@ import { agentsDeleteUserDefinition, hooksInstall, hooksStatus, hooksUninstall, 
 import type { AdapterDto } from "../../lib/hubTypes";
 import { useAgentStore } from "../../stores/agentStore";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
+import { platformFeatures } from "../../lib/platform";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useHelpStore } from "../help/helpStore";
@@ -274,6 +275,7 @@ export function AgentsSection() {
         />
       </div>
       <Checkbox checked={agents.notifications} onChange={(v) => update({ agents: { notifications: v } })} label={s.settings.agents.notifications} />
+      {platformFeatures().awaySummary && (
       <div className="flex max-w-lg flex-col gap-3">
         <Checkbox
           checked={agents.awaySummary}
@@ -297,6 +299,7 @@ export function AgentsSection() {
           </div>
         )}
       </div>
+      )}
 
       <section aria-labelledby="settings-integrations" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">

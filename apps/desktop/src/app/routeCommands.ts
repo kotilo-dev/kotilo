@@ -1,12 +1,12 @@
 /** Palette entries + Alt+n shortcuts for the app routes (M2 shell). */
 import { registerCommand } from "./commands";
 import { strings } from "./strings";
-import { ROUTES, routeShortcut } from "./routes";
+import { routeShortcut, visibleRoutes } from "./routes";
 import { useRouteStore } from "../stores/routeStore";
 
 /** Registers one command per route; returns the unregister functions. */
 export function registerRouteCommands(): Array<() => void> {
-  return ROUTES.map((def, index) =>
+  return visibleRoutes().map((def, index) =>
     registerCommand({
       id: `navigate.${def.id}`,
       title: () => strings.nav[def.label],

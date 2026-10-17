@@ -1,4 +1,5 @@
 using Hub.Core;
+using Hub.Infrastructure.Platform;
 
 namespace Hub.Infrastructure;
 
@@ -10,7 +11,7 @@ public sealed class AppPaths
 
     public static string DefaultInstanceMutexName => InstanceMutexNameFor(Brand.Current.Slug);
 
-    public static string HookExeName => Brand.Current.HookMarker + ".exe";
+    public static string HookExeName => Executable.Name(Brand.Current.HookMarker);
 
     public static string StatusLineExeName => StatusLineExeNameFor(Brand.Current.ExePrefix);
 
@@ -20,7 +21,7 @@ public sealed class AppPaths
 
     public static string InstanceMutexNameFor(string slug) => $@"Local\{slug}.hub";
 
-    private static string StatusLineExeNameFor(string exePrefix) => exePrefix + "-statusline.exe";
+    private static string StatusLineExeNameFor(string exePrefix) => Executable.Name(exePrefix + "-statusline");
 
     /// <summary>Single-instance mutex, also probed by agenthub-hook. <c>AGENTHUB_INSTANCE_MUTEX</c> overrides it for side-by-side test runs.</summary>
     public static string InstanceMutexName =>

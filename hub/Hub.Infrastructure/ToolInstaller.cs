@@ -1,3 +1,5 @@
+using Hub.Infrastructure.Platform;
+
 namespace Hub.Infrastructure;
 
 /// <summary>
@@ -8,7 +10,7 @@ namespace Hub.Infrastructure;
 public static class ToolInstaller
 {
     private static readonly string[] Tools = [Hub.Core.Brand.Current.HookMarker, Hub.Core.Brand.Current.ExePrefix + "-statusline"];
-    private static readonly string[] Extensions = [".exe", ".dll", ".runtimeconfig.json", ".deps.json"];
+    private static readonly string[] Extensions = [Executable.Suffix, ".dll", ".runtimeconfig.json", ".deps.json"];
 
     /// <returns>True when every tool file in <paramref name="targetDir"/> matches the source.</returns>
     public static bool Sync(string sourceDir, string targetDir, out IReadOnlyList<string> failures)
@@ -27,7 +29,7 @@ public static class ToolInstaller
             var source = Path.Combine(sourceDir, name);
             if (!File.Exists(source))
             {
-                // A Native AOT build ships only the .exe.
+                // A Native AOT build ships only the executable.
                 continue;
             }
 
@@ -60,12 +62,12 @@ public static class ToolInstaller
     {
         foreach (var tool in Tools)
         {
-            if (!File.Exists(Path.Combine(sourceDir, tool + ".exe")) || File.Exists(Path.Combine(sourceDir, tool + ".dll")))
+            if (!File.Exists(Path.Combine(sourceDir, Executable.Name(tool))) || File.Exists(Path.Combine(sourceDir, tool + ".dll")))
             {
                 continue;
             }
 
-            foreach (var stale in Extensions.Where(e => e != ".exe").Select(e => Path.Combine(targetDir, tool + e)).Where(File.Exists))
+            foreach (var stale in Extensions.Where(e => e != Executable.Suffix).Select(e => Path.Combine(targetDir, tool + e)).Where(File.Exists))
             {
                 try
                 {

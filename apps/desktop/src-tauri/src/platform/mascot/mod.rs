@@ -389,7 +389,8 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl Mascot {
     pub fn set_config(&self, app: &AppHandle, config: MascotConfig) {
         let _serial = lock(&self.config_lock);
-        if !config.enabled {
+        // No mascot window where the OS side is missing (U-2: the UI hides the setting too).
+        if !config.enabled || !super::features().mascot {
             lock(&self.inner).set_config(config);
             if let Some(window) = app.get_webview_window(MASCOT_LABEL) {
                 let _ = window.destroy();

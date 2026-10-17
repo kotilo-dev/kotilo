@@ -107,8 +107,9 @@ pub async fn diagnostics_collect(
     let settings_json = crate::settings::settings_for_diagnostics(&settings_value);
     let state_json = diagnostics::allow_listed_state(&state_store.snapshot(), &diagnostics::ALLOWED_STATE_SLICES);
 
-    let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-    let username = std::env::var("USERNAME").unwrap_or_default();
+    let env = |k: &str| std::env::var(k).ok();
+    let user_profile = crate::platform::home_dir(&env).unwrap_or_default();
+    let username = crate::platform::user_name(&env).unwrap_or_default();
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
 
     let input = BuildZipInput {

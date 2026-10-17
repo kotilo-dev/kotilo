@@ -13,6 +13,7 @@ import ReactDOM from "react-dom/client";
 import { ErrorBoundary, recordCrash, RecoveryScreen } from "./app/ErrorBoundary";
 import { loadState, settingsGet } from "./lib/ipc";
 import { hydrateLanguage } from "./app/i18n";
+import { hydratePlatform } from "./lib/platform";
 import { DEFAULT_SETTINGS, hydrateSettingsStore } from "./stores/settingsStore";
 import { oneLineMessage } from "./lib/logging";
 import "./index.css";
@@ -67,6 +68,9 @@ async function bootstrap() {
     } catch {
       hydrateLanguage({});
     }
+
+    // U-2: which OS-dependent features exist, before routes and settings sections are drawn.
+    await hydratePlatform();
 
     const { App } = await import("./app/App");
 

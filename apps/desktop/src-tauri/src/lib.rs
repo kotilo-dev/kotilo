@@ -344,7 +344,7 @@ pub fn run() {
                 version: app.package_info().version.to_string(),
                 git_sha: env!("AGENTHUB_GIT_SHA").to_string(),
                 webview2: "unknown".to_string(),
-                os: "Windows (unknown)".to_string(),
+                os: commands::app::os_label(crate::platform::os_id(), None),
                 build_date: env!("AGENTHUB_BUILD_DATE").to_string(),
                 ..commands::app::brand_info()
             });
@@ -381,6 +381,7 @@ pub(crate) fn shutdown(app: &tauri::AppHandle) {
     // without clean exit` just because it raced the wait.
     log::info!("{}", logging::exit_message(std::process::id()));
     log::logger().flush();
+    platform::hook_endpoint::remove(&ipc_server::endpoint_name(std::process::id()));
 
     if let Some(registry) = app.try_state::<pty::PtyRegistry>() {
         // Faz 8 / M3: every agent pane with a close sequence gets a graceful close, all running in

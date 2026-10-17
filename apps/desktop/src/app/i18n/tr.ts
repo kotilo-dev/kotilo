@@ -5,6 +5,7 @@
 import { APP_NAME } from "../constants";
 import type { AgentKind, AppInfo, ErrorCode } from "../../lib/ipc";
 import type { HelpDocId } from "../../features/help/helpDocs";
+import { webviewName } from "../../lib/platform";
 import type { Strings } from "./en";
 import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
@@ -992,19 +993,19 @@ export const tr: Strings = {
     },
     buildDate: (date: string) => `Derleme ${date}`,
     description:
-      "Yapay zekâ kodlama ajanlarını yan yana çalıştırıp izlemek için bir Windows masaüstü çalışma alanı: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, kendi ajanlarınız ve sade kabuklar; canlı durum, izinler, kullanım ve dosya görüntüleyiciyle.",
+      "Yapay zekâ kodlama ajanlarını yan yana çalıştırıp izlemek için bir masaüstü çalışma alanı: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, kendi ajanlarınız ve sade kabuklar; canlı durum, izinler, kullanım ve dosya görüntüleyiciyle.",
     contactLabel: "İletişim:",
     copyEmail: "Kopyala",
     reportingProblem: "Sorun bildirmek için: Tanılama topla'yı kullanıp zip dosyasını raporunuza ekleyin.",
     collectDiagnostics: "Tanılama topla",
-    webview2: (version: string) => `WebView2 ${version}`,
-    os: (os: string) => `Windows ${os}`,
+    webview: (name: string, version: string) => `${name} ${version}`,
+    os: (os: string) => os,
     copyVersionInfo: "Sürüm bilgisini kopyala",
     // Hata raporlarına yapıştırılır: her arayüz dilinde İngilizce kalır.
     versionInfoBlock: (info: AppInfo) => {
       const dirty = info.gitSha.endsWith("-dirty");
       const sha = dirty ? info.gitSha.slice(0, -"-dirty".length) : info.gitSha;
-      return `${APP_NAME} ${info.version} (${sha}${dirty ? ", dirty" : ""}), built ${info.buildDate}, Windows ${info.os}, WebView2 ${info.webview2}`;
+      return `${APP_NAME} ${info.version} (${sha}${dirty ? ", dirty" : ""}), built ${info.buildDate}, ${info.os}, ${webviewName(info.platform)} ${info.webview2}`;
     },
     creditsIntro: "Kullanılanlar: ",
     creditsAnd: " ve ",

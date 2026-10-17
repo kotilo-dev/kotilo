@@ -19,13 +19,13 @@ const SETTINGS_FILE_NAME: &str = "settings.json";
 const SETTINGS_TMP_FILE_NAME: &str = "settings.json.tmp";
 const SETTINGS_CORRUPT_FILE_NAME: &str = "settings.json.corrupt";
 
-/// Resolves `%APPDATA%\kotilo`. Falls back to the current directory if `APPDATA`
-/// is not set (should not happen on Windows, but keeps the function total).
+/// Resolves `%APPDATA%\kotilo` (`~/.config/kotilo` on Linux, see
+/// `platform::roaming_data_root`). Falls back to the current directory if the variable is
+/// not set (should not happen, but keeps the function total).
 pub fn state_dir() -> PathBuf {
-    let appdata = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    appdata.join(crate::brand::SLUG)
+    crate::platform::roaming_data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(crate::brand::SLUG)
 }
 
 /// Loads `dir/file_name`.

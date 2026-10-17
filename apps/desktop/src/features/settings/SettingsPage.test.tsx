@@ -6,6 +6,7 @@ import { useHelpStore } from "../help/helpStore";
 import { DEFAULT_SETTINGS, hydrateSettingsStore, resetSettingsStoreForTest, useSettingsStore } from "../../stores/settingsStore";
 import type { AdapterDto, HubSettings } from "../../lib/hubTypes";
 import { useMascotSettingsStore } from "./mascotSettings";
+import { setPlatformForTests } from "../../lib/platform";
 
 const ipc = vi.hoisted(() => ({
   appInfo: vi.fn(),
@@ -116,6 +117,22 @@ describe("SettingsPage", () => {
     }
     fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.terminal }));
     expect(screen.getByLabelText(strings.settings.terminal.fontFamily)).toBeInTheDocument();
+  });
+
+  it("hides the sections of features this OS does not have (U-2)", () => {
+    setPlatformForTests("linux", { mascot: false, dictation: false, bundledConpty: false, windowsTerminalSchemes: false });
+    try {
+      useSettingsPageStore.setState({ section: "dictation" });
+      render(<SettingsPage />);
+      expect(screen.queryByRole("button", { name: strings.settingsPage.sections.mascot })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: strings.settingsPage.sections.dictation })).not.toBeInTheDocument();
+      // A stored section that is gone here falls back to the first one.
+      expect(screen.getByLabelText(strings.settings.appearance.theme)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.terminal }));
+      expect(screen.queryByLabelText(strings.settings.terminal.bundledConpty)).not.toBeInTheDocument();
+    } finally {
+      setPlatformForTests("windows");
+    }
   });
 
   it("theme changes apply immediately to the app settings", async () => {
