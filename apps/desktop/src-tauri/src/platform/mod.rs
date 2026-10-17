@@ -34,6 +34,22 @@ pub fn hide_console_window(cmd: &mut Command) {
     }
 }
 
+/// Which shells `pty` looks for: the Windows set (pwsh, Windows PowerShell, cmd, Git Bash,
+/// WSL) or the Unix set (the login shell, zsh, bash, fish, pwsh).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShellFamily {
+    Windows,
+    Unix,
+}
+
+pub fn shell_family() -> ShellFamily {
+    if cfg!(windows) {
+        ShellFamily::Windows
+    } else {
+        ShellFamily::Unix
+    }
+}
+
 /// File name of an executable on this platform (`name.exe` on Windows).
 pub fn exe_name(stem: &str) -> String {
     format!("{stem}{}", std::env::consts::EXE_SUFFIX)

@@ -88,7 +88,7 @@ export async function saveStateSlice(
  * (JSON sayı dizisi serileştirmesi yok; doğrudan `new Uint8Array(buf)` ile `xterm.write()`'a
  * verilir — bkz. tauri-2.12.0/src/ipc/channel.rs).
  */
-export type ShellKind = "pwsh" | "powershell" | "cmd" | "gitbash" | "wsl";
+export type ShellKind = "pwsh" | "powershell" | "cmd" | "gitbash" | "wsl" | "bash" | "zsh" | "fish";
 
 export interface ShellProfile {
   id: ShellKind;
@@ -98,7 +98,10 @@ export interface ShellProfile {
   args: string[];
 }
 
-/** Yalnızca bu makinede bulunan profiller, sıra: pwsh, powershell, cmd, gitbash, wsl. İlki varsayılan. */
+/**
+ * Yalnızca bu makinede bulunan profiller. Windows: pwsh, powershell, cmd, gitbash, wsl; macOS/Linux:
+ * oturum kabuğu (`$SHELL`), sonra zsh, bash, fish, pwsh. İlki varsayılan.
+ */
 export async function ptyProfiles(): Promise<ShellProfile[]> {
   return invoke<ShellProfile[]>("pty_profiles");
 }
