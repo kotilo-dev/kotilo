@@ -9,7 +9,7 @@
 #   2. Built-in adapter definitions staged without `fixtures/` (D-021).
 #   3. `tauri build --bundles appimage,deb,rpm` with a generated `--config` overlay (sidecars,
 #      staged adapters, updater artifacts). src-tauri/build.rs builds the hook sidecar.
-#   4. Packages (+ the AppImage's `.sig`) copied to target/release-artifacts/linux-x64/.
+#   4. Packages (+ their updater `.sig`s) copied to target/release-artifacts/linux-x64/.
 #
 # Updater artifacts only with TAURI_SIGNING_PRIVATE_KEY set (see release.ps1).
 # Prerequisites: .NET 10 SDK, Rust stable, Node LTS with `npm --prefix apps/desktop ci` done,
@@ -93,7 +93,7 @@ npm --prefix "$root/apps/desktop" run tauri -- build --target "$triple" --bundle
 # --- 4. Collect -------------------------------------------------------------------------------
 bundle="$cargo_target/$triple/release/bundle"
 shopt -s nullglob
-found=("$bundle"/appimage/*"_${version}_"*.AppImage* "$bundle"/deb/*"_${version}_"*.deb "$bundle"/rpm/*"-${version}-"*.rpm)
+found=("$bundle"/appimage/*"_${version}_"*.AppImage* "$bundle"/deb/*"_${version}_"*.deb* "$bundle"/rpm/*"-${version}-"*.rpm*)
 if [ ${#found[@]} -eq 0 ]; then
   echo "no packages found in $bundle" >&2
   exit 1
