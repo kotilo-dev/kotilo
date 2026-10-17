@@ -49,8 +49,9 @@ fn main() {
     std::process::exit(0);
 }
 
-#[cfg(all(test, windows))]
+#[cfg(test)]
 mod tests {
+    #[cfg(windows)]
     use super::*;
 
     #[test]
