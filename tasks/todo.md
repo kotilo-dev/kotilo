@@ -1,3 +1,22 @@
+# U-2 – Linux core (planned 2026-10-17)
+
+Goal: Kotilo runs on Linux with its core (terminals, agent status, permission card, hub, usage); extras that are Windows-only today (global hotkeys, dictation paste, mascot, taskbar badge) stay off. macOS follows in U-3 (needs a Mac and an Apple Developer account).
+
+## Core
+- [x] Shell detection on macOS/Linux: login shell (`$SHELL`) first, then zsh, bash, fish, pwsh (PATH + standard folders incl. Homebrew); agent command via `-i -c … ; exec <shell> -l -i`
+- [x] Hook process chain off Windows (`/proc` on Linux, one `/bin/ps` on macOS); app found with or without `.exe`; hook socket at a fixed `/tmp/<exePrefix>-<pid>.sock` (a hook with an empty environment finds it too)
+- [x] Extras off on Linux: `app_info.features` from the platform layer; Dictation route/section, Mascot section/offer, away summary, bundled ConPTY, WT scheme import and the assistant hotkey are hidden; no mascot/overlay window is created
+
+## Packaging
+- [x] Linux release script: `scripts/release-linux.sh` ran on Fedora 44 (WSL): AppImage 170 MB, .deb/.rpm 77 MB; `/usr/bin/{kotilo,kotilo-hook,kotilo-hub}`, resources in `/usr/lib/Kotilo`
+- [x] Release workflow: `build-linux` job on ubuntu-22.04, AppImage/.deb/.rpm + `.sig` on the draft release, `latest.json` `linux-x86_64` (AppImage), `linux-x86_64-deb`, `linux-x86_64-rpm`; a signed trial build in the VM produced all three signatures
+
+## Trial
+- [x] Real Linux desktop (Hyper-V VM, Ubuntu 22.04 GNOME, installed .deb): terminal opens, hub starts and connects, hooks install to `/usr/bin/kotilo-hook`, a Claude session stays listed Idle → Working → Blocked (permission card) → Idle
+  - Fixed on the way: the hub named its tools and git with `.exe`; no process listing off Windows dropped hook-tracked agents after two ticks (`platform/processes.rs`); stale hook socket on exit
+  - WSL Fedora 44 + WSLg: builds, hub starts and connects, state in `~/.config/kotilo`, logs in `~/.local/share/kotilo/logs` (fixed: were written to the working dir). WSLg's compositor (weston `rdp-backend.so`) segfaults ~20 s after start and takes the window down; needs software rendering (`WEBKIT_DISABLE_DMABUF_RENDERER=1`, `LIBGL_ALWAYS_SOFTWARE=1`) and X11 (`GDK_BACKEND=x11`) to start at all
+- [ ] Installed package: install, start, update (install + start done in the VM; update needs the first release with Linux entries)
+
 # U-1 – Builds and tests pass on macOS and Linux (planned 2026-10-17)
 
 Goal: AGENTS.md rule 7 holds in CI. The `desktop-unix` and `hub-unix` jobs (PR #1) turn green and become blocking. No Linux/macOS release yet (U-2 Linux core package, U-3 macOS with an Apple Developer account).
