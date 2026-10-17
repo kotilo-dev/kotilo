@@ -1,8 +1,9 @@
-//! Faz 5 §1.9: real named-pipe integration test — a real OS named pipe, the real
+//! Faz 5 §1.9: real hook endpoint integration test — the platform's real endpoint (a
+//! named pipe on Windows, a Unix socket elsewhere, via `platform::hook_endpoint`), the real
 //! `agenthub-hook` `run()` (its actual `real_connect`, not an injected fake) writing a hook
 //! to it, and a real `AgentTracker::on_hook` applying the decoded message. This
 //! exercises the exact byte-for-byte path a live Claude Code hook takes: sidecar ->
-//! named pipe -> `agenthub_proto::decode` -> tracker.
+//! endpoint -> `agenthub_proto::decode` -> tracker.
 //!
 //! The server side here is deliberately the same read-up-to-1MiB-then-decode logic as
 //! `ipc_server::handle_connection`, without the surrounding Tauri `App`/`AppHandle` —
@@ -10,25 +11,22 @@
 //! would test Tauri's own plumbing, not this feature's. `ipc_server`'s own unit tests
 //! already cover the dev-control fallback and pipe naming; `agents::AgentTracker`'s unit
 //! tests already cover every state transition. What only an end-to-end test like this
-//! one can prove is that the real bytes that `agenthub-hook` puts on a real named
-//! pipe are exactly what `agenthub_proto::decode` expects.
+//! one can prove is that the real bytes that `agenthub-hook` puts on the real endpoint
+//! are exactly what `agenthub_proto::decode` expects.
 
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::AsyncReadExt;
-use tokio::net::windows::named_pipe::ServerOptions;
 
 use agenthub_lib::agents::{AgentState, AgentTracker};
+use agenthub_lib::platform::hook_endpoint::{endpoint_name, HookListener};
 
 #[test]
 fn real_pipe_delivers_a_hook_from_agenthub_hook_to_the_tracker() {
-    let unique = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let pipe_name = format!(r"\\.\pipe\agenthub-hook-integration-test-{unique}");
+    // This test process's own pid: no Kotilo app owns that endpoint.
+    let pipe_name = endpoint_name(std::process::id());
 
     let tracker = Arc::new(AgentTracker::new());
     let tracker_for_server = tracker.clone();
@@ -43,11 +41,8 @@ fn real_pipe_delivers_a_hook_from_agenthub_hook_to_the_tracker() {
             .build()
             .expect("build a tokio runtime for the pipe server");
         rt.block_on(async move {
-            let mut server = ServerOptions::new()
-                .first_pipe_instance(true)
-                .create(&pipe_name_for_server)
-                .expect("create the test named pipe");
-            server.connect().await.expect("accept one connection");
+            let mut listener = HookListener::new(&pipe_name_for_server);
+            let mut server = listener.accept().await.expect("accept one connection");
 
             let mut buf = Vec::new();
             {
@@ -68,7 +63,7 @@ fn real_pipe_delivers_a_hook_from_agenthub_hook_to_the_tracker() {
     // Give the server a moment to start listening before the client tries to connect.
     std::thread::sleep(Duration::from_millis(100));
 
-    // Client side: the *real* `agenthub-hook` `run()` + its real Windows named-pipe
+    // Client side: the *real* `agenthub-hook` `run()` + its real endpoint
     // connect/write, exactly as `agenthub-hook.exe` runs it from a Claude Code hook.
     let args = vec![
         "agenthub-hook".to_string(),

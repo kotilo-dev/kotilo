@@ -1900,11 +1900,6 @@ pub(crate) fn system_process_snapshot() -> Vec<ProcSnapshotEntry> {
         .collect()
 }
 
-#[cfg(not(windows))]
-pub(crate) fn system_process_snapshot() -> Vec<ProcSnapshotEntry> {
-    Vec::new()
-}
-
 #[cfg(windows)]
 fn process_creation_time(pid: u32) -> Option<u64> {
     unsafe {
