@@ -425,11 +425,16 @@ pub fn build_command(
     Ok(cmd)
 }
 
+/// The last path segment after either separator, so a Windows path never leaks whole
+/// into a sanitized message on any OS.
 fn image_filename(program: &str) -> String {
-    Path::new(program)
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| program.to_string())
+    program
+        .trim_end_matches(['\\', '/'])
+        .rsplit(['\\', '/'])
+        .next()
+        .filter(|n| !n.is_empty())
+        .unwrap_or(program)
+        .to_string()
 }
 
 /// Faz 7 spec §9.2: `portable-pty`'s spawn/openpty failures format their `Display`/`Debug`
@@ -2333,6 +2338,8 @@ mod tests {
         }
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_pwsh_uses_windows_apps_execution_alias_when_that_is_all_that_exists() {
         let machine = FakeMachine::new()
@@ -2347,6 +2354,8 @@ mod tests {
         assert_eq!(profile.args, vec!["-NoLogo".to_string()]);
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_pwsh_prefers_path_over_program_files() {
         let machine = FakeMachine::new()
@@ -2364,6 +2373,8 @@ mod tests {
         assert!(detect_pwsh(&machine.env_lookup(), &machine.exists()).is_none());
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_gitbash_finds_bash_via_cmd_git_exe_on_path() {
         // git.exe on PATH at `...\Git\cmd\git.exe` -> bash is `<dir>\..\bin\bash.exe`.
@@ -2377,6 +2388,8 @@ mod tests {
         assert_eq!(profile.args, vec!["--login".to_string(), "-i".to_string()]);
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_gitbash_finds_bash_via_mingw64_bin_git_exe_on_path() {
         // git.exe on PATH at `...\Git\mingw64\bin\git.exe` -> bash is
@@ -2389,6 +2402,8 @@ mod tests {
         assert_eq!(profile.program, r"C:\Program Files\Git\bin\bash.exe");
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_gitbash_finds_bash_under_localappdata_programs_git() {
         let machine = FakeMachine::new()
@@ -2407,6 +2422,8 @@ mod tests {
         assert!(detect_gitbash(&machine.env_lookup(), &machine.exists()).is_none());
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_powershell_requires_the_v1_path_to_exist() {
         let machine = FakeMachine::new().with_env("SystemRoot", r"C:\Windows");
@@ -2420,6 +2437,8 @@ mod tests {
         );
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_cmd_prefers_comspec_then_falls_back_to_system_root() {
         let machine = FakeMachine::new()
@@ -2435,6 +2454,8 @@ mod tests {
         assert_eq!(profile.program, r"C:\Windows\System32\cmd.exe");
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_wsl_requires_wsl_exe_to_exist() {
         let machine = FakeMachine::new().with_env("SystemRoot", r"C:\Windows");
@@ -2445,6 +2466,8 @@ mod tests {
         assert_eq!(profile.id, ShellKind::Wsl);
     }
 
+    // Windows shell layout (`;`-separated PATH, `\`-joined install paths).
+    #[cfg(windows)]
     #[test]
     fn detect_profiles_orders_pwsh_powershell_cmd_gitbash_wsl() {
         let machine = FakeMachine::new()
