@@ -94,7 +94,7 @@ public static class DroidSessionUsage
     /// <summary><c>…\7f3c….settings.json</c> → <c>7f3c…</c>; null for any other file name.</summary>
     public static string? SessionIdFromFileName(string path)
     {
-        var name = Path.GetFileName(path);
+        var name = path[(path.LastIndexOfAny(['\\', '/']) + 1)..];
         return name.EndsWith(SettingsSuffix, StringComparison.OrdinalIgnoreCase) && name.Length > SettingsSuffix.Length
             ? name[..^SettingsSuffix.Length]
             : null;

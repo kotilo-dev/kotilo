@@ -75,8 +75,9 @@ public sealed record SessionInfo(
             return "?";
         }
 
+        // Both separators on every OS: roots recorded on Windows keep their names elsewhere.
         var trimmed = projectRoot.TrimEnd('\\', '/');
-        var name = Path.GetFileName(trimmed);
+        var name = trimmed[(trimmed.LastIndexOfAny(['\\', '/']) + 1)..];
         return string.IsNullOrEmpty(name) ? trimmed : name;
     }
 }

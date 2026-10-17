@@ -46,13 +46,16 @@ public sealed class HubFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>The fixture events' <c>cwd</c>: an absolute path on this OS.</summary>
+    public static readonly string DemoRoot = OperatingSystem.IsWindows() ? @"C:\src\demo" : "/src/demo";
+
     public static byte[] CodexEvent(string sessionId, string name, string extra = "", string? paneId = "pane-9") =>
         Encoding.UTF8.GetBytes(
-            $$$"""{"v":1,"agent":"codex","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","paneId":{{{(paneId is null ? "null" : "\"" + paneId + "\"")}}},"payload":{"session_id":"{{{sessionId}}}","cwd":"C:\\src\\demo","hook_event_name":"{{{name}}}"{{{extra}}}}}""");
+            $$$"""{"v":1,"agent":"codex","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","paneId":{{{(paneId is null ? "null" : "\"" + paneId + "\"")}}},"payload":{"session_id":"{{{sessionId}}}","cwd":{{{JsonSerializer.Serialize(DemoRoot)}}},"hook_event_name":"{{{name}}}"{{{extra}}}}}""");
 
     public static byte[] ClaudeEvent(string sessionId, string name, string extra = "") =>
         Encoding.UTF8.GetBytes(
-            $$$"""{"v":1,"agent":"claude-code","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","payload":{"session_id":"{{{sessionId}}}","cwd":"C:\\src\\demo","hook_event_name":"{{{name}}}"{{{extra}}}}}""");
+            $$$"""{"v":1,"agent":"claude-code","event":"{{{name}}}","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","payload":{"session_id":"{{{sessionId}}}","cwd":{{{JsonSerializer.Serialize(DemoRoot)}}},"hook_event_name":"{{{name}}}"{{{extra}}}}}""");
 }
 
 public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
@@ -273,7 +276,8 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "UserPromptSubmit"));
         hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "PreToolUse", ""","tool_name":"Bash","tool_use_id":"call_1","tool_input":{"command":"cargo test"}"""));
         hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "PostToolUse", ""","tool_name":"Bash","tool_use_id":"call_1","tool_input":{"command":"cargo test"}"""));
-        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "PreToolUse", ""","tool_name":"apply_patch","tool_use_id":"call_2","tool_input":{"paths":["src/a.rs","C:\\src\\demo\\b.rs"]}"""));
+        var absolute = JsonSerializer.Serialize(Path.Combine(HubFixture.DemoRoot, "b.rs"));
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "PreToolUse", $$""","tool_name":"apply_patch","tool_use_id":"call_2","tool_input":{"paths":["src/a.rs",{{absolute}}]}"""));
 
         var frames = new List<JsonElement>();
         for (var i = 0; i < 30 && !frames.SelectMany(f => f.GetProperty("entries").EnumerateArray()).Any(e => e.TryGetProperty("tool", out var t) && t.GetString() == "apply_patch"); i++)
