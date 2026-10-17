@@ -72,7 +72,8 @@ pub fn delivery() -> Arc<dyn Delivery> {
 /// Creates the hidden overlay window up front so its page is loaded before the first
 /// dictation (events sent to a page that is still loading would be lost).
 pub fn create_overlay_window(app: &AppHandle) -> tauri::Result<()> {
-    if app.get_webview_window(OVERLAY_LABEL).is_some() {
+    // No overlay where dictation has no OS side (U-2).
+    if !super::features().dictation || app.get_webview_window(OVERLAY_LABEL).is_some() {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, OVERLAY_LABEL, WebviewUrl::App("index.html?view=dictation-overlay".into()))
