@@ -1,6 +1,7 @@
 name: Release
 
-# A `v*` tag builds both installers, the updater signatures and `latest.json`, and attaches them
+# A `v*` tag builds the Windows installers (x64, ARM64), the Linux packages (AppImage, .deb, .rpm),
+# the updater signatures and `latest.json`, and attaches them
 # to a draft GitHub release. Publishing the draft is a manual step (and makes `latest.json` the
 # feed behind brand.json `updateEndpoint`:
 # https://github.com/kotilo-dev/kotilo/releases/latest/download/latest.json).
@@ -78,8 +79,47 @@ jobs:
           path: target/release-artifacts/${{ matrix.arch }}/
           if-no-files-found: error
 
+  # Linux x64 packages (U-2, D-061). Built on the oldest supported Ubuntu so they run on older
+  # glibc versions too.
+  build-linux:
+    runs-on: ubuntu-22.04
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: release-linux-x64
+      - name: Linux system libraries (WebKitGTK, tray, audio, D-Bus, rpmbuild)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libsoup-3.0-dev libxdo-dev libssl-dev libasound2-dev libdbus-1-dev pkg-config \
+            file rpm
+      - run: npm --prefix apps/desktop ci
+      - name: Build packages
+        run: ./scripts/release-linux.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-linux-x64
+          path: target/release-artifacts/linux-x64/
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, build-linux]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -103,12 +143,21 @@ jobs:
             Copy-Item $_.FullName (Join-Path upload ($_.Name -replace ' ', '.'))
           }
           $platforms = [ordered]@{}
-          foreach ($p in @(@{ key = 'windows-x86_64'; arch = 'x64' }, @{ key = 'windows-aarch64'; arch = 'arm64' })) {
-            $installer = Get-ChildItem upload -File -Filter "*_$($version)_$($p.arch)-setup.exe" | Select-Object -First 1
-            if (-not $installer) { throw "installer for $($p.arch) not found" }
+          # Keys as the updater looks them up: `<os>-<arch>-<package>` first, then `<os>-<arch>`
+          # (an AppImage install asks for `linux-x86_64`).
+          $targets = @(
+            @{ key = 'windows-x86_64'; filter = "*_$($version)_x64-setup.exe" },
+            @{ key = 'windows-aarch64'; filter = "*_$($version)_arm64-setup.exe" },
+            @{ key = 'linux-x86_64'; filter = "*_$($version)_amd64.AppImage" },
+            @{ key = 'linux-x86_64-deb'; filter = "*_$($version)_amd64.deb"},
+            @{ key = 'linux-x86_64-rpm'; filter = "*-$($version)-*.x86_64.rpm"}
+          )
+          foreach ($p in $targets) {
+            $installer = Get-ChildItem upload -File -Filter $p.filter | Select-Object -First 1
+            if (-not $installer) { throw "installer for $($p.key) not found" }
             $sig = "$($installer.FullName).sig"
             if (-not (Test-Path $sig)) {
-              Write-Warning "no updater signature for $($p.arch) (TAURI_SIGNING_PRIVATE_KEY secret missing?); skipping latest.json"
+              Write-Warning "no updater signature for $($p.key) (TAURI_SIGNING_PRIVATE_KEY secret missing?); skipping latest.json"
               exit 0
             }
             $platforms[$p.key] = [ordered]@{
