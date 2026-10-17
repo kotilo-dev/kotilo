@@ -91,6 +91,9 @@ pub enum ShellKind {
     Cmd,
     GitBash,
     Wsl,
+    Bash,
+    Zsh,
+    Fish,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -228,9 +231,17 @@ fn detect_wsl(env: &EnvLookup, exists: &PathExists) -> Option<ShellProfile> {
 }
 
 /// Pure detection core of `pty_profiles` (spec §1.1): only the profiles actually found
-/// on this machine, in a fixed order (pwsh, powershell, cmd, gitbash, wsl) — the first
-/// entry is the default profile used when `pty_spawn`'s `profileId` is `null`.
+/// on this machine — the first entry is the default profile used when `pty_spawn`'s
+/// `profileId` is `null`.
 pub fn detect_profiles(env: &EnvLookup, exists: &PathExists) -> Vec<ShellProfile> {
+    match crate::platform::shell_family() {
+        crate::platform::ShellFamily::Windows => detect_windows_profiles(env, exists),
+        crate::platform::ShellFamily::Unix => detect_unix_profiles(env, exists),
+    }
+}
+
+/// Windows profiles in a fixed order: pwsh, powershell, cmd, gitbash, wsl.
+pub fn detect_windows_profiles(env: &EnvLookup, exists: &PathExists) -> Vec<ShellProfile> {
     [
         detect_pwsh(env, exists),
         detect_powershell(env, exists),
@@ -241,6 +252,62 @@ pub fn detect_profiles(env: &EnvLookup, exists: &PathExists) -> Vec<ShellProfile
     .into_iter()
     .flatten()
     .collect()
+}
+
+/// Install folders searched after `PATH` (Homebrew on Apple silicon last).
+const UNIX_SHELL_DIRS: [&str; 4] = ["/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"];
+
+/// The shells Kotilo knows on Unix, in the order they are offered after the login shell.
+const UNIX_SHELLS: [(&str, ShellKind, &str); 4] = [
+    ("zsh", ShellKind::Zsh, "Zsh"),
+    ("bash", ShellKind::Bash, "Bash"),
+    ("fish", ShellKind::Fish, "Fish"),
+    ("pwsh", ShellKind::Pwsh, "PowerShell 7"),
+];
+
+fn unix_profile(kind: ShellKind, name: &str, program: String) -> ShellProfile {
+    let args = if kind == ShellKind::Pwsh { "-NoLogo" } else { "-l" };
+    ShellProfile {
+        id: kind,
+        name: name.to_string(),
+        program,
+        args: vec![args.to_string()],
+    }
+}
+
+/// `filename` in the first `:`-separated `PATH` entry that has it, else in a standard
+/// install folder. Joined as strings so the result is the same on every OS (tests).
+fn find_unix_shell(env: &EnvLookup, exists: &PathExists, filename: &str) -> Option<String> {
+    let path_var = env("PATH").unwrap_or_default();
+    let found = path_var
+        .split(':')
+        .filter(|dir| !dir.is_empty())
+        .chain(UNIX_SHELL_DIRS)
+        .map(|dir| format!("{}/{filename}", dir.trim_end_matches('/')))
+        .find(|candidate| exists(Path::new(candidate)));
+    found
+}
+
+/// Unix profiles (U-2): the login shell (`$SHELL`) first, so it is the default, then
+/// zsh, bash, fish and pwsh wherever found — one profile per kind. A login shell Kotilo
+/// does not know (`sh`, `ksh`, …) is skipped.
+pub fn detect_unix_profiles(env: &EnvLookup, exists: &PathExists) -> Vec<ShellProfile> {
+    let mut profiles: Vec<ShellProfile> = Vec::new();
+    if let Some(login) = env("SHELL").filter(|s| s.starts_with('/') && exists(Path::new(s))) {
+        let base = login.rsplit('/').next().unwrap_or_default();
+        if let Some((_, kind, name)) = UNIX_SHELLS.iter().find(|(file, _, _)| *file == base) {
+            profiles.push(unix_profile(*kind, name, login));
+        }
+    }
+    for (file, kind, name) in UNIX_SHELLS {
+        if profiles.iter().any(|p| p.id == kind) {
+            continue;
+        }
+        if let Some(program) = find_unix_shell(env, exists, file) {
+            profiles.push(unix_profile(kind, name, program));
+        }
+    }
+    profiles
 }
 
 /// Cached for the app's lifetime (spec §1.1) — real file/PATH probing only happens once.
@@ -278,6 +345,11 @@ fn pwsh_set_location(cwd: &Path) -> String {
     format!("Set-Location -LiteralPath '{quoted}'")
 }
 
+/// `'…'` for bash, zsh and fish: an inner `'` becomes `'\''`.
+fn single_quoted(text: &str) -> String {
+    format!("'{}'", text.replace('\'', r"'\''"))
+}
+
 /// Pure (spec §1.2, unit-tested): the shell args that make the pane either sit at an
 /// interactive prompt (`agent_command: None`) or run `agent_command` and then fall back
 /// to an interactive shell once it exits. PowerShell always gets a `-Command` that
@@ -297,6 +369,13 @@ pub fn wrap_agent_command(profile: &ShellProfile, cwd: &Path, agent_command: Opt
         }
         (_, None) => profile.args.clone(),
         (ShellKind::Cmd, Some(agent)) => vec!["/K".to_string(), agent.to_string()],
+        (ShellKind::Bash | ShellKind::Zsh | ShellKind::Fish, Some(agent)) => {
+            let mut args = profile.args.clone();
+            args.push("-i".to_string());
+            args.push("-c".to_string());
+            args.push(format!("{agent}; exec {} -l -i", single_quoted(&profile.program)));
+            args
+        }
         (ShellKind::GitBash, Some(agent)) => vec![
             "--login".to_string(),
             "-i".to_string(),
@@ -2481,7 +2560,7 @@ mod tests {
             .with_file(r"C:\Windows\System32\cmd.exe")
             .with_file(r"C:\Program Files\Git\bin\bash.exe")
             .with_file(r"C:\Windows\System32\wsl.exe");
-        let profiles = detect_profiles(&machine.env_lookup(), &machine.exists());
+        let profiles = detect_windows_profiles(&machine.env_lookup(), &machine.exists());
         let ids: Vec<ShellKind> = profiles.iter().map(|p| p.id).collect();
         assert_eq!(
             ids,
@@ -2499,6 +2578,69 @@ mod tests {
     fn detect_profiles_only_includes_whats_found() {
         let machine = FakeMachine::new();
         assert!(detect_profiles(&machine.env_lookup(), &machine.exists()).is_empty());
+    }
+
+    // ---- Unix shell profiles (U-2) ---------------------------------------------
+
+    #[test]
+    fn detect_unix_profiles_puts_the_login_shell_first() {
+        let machine = FakeMachine::new()
+            .with_env("SHELL", "/opt/homebrew/bin/fish")
+            .with_env("PATH", "/usr/local/sbin:/usr/bin")
+            .with_file("/opt/homebrew/bin/fish")
+            .with_file("/usr/bin/bash")
+            .with_file("/bin/zsh");
+        let profiles = detect_unix_profiles(&machine.env_lookup(), &machine.exists());
+        let found: Vec<(ShellKind, &str)> = profiles.iter().map(|p| (p.id, p.program.as_str())).collect();
+        assert_eq!(
+            found,
+            vec![
+                (ShellKind::Fish, "/opt/homebrew/bin/fish"),
+                (ShellKind::Zsh, "/bin/zsh"),
+                (ShellKind::Bash, "/usr/bin/bash"),
+            ]
+        );
+        assert_eq!(profiles[0].args, vec!["-l".to_string()]);
+    }
+
+    #[test]
+    fn detect_unix_profiles_prefers_path_and_skips_unknown_or_missing_login_shells() {
+        let machine = FakeMachine::new()
+            .with_env("SHELL", "/bin/sh")
+            .with_env("PATH", "/home/me/.local/bin:/usr/bin")
+            .with_file("/bin/sh")
+            .with_file("/home/me/.local/bin/zsh")
+            .with_file("/bin/zsh")
+            .with_file("/usr/bin/pwsh");
+        let profiles = detect_unix_profiles(&machine.env_lookup(), &machine.exists());
+        let found: Vec<(ShellKind, &str)> = profiles.iter().map(|p| (p.id, p.program.as_str())).collect();
+        assert_eq!(found, vec![(ShellKind::Zsh, "/home/me/.local/bin/zsh"), (ShellKind::Pwsh, "/usr/bin/pwsh")]);
+        assert_eq!(profiles[1].args, vec!["-NoLogo".to_string()]);
+
+        let gone = FakeMachine::new().with_env("SHELL", "/usr/bin/zsh");
+        assert!(detect_unix_profiles(&gone.env_lookup(), &gone.exists()).is_empty());
+    }
+
+    #[test]
+    fn wrap_agent_command_unix_shells_run_the_agent_then_stay_interactive() {
+        for id in [ShellKind::Bash, ShellKind::Zsh, ShellKind::Fish] {
+            let p = ShellProfile {
+                id,
+                name: "test".to_string(),
+                program: "/opt/it's/zsh".to_string(),
+                args: vec!["-l".to_string()],
+            };
+            assert_eq!(wrap_agent_command(&p, Path::new("/src/app"), None), vec!["-l".to_string()]);
+            assert_eq!(
+                wrap_agent_command(&p, Path::new("/src/app"), Some("claude")),
+                vec![
+                    "-l".to_string(),
+                    "-i".to_string(),
+                    "-c".to_string(),
+                    r"claude; exec '/opt/it'\''s/zsh' -l -i".to_string(),
+                ]
+            );
+        }
     }
 
     // ---- agent command wrapping (spec §1.2, §4.18) ------------------------------
@@ -2724,7 +2866,16 @@ mod tests {
 
     #[test]
     fn build_command_rejects_agent_command_starting_with_dash_for_every_profile() {
-        for id in [ShellKind::Pwsh, ShellKind::Powershell, ShellKind::Cmd, ShellKind::GitBash, ShellKind::Wsl] {
+        for id in [
+            ShellKind::Pwsh,
+            ShellKind::Powershell,
+            ShellKind::Cmd,
+            ShellKind::GitBash,
+            ShellKind::Wsl,
+            ShellKind::Bash,
+            ShellKind::Zsh,
+            ShellKind::Fish,
+        ] {
             let p = profile(id, &[]);
             let dir = tempfile::tempdir().unwrap();
             let err = build_command(&p, dir.path(), Some("-rf"), "pane", "ws", "endpoint").unwrap_err();
