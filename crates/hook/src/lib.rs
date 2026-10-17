@@ -399,12 +399,12 @@ pub fn parse_payload(bytes: &[u8]) -> serde_json::Value {
     }
 }
 
-/// The desktop app's pipe, found from the nearest Kotilo ancestor in the process chain.
+/// The desktop app's endpoint, found from the nearest Kotilo ancestor in the process chain.
 pub fn pipe_from_chain(chain: &[ProcessRef]) -> Option<String> {
     chain
         .iter()
         .find(|p| DESKTOP_EXE_NAMES.iter().any(|n| p.name.eq_ignore_ascii_case(n)))
-        .map(|p| format!(r"\\.\pipe\{}-{}", agenthub_proto::brand::EXE_PREFIX, p.pid))
+        .map(|p| platform::endpoint_for_pid(p.pid))
 }
 
 /// The actual pipe connect+write step: given the pipe path and the encoded message, does
@@ -1152,8 +1152,7 @@ mod tests {
             // Matched case-insensitively.
             ProcessRef { pid: 7, name: agenthub_proto::brand::DESKTOP_EXE_NAMES[1].to_uppercase() },
         ];
-        let expected = format!(r"\\.\pipe\{}-7", agenthub_proto::brand::EXE_PREFIX);
-        assert_eq!(pipe_from_chain(&chain), Some(expected));
+        assert_eq!(pipe_from_chain(&chain), Some(platform::endpoint_for_pid(7)));
         assert_eq!(pipe_from_chain(&chain[..2]), None);
     }
 

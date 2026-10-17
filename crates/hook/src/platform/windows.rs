@@ -6,6 +6,11 @@ use std::path::PathBuf;
 
 use crate::{chain_from_parents, ProcessRef, CONNECT_TIMEOUT_MS};
 
+/// The desktop app's hook pipe for its process id (same name as its `platform::hook_endpoint`).
+pub fn endpoint_for_pid(pid: u32) -> String {
+    format!(r"\\.\pipe\{}-{pid}", agenthub_proto::brand::EXE_PREFIX)
+}
+
 pub fn default_data_dir(env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
     env("LOCALAPPDATA")
         .filter(|v| !v.is_empty())

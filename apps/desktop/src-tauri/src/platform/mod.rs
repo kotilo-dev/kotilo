@@ -6,6 +6,7 @@ pub mod assistant;
 pub mod conpty;
 pub mod dictation;
 pub mod fonts;
+pub mod hook_endpoint;
 pub mod hotkeys;
 pub mod idle;
 pub mod mascot;
