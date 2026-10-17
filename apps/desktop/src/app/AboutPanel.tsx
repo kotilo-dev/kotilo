@@ -13,6 +13,7 @@ import { LicensesViewer } from "./LicensesViewer";
 import { UpdateCheck } from "../features/update/UpdateCheck";
 import { appInfo, clipboardWriteText, openExternalUrl, type AppInfo } from "../lib/ipc";
 import { useToastStore } from "../stores/toastStore";
+import { webviewName } from "../lib/platform";
 
 const LINK_CLASS = "text-accent underline";
 const SMALL_BUTTON_CLASS = "rounded border border-border px-1.5 py-0.5 text-label text-text";
@@ -134,7 +135,7 @@ export function AboutPanel() {
       {info && (
         <div className="flex items-center gap-2">
           <span className="text-muted">
-            {strings.about.webview2(info.webview2)} · {strings.about.os(info.os)}
+            {strings.about.webview(webviewName(info.platform), info.webview2)} · {strings.about.os(info.os)}
           </span>
           <button type="button" onClick={copyVersionInfo} className={SMALL_BUTTON_CLASS}>
             {strings.about.copyVersionInfo}

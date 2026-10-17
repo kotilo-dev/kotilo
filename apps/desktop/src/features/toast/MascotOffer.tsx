@@ -7,6 +7,7 @@ import { useStrings } from "../../app/strings";
 import { Button } from "../../app/ui/Button";
 import { useMascotSettingsStore } from "../settings/mascotSettings";
 import { useUpdateStore } from "../update/updateStore";
+import { platformFeatures } from "../../lib/platform";
 
 export function MascotOffer() {
   const s = useStrings().mascot;
@@ -14,7 +15,7 @@ export function MascotOffer() {
   const answer = useMascotSettingsStore((st) => st.answerOffer);
   // The update card sits in the same spot and wins; the suggestion waits until it is gone.
   const updatePrompt = useUpdateStore((st) => st.prompt);
-  if (!visible || updatePrompt) return null;
+  if (!visible || updatePrompt || !platformFeatures().mascot) return null;
 
   return (
     <section

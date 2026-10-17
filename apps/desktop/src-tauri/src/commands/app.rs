@@ -21,6 +21,10 @@ pub struct AppInfo {
     pub git_sha: String,
     pub webview2: String,
     pub os: String,
+    /// U-2: `"windows"`, `"macos"` or `"linux"`.
+    pub platform: String,
+    /// U-2: which OS-dependent features exist here; the UI hides the rest.
+    pub features: crate::platform::Features,
     /// Faz 7 §11: `AGENTHUB_BUILD_DATE` baked in by `build.rs` — UTC `YYYY-MM-DD`.
     pub build_date: String,
     /// M5 About page: from `brand.json` (empty until the public repo/site exist).
@@ -29,8 +33,8 @@ pub struct AppInfo {
     pub support_email: String,
 }
 
-/// Spec §9.7 `app_info.os`: e.g. `"Windows 11 (10.0.26100)"` — pure so it's testable
-/// without the registry. Windows 11 and Windows 10 share NT version `10.0`; builds
+/// Spec §9.7 `app_info.os` on Windows: e.g. `"Windows 11 (10.0.26100)"` — pure so it's
+/// testable without the registry. Windows 11 and Windows 10 share NT version `10.0`; builds
 /// `>= 22000` are Windows 11 (Microsoft's own cutoff), everything else Windows 10.
 pub fn os_description(build_number: Option<u32>) -> String {
     match build_number {
@@ -39,6 +43,16 @@ pub fn os_description(build_number: Option<u32>) -> String {
             format!("{name} (10.0.{build})")
         }
         None => "Windows (unknown)".to_string(),
+    }
+}
+
+/// `os_description` on Windows, the system's name elsewhere.
+pub fn os_label(platform: &str, build_number: Option<u32>) -> String {
+    match platform {
+        "windows" => os_description(build_number),
+        "macos" => "macOS".to_string(),
+        "linux" => "Linux".to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -104,6 +118,8 @@ pub fn brand_info() -> AppInfo {
         git_sha: String::new(),
         webview2: String::new(),
         os: String::new(),
+        platform: crate::platform::os_id().to_string(),
+        features: crate::platform::features(),
         build_date: String::new(),
         repository: crate::brand::REPOSITORY.to_string(),
         website: crate::brand::WEBSITE.to_string(),
@@ -119,7 +135,7 @@ pub fn app_info(app: tauri::AppHandle) -> AppResult<AppInfo> {
         version: app.package_info().version.to_string(),
         git_sha: env!("AGENTHUB_GIT_SHA").to_string(),
         webview2: webview2_version(),
-        os: os_description(build),
+        os: os_label(crate::platform::os_id(), build),
         build_date: env!("AGENTHUB_BUILD_DATE").to_string(),
         ..brand_info()
     })
@@ -136,6 +152,17 @@ mod tests {
         assert_eq!(json["website"], crate::brand::WEBSITE);
         assert_eq!(json["supportEmail"], crate::brand::SUPPORT_EMAIL);
         assert!(json.get("version").is_some() && json.get("buildDate").is_some());
+    }
+
+    #[test]
+    fn app_info_names_the_platform_and_its_features() {
+        let json = serde_json::to_value(brand_info()).unwrap();
+        assert_eq!(json["platform"], std::env::consts::OS);
+        assert_eq!(json["features"]["mascot"], cfg!(windows));
+        assert_eq!(json["features"]["windowsTerminalSchemes"], cfg!(windows));
+        assert_eq!(os_label("linux", None), "Linux");
+        assert_eq!(os_label("macos", Some(1)), "macOS");
+        assert_eq!(os_label("windows", Some(26100)), "Windows 11 (10.0.26100)");
     }
 
     #[test]

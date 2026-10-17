@@ -344,7 +344,7 @@ pub fn run() {
                 version: app.package_info().version.to_string(),
                 git_sha: env!("AGENTHUB_GIT_SHA").to_string(),
                 webview2: "unknown".to_string(),
-                os: "Windows (unknown)".to_string(),
+                os: commands::app::os_label(crate::platform::os_id(), None),
                 build_date: env!("AGENTHUB_BUILD_DATE").to_string(),
                 ..commands::app::brand_info()
             });

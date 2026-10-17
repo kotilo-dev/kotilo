@@ -8,6 +8,7 @@ import type { HubSettings } from "../../lib/hubTypes";
 import { assistantOpen } from "../assistant/assistantIpc";
 import { useAssistantHotkeyStore } from "../assistant/useAssistantBridge";
 import { Button, Checkbox, Field, TextInput } from "./controls";
+import { platformFeatures } from "../../lib/platform";
 
 export function AssistantSettings({
   draft,
@@ -32,9 +33,13 @@ export function AssistantSettings({
       <Checkbox checked={buddy.enabled} onChange={(enabled) => set({ enabled })} label={t.enabled} hint={t.enabledHint} />
       {buddy.enabled && (
         <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <Field label={t.hotkey} hint={t.hotkeyHint} error={errors["buddy.hotkey"] ?? statusError}>
-            {(ids) => <TextInput {...ids} value={buddy.hotkey} onChange={(hotkey) => set({ hotkey })} />}
-          </Field>
+          {platformFeatures().globalHotkeys ? (
+            <Field label={t.hotkey} hint={t.hotkeyHint} error={errors["buddy.hotkey"] ?? statusError}>
+              {(ids) => <TextInput {...ids} value={buddy.hotkey} onChange={(hotkey) => set({ hotkey })} />}
+            </Field>
+          ) : (
+            <div />
+          )}
           <div className="flex flex-col sm:pt-[22px]">
             <Button small onClick={() => void assistantOpen().catch(() => {})}>
               {t.open}
