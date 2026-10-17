@@ -1,6 +1,6 @@
-//! Faz 5 §1.3: the hook endpoint — a tokio named pipe server on
-//! `\\.\pipe\agenthub-<app pid>`, handed to every PTY pane via `AGENTHUB_ENDPOINT` and
-//! written to by `agenthub-hook` (`agenthub-hook`).
+//! Faz 5 §1.3: the hook endpoint — a named pipe `\\.\pipe\<exePrefix>-<app pid>` on
+//! Windows, a Unix socket elsewhere ([`crate::platform::hook_endpoint`]), handed to every
+//! PTY pane via `AGENTHUB_ENDPOINT` and written to by `agenthub-hook`.
 //!
 //! Each connection carries exactly one message: a [`agenthub_proto::HookMessage`],
 //! JSON-encoded, optionally followed by a trailing newline — read up to a 1 MiB cap and
@@ -19,20 +19,18 @@
 //! `hook:message` Tauri event any more — the frontend's signal is `agents:changed`.
 
 use tokio::io::AsyncReadExt;
-use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
 use tokio::sync::mpsc;
 
 use tauri::{AppHandle, Manager};
 
 use crate::agents::AgentTracker;
+use crate::platform::hook_endpoint::{HookConnection, HookListener};
 use crate::pty::PtyRegistry;
 
 /// Spec §1.3: a connection is read up to this many bytes; anything past it is never
 /// consumed (mirrors `agenthub-hook`'s own cap on the write side).
 const MAX_MESSAGE_BYTES: u64 = 1024 * 1024;
 
-/// `\\.\pipe\agenthub-<pid>` (D1) — `pid` is the Kotilo app's own process id, shared
-/// by every pane spawned this run (passed to each as `AGENTHUB_ENDPOINT`).
 /// The pane whose shell is the nearest ancestor in `chain` (hook pid's ancestors, nearest first).
 pub fn pane_for_chain<'a>(panes: &'a [crate::pty::PaneSummary], chain: &[u32]) -> Option<&'a crate::pty::PaneSummary> {
     chain
@@ -40,8 +38,10 @@ pub fn pane_for_chain<'a>(panes: &'a [crate::pty::PaneSummary], chain: &[u32]) -
         .find_map(|pid| panes.iter().find(|p| p.shell_pid == *pid))
 }
 
-pub fn pipe_name(pid: u32) -> String {
-    format!(r"\\.\pipe\{}-{pid}", crate::brand::EXE_PREFIX)
+/// The hook endpoint (D1) — `pid` is the Kotilo app's own process id, shared by every
+/// pane spawned this run (passed to each as `AGENTHUB_ENDPOINT`).
+pub fn endpoint_name(pid: u32) -> String {
+    crate::platform::hook_endpoint::endpoint_name(pid)
 }
 
 fn debug_enabled() -> bool {
@@ -88,7 +88,7 @@ fn debug_log_hook(msg: &agenthub_proto::HookMessage) {
 }
 
 /// Spec §4 finding 8: initial/max backoff for retrying a failed connect (or a failed
-/// attempt to stand up the next listening pipe instance) — doubles each consecutive
+/// attempt to stand up the endpoint) — doubles each consecutive
 /// failure, reset to the initial value after a successful connect.
 const CONNECT_RETRY_INITIAL_BACKOFF_MS: u64 = 100;
 const CONNECT_RETRY_MAX_BACKOFF_MS: u64 = 2000;
@@ -97,32 +97,14 @@ fn next_backoff_ms(current_ms: u64) -> u64 {
     (current_ms * 2).min(CONNECT_RETRY_MAX_BACKOFF_MS)
 }
 
-/// Creates one listening instance of the hook pipe, logging (and returning `None`,
-/// never panicking) on failure. `first` must be `true` only for the very first instance
-/// of the pipe's whole lifetime (`ServerOptions::first_pipe_instance`) — passing it for
-/// a later instance would fail spuriously, since an instance already exists by then.
-fn create_pipe_instance(name: &str, first: bool) -> Option<NamedPipeServer> {
-    let mut opts = ServerOptions::new();
-    if first {
-        opts.first_pipe_instance(true);
-    }
-    match opts.create(name) {
-        Ok(server) => Some(server),
-        Err(err) => {
-            log::warn!("failed to create hook pipe {name}: {err}");
-            None
-        }
-    }
-}
-
-/// Starts the named pipe server in the background (call from `setup` via
+/// Starts the hook endpoint server in the background (call from `setup` via
 /// `tauri::async_runtime::spawn`). Runs until the process exits — spec §4 finding 8: a
-/// `connect()` error (or a failure to stand up the next listening instance) is logged
+/// failed accept (or a failure to stand up the endpoint) is logged
 /// and retried, with a bounded exponential backoff, rather than ever breaking the loop
 /// for good.
 pub async fn run(app: AppHandle) {
     let pid = std::process::id();
-    let name = pipe_name(pid);
+    let name = endpoint_name(pid);
 
     let (tx, mut rx) = mpsc::channel::<agenthub_proto::HookMessage>(256);
 
@@ -155,38 +137,28 @@ pub async fn run(app: AppHandle) {
         });
     }
 
-    let mut pending = create_pipe_instance(&name, true);
+    let mut listener = HookListener::new(&name);
     let mut backoff_ms = CONNECT_RETRY_INITIAL_BACKOFF_MS;
 
     loop {
-        let Some(server) = pending.take() else {
-            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-            backoff_ms = next_backoff_ms(backoff_ms);
-            pending = create_pipe_instance(&name, false);
-            continue;
-        };
-
-        if let Err(err) = server.connect().await {
-            log::warn!("hook pipe connect error: {err}");
-            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-            backoff_ms = next_backoff_ms(backoff_ms);
-            pending = create_pipe_instance(&name, false);
-            continue;
+        match listener.accept().await {
+            Ok(conn) => {
+                backoff_ms = CONNECT_RETRY_INITIAL_BACKOFF_MS;
+                let app = app.clone();
+                let tx = tx.clone();
+                tauri::async_runtime::spawn(handle_connection(conn, app, tx));
+            }
+            Err(err) => {
+                log::warn!("hook endpoint accept error: {err}");
+                tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                backoff_ms = next_backoff_ms(backoff_ms);
+            }
         }
-        backoff_ms = CONNECT_RETRY_INITIAL_BACKOFF_MS;
-
-        // Stand up the next listening instance before handing this connection off, so
-        // a second client is never left waiting on a pipe with no free instance.
-        pending = create_pipe_instance(&name, false);
-
-        let app = app.clone();
-        let tx = tx.clone();
-        tauri::async_runtime::spawn(handle_connection(server, app, tx));
     }
 }
 
 async fn handle_connection(
-    mut pipe: NamedPipeServer,
+    mut pipe: HookConnection,
     app: AppHandle,
     tx: mpsc::Sender<agenthub_proto::HookMessage>,
 ) {
@@ -352,11 +324,6 @@ mod tests {
         assert_eq!(v["payloadBytes"], bytes);
     }
 
-    #[test]
-    fn pipe_name_matches_expected_format() {
-        assert_eq!(pipe_name(1234), format!(r"\\.\pipe\{}-1234", crate::brand::EXE_PREFIX));
-    }
-
     // -- Spec §4 finding 8: bounded exponential backoff on a connect error ----------
 
     #[test]
@@ -371,16 +338,6 @@ mod tests {
             backoff = next_backoff_ms(backoff);
         }
         assert_eq!(backoff, CONNECT_RETRY_MAX_BACKOFF_MS);
-    }
-
-    #[tokio::test]
-    async fn create_pipe_instance_returns_none_on_failure_without_panicking() {
-        let name = r"\\.\pipe\agenthub-test-create-pipe-instance-dup";
-        let _first = create_pipe_instance(name, true).expect("first instance should succeed");
-        // Asking for ANOTHER "first" instance on the same name fails (one already
-        // exists) — must report `None`, never panic.
-        let second = create_pipe_instance(name, true);
-        assert!(second.is_none());
     }
 
     #[cfg(debug_assertions)]

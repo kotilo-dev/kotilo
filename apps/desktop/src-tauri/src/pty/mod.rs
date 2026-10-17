@@ -1010,7 +1010,7 @@ pub fn pty_spawn(
     };
 
     let pane_id = Uuid::new_v4().to_string();
-    let endpoint = ipc_server::pipe_name(std::process::id());
+    let endpoint = ipc_server::endpoint_name(std::process::id());
     let cmd = build_command(
         &profile,
         &cwd,
@@ -1060,8 +1060,6 @@ pub fn pty_spawn(
 
     #[cfg(windows)]
     let job = spawn_job_for(&*child);
-    #[cfg(not(windows))]
-    let job = ();
 
     let writer = pair
         .master

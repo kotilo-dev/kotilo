@@ -33,6 +33,10 @@ const OVERLAY_MARGIN: f64 = 28.0;
 mod os {
     pub use super::win_input::WinDelivery as OsDelivery;
     pub use super::win_window::{foreground_window, overlay_rect, play_wav, show_without_activation};
+
+    pub fn handle(window: &tauri::WebviewWindow) -> Option<isize> {
+        window.hwnd().ok().map(|h| h.0 as isize)
+    }
 }
 
 #[cfg(not(windows))]
@@ -43,6 +47,9 @@ mod os {
         None
     }
     pub fn overlay_rect(_t: Option<WindowId>, _s: (f64, f64), _m: f64) -> Option<(i32, i32, u32, u32)> {
+        None
+    }
+    pub fn handle(_window: &tauri::WebviewWindow) -> Option<isize> {
         None
     }
     pub fn show_without_activation(_hwnd: isize) {}
@@ -152,9 +159,9 @@ impl Platform for DesktopPlatform {
                 let _ = window.set_size(tauri::PhysicalSize::new(w, h));
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             }
-            match window.hwnd() {
-                Ok(hwnd) => os::show_without_activation(hwnd.0 as isize),
-                Err(_) => {
+            match os::handle(&window) {
+                Some(hwnd) => os::show_without_activation(hwnd),
+                None => {
                     let _ = window.show();
                 }
             }
