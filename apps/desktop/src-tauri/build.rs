@@ -219,11 +219,13 @@ fn build_notify_sidecar(exe_prefix: &str) {
     }
 
     let target = env::var("TARGET").expect("TARGET is set by cargo for build scripts");
+    // `.exe` only for a Windows target (Tauri's externalBin naming follows the target too).
+    let exe_suffix = if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") { ".exe" } else { "" };
     let sidecar_target_dir = workspace_root.join("target").join("sidecar");
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
     let dest_dir = manifest_dir.join("binaries");
-    let dest = dest_dir.join(format!("{exe_prefix}-hook-{target}.exe"));
+    let dest = dest_dir.join(format!("{exe_prefix}-hook-{target}{exe_suffix}"));
 
     // Also rerun if the produced binary itself was deleted by hand (e.g. the clean-state
     // verification in the spec) — cargo treats a rerun-if-changed path that doesn't
@@ -268,7 +270,7 @@ fn build_notify_sidecar(exe_prefix: &str) {
     let built_exe = sidecar_target_dir
         .join(&target)
         .join("release")
-        .join("agenthub-hook.exe");
+        .join(format!("agenthub-hook{exe_suffix}"));
     copy_sidecar(&built_exe, &dest);
 }
 
