@@ -2404,12 +2404,10 @@ mod tests {
                 files: Vec::new(),
             }
         }
-        #[cfg(windows)]
         fn with_env(mut self, key: &'static str, value: &'static str) -> Self {
             self.env.insert(key, value);
             self
         }
-        #[cfg(windows)]
         fn with_file(mut self, path: &str) -> Self {
             self.files.push(path.to_string());
             self
