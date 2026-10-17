@@ -993,7 +993,7 @@ export const tr: Strings = {
     },
     buildDate: (date: string) => `Derleme ${date}`,
     description:
-      "Yapay zekâ kodlama ajanlarını yan yana çalıştırıp izlemek için bir Windows masaüstü çalışma alanı: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, kendi ajanlarınız ve sade kabuklar; canlı durum, izinler, kullanım ve dosya görüntüleyiciyle.",
+      "Yapay zekâ kodlama ajanlarını yan yana çalıştırıp izlemek için bir masaüstü çalışma alanı: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, kendi ajanlarınız ve sade kabuklar; canlı durum, izinler, kullanım ve dosya görüntüleyiciyle.",
     contactLabel: "İletişim:",
     copyEmail: "Kopyala",
     reportingProblem: "Sorun bildirmek için: Tanılama topla'yı kullanıp zip dosyasını raporunuza ekleyin.",

@@ -1034,7 +1034,7 @@ export const en = {
     },
     buildDate: (date: string) => `Built ${date}`,
     description:
-      "A Windows desktop workspace for running and watching AI coding agents side by side: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, your own agents and plain shells, with live status, permissions, usage and a file viewer.",
+      "A desktop workspace for running and watching AI coding agents side by side: Claude Code, Codex CLI, GitHub Copilot CLI, Gemini CLI, Qwen Code, Factory Droid, OpenCode, Cursor CLI, your own agents and plain shells, with live status, permissions, usage and a file viewer.",
     contactLabel: "Contact:",
     copyEmail: "Copy",
     reportingProblem: "Reporting a problem: use Collect diagnostics and attach the zip to your report.",

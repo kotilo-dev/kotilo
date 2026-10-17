@@ -381,6 +381,7 @@ pub(crate) fn shutdown(app: &tauri::AppHandle) {
     // without clean exit` just because it raced the wait.
     log::info!("{}", logging::exit_message(std::process::id()));
     log::logger().flush();
+    platform::hook_endpoint::remove(&ipc_server::endpoint_name(std::process::id()));
 
     if let Some(registry) = app.try_state::<pty::PtyRegistry>() {
         // Faz 8 / M3: every agent pane with a close sequence gets a graceful close, all running in
