@@ -403,8 +403,16 @@ pub fn parse_payload(bytes: &[u8]) -> serde_json::Value {
 pub fn pipe_from_chain(chain: &[ProcessRef]) -> Option<String> {
     chain
         .iter()
-        .find(|p| DESKTOP_EXE_NAMES.iter().any(|n| p.name.eq_ignore_ascii_case(n)))
+        .find(|p| DESKTOP_EXE_NAMES.iter().any(|n| exe_stem(&p.name).eq_ignore_ascii_case(exe_stem(n))))
         .map(|p| platform::endpoint_for_pid(p.pid))
+}
+
+/// `kotilo.exe` and `kotilo` (macOS/Linux) name the same app.
+fn exe_stem(name: &str) -> &str {
+    name.len()
+        .checked_sub(4)
+        .filter(|&i| name.is_char_boundary(i) && name[i..].eq_ignore_ascii_case(".exe"))
+        .map_or(name, |i| &name[..i])
 }
 
 /// The actual pipe connect+write step: given the pipe path and the encoded message, does
@@ -1153,6 +1161,12 @@ mod tests {
             ProcessRef { pid: 7, name: agenthub_proto::brand::DESKTOP_EXE_NAMES[1].to_uppercase() },
         ];
         assert_eq!(pipe_from_chain(&chain), Some(platform::endpoint_for_pid(7)));
+        // The macOS/Linux binary has no `.exe`.
+        let unix_chain = vec![
+            ProcessRef { pid: 5, name: "zsh".into() },
+            ProcessRef { pid: 9, name: agenthub_proto::brand::NAME.into() },
+        ];
+        assert_eq!(pipe_from_chain(&unix_chain), Some(platform::endpoint_for_pid(9)));
         assert_eq!(pipe_from_chain(&chain[..2]), None);
     }
 

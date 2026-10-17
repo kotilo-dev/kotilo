@@ -1,20 +1,78 @@
-//! Unix implementations: the desktop app's Unix socket connect; the process-tree query is
-//! still a stub (D-007), and the data folder matches .NET's `LocalApplicationData` on Unix.
+//! Unix implementations: the process-tree query (`/proc` on Linux, one `ps` on macOS), the
+//! desktop app's Unix socket connect, and the data folder matching .NET's
+//! `LocalApplicationData` on Unix.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::{ProcessRef, CONNECT_TIMEOUT_MS};
+use crate::{chain_from_parents, ProcessRef, CONNECT_TIMEOUT_MS};
 
-pub fn process_chain(_self_pid: u32, _max_depth: usize) -> Vec<ProcessRef> {
-    Vec::new()
+/// Ancestors of `self_pid`, nearest first (pid + executable name).
+pub fn process_chain(self_pid: u32, max_depth: usize) -> Vec<ProcessRef> {
+    chain_from_parents(&parents(self_pid, max_depth), self_pid, max_depth)
+}
+
+/// Linux: walks up through `/proc/<pid>/stat`, reading only the processes on the chain.
+#[cfg(target_os = "linux")]
+fn parents(self_pid: u32, max_depth: usize) -> HashMap<u32, (u32, String)> {
+    let mut parents = HashMap::new();
+    let mut pid = self_pid;
+    for _ in 0..=max_depth {
+        let Some((ppid, name)) = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+            .ok()
+            .and_then(|text| parse_proc_stat(&text))
+        else {
+            break;
+        };
+        parents.insert(pid, (ppid, name));
+        if ppid == 0 {
+            break;
+        }
+        pid = ppid;
+    }
+    parents
+}
+
+/// macOS (no `/proc`): one `ps` snapshot. Absolute path: hooks may run with an empty `PATH`.
+#[cfg(not(target_os = "linux"))]
+fn parents(_self_pid: u32, _max_depth: usize) -> HashMap<u32, (u32, String)> {
+    std::process::Command::new("/bin/ps")
+        .args(["-A", "-o", "pid=,ppid=,comm="])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).lines().filter_map(parse_ps_line).collect())
+        .unwrap_or_default()
+}
+
+/// `/proc/<pid>/stat`: `pid (comm) state ppid …`. `comm` may hold spaces or `)`, so the
+/// fields after it are taken from the last `)`.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn parse_proc_stat(text: &str) -> Option<(u32, String)> {
+    let open = text.find('(')?;
+    let close = text.rfind(')')?;
+    let name = text.get(open + 1..close)?.to_string();
+    let ppid = text.get(close + 1..)?.split_whitespace().nth(1)?.parse().ok()?;
+    Some((ppid, name))
+}
+
+/// One `ps -o pid=,ppid=,comm=` line; `comm` is the executable path (may hold spaces), kept
+/// as its file name.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+fn parse_ps_line(line: &str) -> Option<(u32, (u32, String))> {
+    let mut fields = line.trim_start().splitn(2, char::is_whitespace);
+    let pid = fields.next()?.parse().ok()?;
+    let mut rest = fields.next()?.trim_start().splitn(2, char::is_whitespace);
+    let ppid = rest.next()?.parse().ok()?;
+    let comm = rest.next()?.trim();
+    let name = comm.rsplit('/').next().unwrap_or(comm).to_string();
+    Some((pid, (ppid, name)))
 }
 
 /// The desktop app's hook socket for its process id (same path as its `platform::hook_endpoint`).
 pub fn endpoint_for_pid(pid: u32) -> String {
-    std::env::temp_dir()
-        .join(format!("{}-{pid}.sock", agenthub_proto::brand::EXE_PREFIX))
-        .to_string_lossy()
-        .into_owned()
+    format!("/tmp/{}-{pid}.sock", agenthub_proto::brand::EXE_PREFIX)
 }
 
 /// Desktop socket connect + write, bounded by `CONNECT_TIMEOUT_MS`. A missing socket fails
@@ -81,9 +139,32 @@ mod tests {
     }
 
     #[test]
-    fn endpoint_for_pid_is_a_socket_in_the_temp_dir() {
-        let name = endpoint_for_pid(7);
-        assert!(PathBuf::from(&name).starts_with(std::env::temp_dir()));
-        assert!(name.ends_with(&format!("{}-7.sock", agenthub_proto::brand::EXE_PREFIX)), "{name}");
+    fn endpoint_for_pid_is_a_socket_in_tmp() {
+        assert_eq!(endpoint_for_pid(7), format!("/tmp/{}-7.sock", agenthub_proto::brand::EXE_PREFIX));
+    }
+
+    #[test]
+    fn parse_proc_stat_reads_ppid_and_a_name_with_spaces_and_parens() {
+        assert_eq!(parse_proc_stat("4321 (zsh) S 1200 4321 4321 34816"), Some((1200, "zsh".to_string())));
+        assert_eq!(parse_proc_stat("77 (my (odd) app) R 1 77"), Some((1, "my (odd) app".to_string())));
+        assert_eq!(parse_proc_stat("garbage"), None);
+    }
+
+    #[test]
+    fn parse_ps_line_keeps_the_executable_file_name() {
+        assert_eq!(
+            parse_ps_line("  812   1 /Applications/Kotilo.app/Contents/MacOS/Kotilo"),
+            Some((812, (1, "Kotilo".to_string())))
+        );
+        assert_eq!(parse_ps_line("900 812 -zsh"), Some((900, (812, "-zsh".to_string()))));
+        assert_eq!(parse_ps_line("1 0 /sbin/launchd with space"), Some((1, (0, "launchd with space".to_string()))));
+        assert_eq!(parse_ps_line("x 1 bad"), None);
+    }
+
+    #[test]
+    fn process_chain_reaches_this_test_process_parent() {
+        let chain = process_chain(std::process::id(), 8);
+        assert!(!chain.is_empty(), "a test process always has a parent");
+        assert!(chain.iter().all(|p| p.pid != std::process::id()));
     }
 }
