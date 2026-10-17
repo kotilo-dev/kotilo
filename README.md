@@ -8,7 +8,7 @@ Kotilo is Finnish for a snail shell ("koti" means home). It is a portable shell 
 
 ## What it is
 
-Kotilo is a Windows desktop workspace for people who run several AI coding agents side by side. Each agent runs in a real terminal (ConPTY), unmodified, signed in with your own account. Kotilo listens to the hooks or plugins the agents already provide and shows, for every session, whether it is working, waiting for your permission, waiting for input, done or failed. When an agent asks for permission, you can answer from a card or a notification without hunting for the right window.
+Kotilo is a desktop workspace for Windows and Linux for people who run several AI coding agents side by side. Each agent runs in a real terminal, unmodified, signed in with your own account. Kotilo listens to the hooks or plugins the agents already provide and shows, for every session, whether it is working, waiting for your permission, waiting for input, done or failed. When an agent asks for permission, you can answer from a card or a notification without hunting for the right window.
 
 Kotilo does not replace or wrap the agents. It does not include them, does not talk to their services on your behalf and never touches their login or token files.
 
@@ -54,7 +54,7 @@ Kotilo does not replace or wrap the agents. It does not include them, does not t
 - **Usage, cost and limits:** tokens and estimated cost by day, project, model and agent; 5-hour blocks; plan limits where the agent reports them; CSV/Excel export.
 - **Tasks and reports:** a personal task list, daily summaries, wait-time and cost reports.
 - **Dictation:** push-to-talk speech-to-text with Whisper, running locally on your machine.
-- **AI providers:** the app's own AI features (assistant, summaries, dictation cleanup) use either your installed agent CLI, headless, or any OpenAI-compatible endpoint (for example Ollama or LM Studio). API keys are stored in Windows Credential Manager.
+- **AI providers:** the app's own AI features (assistant, summaries, dictation cleanup) use either your installed agent CLI, headless, or any OpenAI-compatible endpoint (for example Ollama or LM Studio). API keys are stored in Windows Credential Manager (not yet on Linux).
 - **Custom agents:** add any other agent CLI with an `adapter.json` file, and let it report its state through the Agent Integration Protocol.
 - **Auto-updates** from GitHub Releases (can be turned off).
 - English and Turkish user interface.
@@ -80,6 +80,8 @@ Kotilo installs an agent's hooks or plugin only when you click **Install** for t
 
 ## Install
 
+### Windows
+
 1. Download the latest installer for your machine (`x64` or `arm64`) from [GitHub Releases](https://github.com/kotilo-dev/kotilo/releases).
 2. Run it. The installer is per-user (NSIS): it installs into your user profile and needs no administrator rights.
 3. Start Kotilo, open **Settings → Agents → Agent integrations** and install the integration for the agents you use.
@@ -87,6 +89,18 @@ Kotilo installs an agent's hooks or plugin only when you click **Install** for t
 Requirements: Windows 11 (x64 or ARM64) and the Microsoft Edge WebView2 Runtime, which most Windows 11 machines already have (the installer downloads it from Microsoft if it is missing).
 
 **SmartScreen and Smart App Control:** until releases are signed (see [Code signing policy](#code-signing-policy)), Windows SmartScreen may warn about an unknown publisher; choose **More info → Run anyway** if you trust the download. Smart App Control blocks unsigned apps entirely; with it turned on you need a signed release or a build from source.
+
+### Linux (x64)
+
+Download one package from [GitHub Releases](https://github.com/kotilo-dev/kotilo/releases):
+
+- **Debian, Ubuntu:** `sudo apt install ./Kotilo_<version>_amd64.deb`
+- **Fedora, openSUSE:** `sudo dnf install ./Kotilo-<version>-1.x86_64.rpm`
+- **Any distribution:** `chmod +x Kotilo_<version>_amd64.AppImage`, then run it
+
+Then start Kotilo and install the agent integrations as above. Requirements: a desktop with WebKitGTK 4.1 (Ubuntu 22.04, Debian 12, Fedora 38 or later); the .deb and .rpm pull it in. Terminals use your login shell (`$SHELL`), then zsh, bash, fish or pwsh.
+
+Not on Linux yet: dictation, the mascot, global hotkeys, the taskbar badge, the back-at-the-desk summary and saving API keys for OpenAI-compatible AI providers (no keyring support yet; the installed agent CLI works). The tray icon needs a desktop with AppIndicator support (on GNOME, the AppIndicator extension).
 
 macOS support is planned.
 
