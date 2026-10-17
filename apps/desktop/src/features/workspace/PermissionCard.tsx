@@ -3,7 +3,9 @@
  * its agent waits for permission (hub request or a prompt found on screen). Buttons send the
  * agent's own prompt keys (D-016, from its adapter definition) with `pane_send_keys`;
  * "Answer in terminal" hides the card for this request. Enter/Esc act only while focus is
- * inside the card — the terminal keeps its own Esc.
+ * inside the card — the terminal keeps its own Esc. A card without details (a prompt found
+ * on screen, or a hook without a tool) cannot tell what it answers: it focuses "Answer in
+ * terminal" and has no Enter/Esc shortcuts, so a stray key never picks an answer.
  */
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useStrings } from "../../app/i18n";
@@ -46,6 +48,18 @@ export function PermissionCard(p: PermissionCardProps) {
   const linkRef = useRef<HTMLButtonElement>(null);
   const focusedAt = useRef(0);
 
+  const tool = p.permission.tool ?? "";
+  const title = p.permission.command
+    ? s.permission.runCommand(p.agentName)
+    : p.permission.path
+      ? s.permission.editFile(p.agentName)
+      : tool
+        ? s.permission.useTool(p.agentName, tool)
+        : s.permission.needsPermission(p.agentName);
+  const risk = p.permission.risk && p.permission.risk !== "other" ? s.permission.risk[p.permission.risk] : null;
+  const subject = p.permission.command ?? p.permission.path;
+  const detailless = !subject && !tool;
+
   // On open, and again whenever the pane becomes visible with the window focused (the request
   // may arrive while the user is elsewhere). Focus is taken only from this pane's terminal, an
   // empty input or nothing, so text being typed somewhere else is never redirected.
@@ -60,20 +74,9 @@ export function PermissionCard(p: PermissionCardProps) {
       active === document.body ||
       (pane?.contains(active) === true && !((active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) && active.value !== ""));
     if (!free) return;
-    (primaryRef.current ?? linkRef.current)?.focus();
+    (detailless ? linkRef.current : (primaryRef.current ?? linkRef.current))?.focus();
     focusedAt.current = Date.now();
-  }, [p.autoFocus]);
-
-  const tool = p.permission.tool ?? "";
-  const title = p.permission.command
-    ? s.permission.runCommand(p.agentName)
-    : p.permission.path
-      ? s.permission.editFile(p.agentName)
-      : tool
-        ? s.permission.useTool(p.agentName, tool)
-        : s.permission.needsPermission(p.agentName);
-  const risk = p.permission.risk && p.permission.risk !== "other" ? s.permission.risk[p.permission.risk] : null;
-  const subject = p.permission.command ?? p.permission.path;
+  }, [p.autoFocus, detailless]);
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     // A key already on its way to the terminal or composer must not land on the button that
@@ -84,7 +87,7 @@ export function PermissionCard(p: PermissionCardProps) {
       e.stopPropagation();
       return;
     }
-    if (e.key === "Escape" && p.keys) {
+    if (e.key === "Escape" && p.keys && !detailless) {
       e.preventDefault();
       e.stopPropagation();
       p.onDecide("deny", p.keys.deny);
@@ -92,7 +95,7 @@ export function PermissionCard(p: PermissionCardProps) {
     }
     // Enter on a button activates that button natively; elsewhere in the card it allows once.
     const onControl = e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement;
-    if (e.key === "Enter" && p.keys && !onControl) {
+    if (e.key === "Enter" && p.keys && !detailless && !onControl) {
       e.preventDefault();
       e.stopPropagation();
       p.onDecide("allow", p.keys.allowOnce);
@@ -136,7 +139,7 @@ export function PermissionCard(p: PermissionCardProps) {
               className="flex h-[38px] items-center gap-2 rounded-button bg-text px-4 text-ui font-semibold text-bg"
             >
               {s.permission.allowOnce}
-              <span className="font-mono text-label opacity-60">{s.permission.keyEnter}</span>
+              {!detailless && <span className="font-mono text-label opacity-60">{s.permission.keyEnter}</span>}
             </button>
             {p.keys.alwaysAllow && (
               <button
@@ -154,7 +157,7 @@ export function PermissionCard(p: PermissionCardProps) {
               className="flex h-[38px] items-center gap-2 rounded-button border border-blocked/35 bg-transparent px-4 text-ui font-medium text-blocked-ink"
             >
               {s.permission.deny}
-              <span className="font-mono text-label opacity-60">{s.permission.keyEsc}</span>
+              {!detailless && <span className="font-mono text-label opacity-60">{s.permission.keyEsc}</span>}
             </button>
           </>
         )}

@@ -51,6 +51,11 @@ describe("paneVisualState", () => {
     expect(paneVisualState(null, undefined)).toBeNull();
   });
 
+  it("shows a desktop record blocked on a question as waiting for input", () => {
+    expect(paneVisualState(null, agent({ state: "blocked", questionPending: true }), true)).toBe("input");
+    expect(paneVisualState(makeSession({ state: "Working" }), agent({ state: "blocked", questionPending: true }), true)).toBe("working");
+  });
+
   it("lets a screen-detected permission prompt win over the hub's Working (Cursor)", () => {
     const working = makeSession({ state: "Working" });
     expect(paneVisualState(working, agent({ state: "blocked" }), true)).toBe("permission");

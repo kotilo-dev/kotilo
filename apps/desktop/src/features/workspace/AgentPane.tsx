@@ -178,7 +178,10 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
   // (Cursor), which has no details: the card then only names the agent.
   const hubPermission =
     session?.state === "WaitingPermission" && !isQuestionTool(session.pendingPermission?.tool) ? session.pendingPermission : null;
-  const screenBlocked = !hubPermission && screenPermission && agent?.state === "blocked";
+  // Never for a question (the hub's WaitingInput, or the desktop's own question flag when the
+  // hub is down): allow/deny keys would pick or cancel one of its answers.
+  const screenBlocked =
+    !hubPermission && screenPermission && agent?.state === "blocked" && !agent.questionPending && session?.state !== "WaitingInput";
   const permission: PendingPermission | null =
     hubPermission ?? (screenBlocked && agent ? { tool: null, command: null, path: null, risk: null, since: new Date(agent.sinceMs).toISOString() } : null);
   const requestKey = hubPermission && session

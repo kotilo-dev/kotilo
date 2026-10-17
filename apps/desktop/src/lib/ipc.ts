@@ -629,6 +629,8 @@ export interface Agent {
   sessionId: string | null;
   /** 0.3.2: background work the agent waits for after its turn (e.g. a subagent name); empty when none. */
   backgroundTasks?: string[];
+  /** `blocked` on a multiple-choice question (Claude's AskUserQuestion/ExitPlanMode), not a yes/no permission. */
+  questionPending?: boolean;
 }
 
 export async function agentsList(): Promise<Agent[]> {

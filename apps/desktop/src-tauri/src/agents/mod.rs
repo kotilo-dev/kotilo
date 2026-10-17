@@ -124,6 +124,10 @@ pub struct Agent {
     /// finished turn is still waiting for; non-empty keeps the record Working. Metadata
     /// only, never persisted.
     pub background_tasks: Vec<String>,
+    /// The record is `Blocked` on a question (Claude Code's `AskUserQuestion`/`ExitPlanMode`
+    /// shown through its permission dialog): answered in the terminal, never with the
+    /// permission card's allow/deny keys. Mirrors the hub's WaitingInput for these tools.
+    pub question_pending: bool,
 }
 
 // ---------------------------------------------------------------------------------
@@ -144,6 +148,12 @@ const BLOCKED_NOTIFICATION_TYPES: [&str; 3] = [
     "elicitation_dialog",
     "elicitation_url_dialog",
 ];
+
+/// Tools whose "permission" dialog is really a multiple-choice question (Claude Code's
+/// `AskUserQuestion` and plan approval `ExitPlanMode`); same list as the hub's.
+fn is_question_tool(tool: Option<&str>) -> bool {
+    matches!(tool, Some("AskUserQuestion" | "ExitPlanMode"))
+}
 
 /// 0.3.2: at most this many background-task labels per record …
 const MAX_BACKGROUND_TASKS: usize = 10;
@@ -260,6 +270,7 @@ pub fn apply_agent_hook(
             source: Source::Hook,
             session_id: None,
             background_tasks: Vec::new(),
+            question_pending: false,
         },
     };
 
@@ -269,6 +280,7 @@ pub fn apply_agent_hook(
         .and_then(|v| v.as_str())
         .map(str::to_string);
 
+    let tool_name = payload.get("tool_name").and_then(|v| v.as_str());
     let mut new_state = next.state;
     let finished = if seen { AgentState::Idle } else { AgentState::Done };
     // 0.3.2: Working only because a finished turn waits for background work.
@@ -287,11 +299,19 @@ pub fn apply_agent_hook(
             new_state = AgentState::Working;
             next.background_tasks.clear();
         }
-        "PreToolUse" | "PostToolUse" => {
+        "PreToolUse" => {
+            new_state = AgentState::Working;
+            // The question dialog follows; its permission_prompt Notification has no tool name.
+            next.question_pending = is_question_tool(tool_name);
+        }
+        "PostToolUse" => {
             new_state = AgentState::Working;
         }
         "PermissionRequest" => {
             new_state = AgentState::Blocked;
+            if tool_name.is_some() {
+                next.question_pending = is_question_tool(tool_name);
+            }
         }
         "Notification" => {
             let notification_type = payload
@@ -351,6 +371,10 @@ pub fn apply_agent_hook(
 
     if matches!(new_state, AgentState::Idle | AgentState::Done) {
         next.background_tasks.clear();
+    }
+    // Only the question's own dialog events keep the flag; anything else ends the question.
+    if !matches!(event, "PreToolUse" | "PermissionRequest" | "Notification") {
+        next.question_pending = false;
     }
     if new_state != next.state {
         next.since_ms = ts_ms;
@@ -433,6 +457,7 @@ pub fn apply_cancel_fallback(prev: &Agent, signal: CancelSignal, now_ms: u64) ->
     Some(Agent {
         state: new_state,
         since_ms: now_ms,
+        question_pending: false,
         ..prev.clone()
     })
 }
@@ -503,6 +528,7 @@ pub fn apply_screen_event(agent: &mut Agent, event: ScreenEvent, seen: bool, rec
     }
     agent.state = new_state;
     agent.since_ms = now_ms;
+    agent.question_pending = false;
     true
 }
 
@@ -1061,6 +1087,7 @@ impl AgentTracker {
                             source: Source::Heuristic,
                             session_id: None,
                             background_tasks: Vec::new(),
+                            question_pending: false,
                         }),
                     );
                     true
@@ -1336,6 +1363,7 @@ mod tests {
             source,
             session_id: None,
             background_tasks: Vec::new(),
+            question_pending: false,
         }
     }
 
@@ -1428,6 +1456,46 @@ mod tests {
         let prev = hook_agent(AgentState::Working, 10);
         let out = apply_hook(Some(&prev), "p1", "w1", "PermissionRequest", &json!({}), 20, false);
         assert_eq!(upsert(out).state, AgentState::Blocked);
+    }
+
+    #[test]
+    fn question_tools_mark_the_blocked_record_as_a_question() {
+        for tool in ["AskUserQuestion", "ExitPlanMode"] {
+            let prev = hook_agent(AgentState::Working, 10);
+            let pre = upsert(apply_hook(Some(&prev), "p1", "w1", "PreToolUse", &json!({"tool_name": tool}), 20, false));
+            assert!(pre.question_pending, "{tool}");
+            let req = upsert(apply_hook(Some(&pre), "p1", "w1", "PermissionRequest", &json!({"tool_name": tool}), 30, false));
+            let notif = upsert(apply_hook(
+                Some(&req),
+                "p1",
+                "w1",
+                "Notification",
+                &json!({"notification_type": "permission_prompt", "message": format!("Claude needs your permission to use {tool}")}),
+                40,
+                false,
+            ));
+            assert_eq!((notif.state, notif.question_pending), (AgentState::Blocked, true), "{tool}");
+            let answered = upsert(apply_hook(Some(&notif), "p1", "w1", "PostToolUse", &json!({"tool_name": tool}), 50, false));
+            assert_eq!((answered.state, answered.question_pending), (AgentState::Working, false), "{tool}");
+        }
+    }
+
+    #[test]
+    fn a_real_permission_request_is_not_a_question() {
+        let prev = hook_agent(AgentState::Working, 10);
+        let pre = upsert(apply_hook(Some(&prev), "p1", "w1", "PreToolUse", &json!({"tool_name": "Bash"}), 20, false));
+        let req = upsert(apply_hook(Some(&pre), "p1", "w1", "PermissionRequest", &json!({"tool_name": "Bash"}), 30, false));
+        assert_eq!((req.state, req.question_pending), (AgentState::Blocked, false));
+        let notif = upsert(apply_hook(Some(&req), "p1", "w1", "Notification", &json!({"notification_type": "permission_prompt"}), 40, false));
+        assert!(!notif.question_pending);
+    }
+
+    #[test]
+    fn cancel_fallback_ends_a_pending_question() {
+        let mut prev = hook_agent(AgentState::Blocked, 10);
+        prev.question_pending = true;
+        let next = apply_cancel_fallback(&prev, CancelSignal::Idle, 99).expect("changes");
+        assert!(!next.question_pending);
     }
 
     #[test]

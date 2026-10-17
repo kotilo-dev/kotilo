@@ -30,7 +30,7 @@ export type PaneVisualState = "working" | "permission" | "input" | "done" | "idl
  * screen (Cursor: no hook reports them), so the desktop's `blocked` wins over the hub.
  */
 export function paneVisualState(session: SessionDto | null, agent: Agent | undefined, screenPermission = false): PaneVisualState | null {
-  if (screenPermission && agent?.state === "blocked" && session?.state !== "WaitingInput") return "permission";
+  if (screenPermission && agent?.state === "blocked" && !agent.questionPending && session?.state !== "WaitingInput") return "permission";
   if (session) {
     switch (session.state) {
       case "WaitingPermission":
@@ -50,6 +50,7 @@ export function paneVisualState(session: SessionDto | null, agent: Agent | undef
     }
   }
   if (!agent) return null;
+  if (agent.state === "blocked" && agent.questionPending) return "input";
   return visualStateForAgent(agent.state);
 }
 

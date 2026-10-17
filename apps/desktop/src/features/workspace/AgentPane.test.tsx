@@ -213,6 +213,39 @@ describe("AgentPane", () => {
     expect(screen.queryByRole("region", { name: "Permission request" })).toBeNull();
   });
 
+  it("shows no card for a Claude question while the hub is down", () => {
+    agentStore.store.setState({
+      agents: [{ id: "p1", paneId: "p1", workspaceId: "ws1", kind: "claude", adapterId: "claude-code", state: "blocked", sinceMs: Date.now() - 2000, source: "hook", sessionId: null, questionPending: true }],
+    });
+    useHubStore.setState({ sessions: [] });
+    const { container } = render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
+    expect(screen.queryByRole("region", { name: "Permission request" })).toBeNull();
+    expect(container.querySelector('[data-pane-state="input"]')).not.toBeNull();
+  });
+
+  it("shows no screen card while the hub reports Claude waiting for input", () => {
+    agentStore.store.setState({
+      agents: [{ id: "p1", paneId: "p1", workspaceId: "ws1", kind: "claude", adapterId: "claude-code", state: "blocked", sinceMs: Date.now() - 2000, source: "hook", sessionId: null }],
+    });
+    useHubStore.setState({ sessions: [waiting({ agent: "claude-code", state: "WaitingInput", pendingPermission: null })] });
+    render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
+    expect(screen.queryByRole("region", { name: "Permission request" })).toBeNull();
+  });
+
+  it("a card without details focuses Answer in terminal and ignores Enter/Esc", () => {
+    agentStore.store.setState({
+      agents: [{ id: "p1", paneId: "p1", workspaceId: "ws1", kind: "claude", adapterId: "claude-code", state: "blocked", sinceMs: Date.now() - 2000, source: "hook", sessionId: null }],
+    });
+    useHubStore.setState({ sessions: [] });
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
+    const region = screen.getByRole("region", { name: "Permission request" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Answer in terminal" }));
+    fireEvent.keyDown(screen.getByText("Read the prompt in the terminal before you answer."), { key: "Enter" });
+    fireEvent.keyDown(region, { key: "Escape" });
+    expect(ipc.paneSendKeys).not.toHaveBeenCalled();
+  });
+
   it("shows no card without permission details from the hub", () => {
     useHubStore.setState({ sessions: [waiting({ pendingPermission: null })] });
     render(<AgentPane workspaceId="ws1" tab={tab()} visible />);
