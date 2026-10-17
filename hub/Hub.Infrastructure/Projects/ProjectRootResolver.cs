@@ -31,9 +31,9 @@ public sealed class ProjectRootResolver
 
         foreach (var root in _fixedRoots)
         {
-            var normalized = cwd.Replace('/', '\\').TrimEnd('\\');
+            var normalized = cwd.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
             if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase))
+                || normalized.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
                 return root;
             }

@@ -301,6 +301,12 @@ public sealed class CliAiProviderTests : IDisposable
     [Fact]
     public void Npm_shims_resolve_to_their_native_exe_or_node_script()
     {
+        // npm writes .cmd shims only on Windows.
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var npm = Directory.CreateDirectory(_dir.File("npm")).FullName;
         var exe = Path.Combine(npm, "node_modules", "@x", "cli", "bin", "tool.exe");
         var script = Path.Combine(npm, "node_modules", "@y", "cli", "loader.js");
