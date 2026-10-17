@@ -10,6 +10,8 @@ pub mod hook_endpoint;
 pub mod hotkeys;
 pub mod idle;
 pub mod mascot;
+#[cfg(not(windows))]
+pub mod processes;
 pub mod taskbar;
 pub mod webview;
 pub mod wt_settings;
