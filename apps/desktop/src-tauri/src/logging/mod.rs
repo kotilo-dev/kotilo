@@ -43,9 +43,7 @@ pub const PANIC_MESSAGE_MAX_CHARS: usize = 500;
 /// `%LOCALAPPDATA%` (falls back to the current directory if unset — should not happen on
 /// a real Windows machine, but keeps every caller here total).
 pub fn local_app_data_dir() -> std::path::PathBuf {
-    std::env::var_os("LOCALAPPDATA")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
+    crate::platform::local_data_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
 /// Spec §1: `%LOCALAPPDATA%\kotilo\logs` — deliberately not `%APPDATA%` (must not
