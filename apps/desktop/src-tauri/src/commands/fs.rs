@@ -205,7 +205,10 @@ fn resolve_link_at(root: &Path, base_rel: &str, candidate: &str) -> Option<Resol
 
     let rel = if let Some(drive_form) = strip_gitbash_drive(&normalized) {
         resolve_absolute_under_root(root, &drive_form)
-    } else if is_windows_drive_absolute(&normalized) {
+            // A real `/x/...` path on macOS/Linux.
+            .or_else(|| resolve_absolute_under_root(root, &normalized))
+    } else if is_windows_drive_absolute(&normalized) || Path::new(&normalized).is_absolute() {
+        // The second test is a `/...` path on macOS/Linux (never absolute on Windows).
         resolve_absolute_under_root(root, &normalized)
     } else {
         let rel_candidate = normalized.strip_prefix("./").unwrap_or(&normalized);
@@ -1516,6 +1519,8 @@ mod tests {
         assert!(resolve_link_at(dir.path(), "", &candidate).is_none());
     }
 
+    // Git Bash's `/c/...` form of a Windows drive path.
+    #[cfg(windows)]
     #[test]
     fn resolve_link_gitbash_absolute_path() {
         let dir = workspace_with_file();

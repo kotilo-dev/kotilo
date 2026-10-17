@@ -235,6 +235,8 @@ fn emit_rescan(app: &AppHandle, workspace_id: &str) {
 mod tests {
     use super::*;
 
+    // Windows paths and Windows' case-insensitive file system.
+    #[cfg(windows)]
     #[test]
     fn to_rel_ci_handles_root_and_children_case_insensitively() {
         let root = Path::new(r"C:\Work\Proj");
