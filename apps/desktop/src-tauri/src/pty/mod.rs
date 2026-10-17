@@ -1880,7 +1880,10 @@ pub(crate) fn system_process_topology() -> Vec<ProcTopologyEntry> {
 
 #[cfg(not(windows))]
 pub(crate) fn system_process_topology() -> Vec<ProcTopologyEntry> {
-    Vec::new()
+    crate::platform::processes::list()
+        .into_iter()
+        .map(|p| ProcTopologyEntry { pid: p.pid, ppid: p.ppid, name: p.name })
+        .collect()
 }
 
 /// Faz 5 §4 finding 3: [`process_creation_time`] with the `Option` collapsed to `0`
@@ -2263,8 +2266,8 @@ pub(crate) fn process_command_line(pid: u32) -> Option<String> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn process_command_line(_pid: u32) -> Option<String> {
-    None
+pub(crate) fn process_command_line(pid: u32) -> Option<String> {
+    crate::platform::processes::command_line(pid)
 }
 
 /// Processes living under `pane_id` (D8 derisk; BUG-1 fix: union of the Job Object's
