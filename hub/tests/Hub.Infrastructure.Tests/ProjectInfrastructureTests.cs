@@ -117,6 +117,23 @@ public sealed class TodoScannerTests : IDisposable
     }
 
     [Fact]
+    public void Unchanged_files_are_reused_and_changed_ones_read_again()
+    {
+        Write("tasks/a.md", "- [ ] a");
+        Write("tasks/b.md", "- [ ] b");
+        var glob = GlobPattern.Parse(null);
+        var first = TodoScanner.Scan(_dir.Path, glob);
+
+        Write("tasks/b.md", "- [x] b");
+        File.SetLastWriteTimeUtc(Path.Combine(_dir.Path, "tasks", "b.md"), DateTime.UtcNow.AddMinutes(1));
+        var second = TodoScanner.Scan(_dir.Path, glob, first);
+
+        second[0].Should().BeSameAs(first[0]);
+        second[1].Should().NotBeSameAs(first[1]);
+        second[1].Done.Should().Be(1);
+    }
+
+    [Fact]
     public void Reads_file_held_open_for_writing()
     {
         Write("tasks/todo.md", "- [x] a");

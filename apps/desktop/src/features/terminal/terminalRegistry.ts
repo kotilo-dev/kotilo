@@ -38,6 +38,8 @@ export interface TermEntry {
   fit: { fit(): void } | null;
   search: { findNext(term: string): boolean; findPrevious(term: string): boolean } | null;
   webgl: WebglAddon | null;
+  /** WebGL context losses so far; after a few the terminal stays on the DOM renderer. */
+  webglLosses: number;
   disposables: Array<() => void>;
 }
 
@@ -150,6 +152,7 @@ export function getOrCreateEntry(tabId: string): TermEntry {
     fit: null,
     search: null,
     webgl: null,
+    webglLosses: 0,
     disposables: [],
   };
   entries.set(tabId, entry);

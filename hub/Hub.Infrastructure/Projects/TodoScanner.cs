@@ -23,7 +23,11 @@ public static class TodoScanner
         return Directory.Exists(dir) ? dir : null;
     }
 
-    public static IReadOnlyList<TodoFile> Scan(string root, GlobPattern glob)
+    /// <summary>
+    /// Every matching file, parsed. A file of <paramref name="previous"/> whose write time is unchanged is reused instead
+    /// of read again (the 60 s project sweep would otherwise re-read every todo file of every project).
+    /// </summary>
+    public static IReadOnlyList<TodoFile> Scan(string root, GlobPattern glob, IReadOnlyList<TodoFile>? previous = null)
     {
         var start = WatchDirectory(root, glob);
         if (start is null)
@@ -31,6 +35,7 @@ public static class TodoScanner
             return [];
         }
 
+        var known = previous?.ToDictionary(f => f.RelativePath, StringComparer.Ordinal) ?? [];
         var files = new List<TodoFile>();
         Walk(start, 0);
         return files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
@@ -50,7 +55,16 @@ public static class TodoScanner
             foreach (var path in entries)
             {
                 var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-                if (glob.IsMatch(relative) && Read(path, relative) is { } file)
+                if (!glob.IsMatch(relative))
+                {
+                    continue;
+                }
+
+                if (known.TryGetValue(relative, out var same) && same.LastWriteUtc == LastWriteUtc(path))
+                {
+                    files.Add(same);
+                }
+                else if (Read(path, relative) is { } file)
                 {
                     files.Add(file);
                 }
@@ -75,6 +89,18 @@ public static class TodoScanner
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
+        }
+    }
+
+    private static DateTimeOffset? LastWriteUtc(string path)
+    {
+        try
+        {
+            return new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 

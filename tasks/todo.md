@@ -9,10 +9,12 @@ Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corpo
 
 ## Wave 2 (after the user's reduced-motion check on the second machine)
 - [ ] Working-state animations: `.shimmer-text` (`background-clip: text`, repaints every frame) and spinners → compositor-only (opacity/transform) or static; pause while the window is hidden/unfocused
-- [ ] Dictation overlay window created on first use, not at start
-- [ ] Project scan: mtime cache for todo/task files; lighter 60 s activity query; HealthMonitor re-reads agent configs only on change
-- [ ] Terminal: reload WebGL after a context loss (stays on the DOM renderer today)
-- [ ] Hook latency test; one log line per notification (`EventPipeline` + `AppHost` both log it)
+- [x] Dictation overlay window created on first use (not at start) and closed after 10 min hidden
+- [x] Project scan: todo files with an unchanged write time are reused, not re-read every 60 s; tests
+- [ ] Only if the re-measurement still shows idle reads: the 60 s project activity query scans all of `ix_usage_project_ts`; HealthMonitor re-reads the agent configs every 30 s (a few KB, left as is)
+- [x] Terminal: WebGL reloads 1 s after a context loss (at most 3 times per terminal); it stayed on the DOM renderer until a tab switch
+- [x] One log line per notification: the source logs it; `AppHost` only logs a quiet-hours/DND drop
+- [ ] Hook latency test (process start + process snapshot + loopback POST per event)
 - [ ] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets
 
 # U-2 – Linux core (planned 2026-10-17)

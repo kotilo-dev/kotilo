@@ -215,7 +215,7 @@ public sealed class ProjectService : IAsyncDisposable
                 continue;
             }
 
-            var files = record.Hidden ? [] : TodoScanner.Scan(record.Root, glob);
+            var files = record.Hidden ? [] : TodoScanner.Scan(record.Root, glob, _projects.GetValueOrDefault(record.Root)?.Files);
             var project = new ProjectProgress(
                 record.Root,
                 string.IsNullOrWhiteSpace(record.Alias) ? SessionInfo.ProjectNameFrom(record.Root) : record.Alias,
@@ -245,7 +245,7 @@ public sealed class ProjectService : IAsyncDisposable
             return false;
         }
 
-        var updated = project with { Files = TodoScanner.Scan(root, _glob) };
+        var updated = project with { Files = TodoScanner.Scan(root, _glob, project.Files) };
         _projects[root] = updated;
         Notify(updated);
         return true;

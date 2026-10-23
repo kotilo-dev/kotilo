@@ -39,6 +39,9 @@ import { PasteWarningModal } from "./PasteWarningModal";
 
 const RESIZE_DEBOUNCE_MS = 50;
 const LINK_CACHE_LIMIT = 500;
+/** WebGL reloads after a context loss (GPU reset, driver update); a GPU that keeps losing it keeps the DOM renderer. */
+const WEBGL_MAX_RELOADS = 3;
+const WEBGL_RELOAD_DELAY_MS = 1000;
 
 // --- Link resolution cache (LRU, 500 entries, fully cleared on fs:changed – §2.6) ------------
 
@@ -99,6 +102,8 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   const strings = useStrings();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  /** Bumped to load WebGL again after a context loss (otherwise the DOM renderer stays until a tab switch). */
+  const [webglAttempt, setWebglAttempt] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   // faz6-spec §7: text waiting to be pasted (the multi-line warning modal awaits confirmation).
   const [pendingPaste, setPendingPaste] = useState<string | null>(null);
@@ -301,6 +306,10 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
             // swallow
           }
           if (entry.webgl === webgl) entry.webgl = null;
+          entry.webglLosses += 1;
+          if (entry.webglLosses <= WEBGL_MAX_RELOADS) {
+            setTimeout(() => setWebglAttempt((n) => n + 1), WEBGL_RELOAD_DELAY_MS);
+          }
         });
         term.loadAddon(webgl);
         entry.webgl = webgl;
@@ -311,7 +320,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [visible, entry, term]);
+  }, [visible, entry, term, webglAttempt]);
 
   // --- live font/theme from settings (faz6-spec §1.4, §2, §7): same rule as for open editors,
   // here for all terminals – this component is mounted for every tab regardless of visibility

@@ -13,15 +13,13 @@ use crate::dictation::{DictationHub, DictationStatus};
 use crate::hub::client::HubClient;
 use crate::platform::dictation::{self as platform, DesktopPlatform};
 
-/// Starts dictation: the overlay window, the controller thread and a first settings load.
+/// Starts dictation: the controller thread and a first settings load. The overlay window is
+/// created on the first dictation.
 pub fn start(app: &AppHandle) {
     let Some(client) = HubClient::from_env() else {
         log::warn!("dictation: hub data folder unknown; dictation is off");
         return;
     };
-    if let Err(e) = platform::create_overlay_window(app) {
-        log::error!("dictation: overlay window could not be created: {e}");
-    }
     let hub: Arc<dyn DictationHub> = Arc::new(HubDictation::new(client));
     let handle = app.clone();
     let service = DictationService::start(move |events| DesktopPlatform::new(handle, events), hub, platform::delivery());

@@ -11,9 +11,10 @@ mod win_input;
 #[cfg(windows)]
 mod win_window;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -28,6 +29,8 @@ pub const OVERLAY_LABEL: &str = "dictation-overlay";
 /// Overlay size in DIPs and its distance from the bottom of the work area (CCC overlay).
 const OVERLAY_SIZE: (f64, f64) = (380.0, 58.0);
 const OVERLAY_MARGIN: f64 = 28.0;
+/// A hidden overlay is closed after this long; its WebView renderer costs memory while idle.
+const OVERLAY_IDLE_CLOSE: Duration = Duration::from_secs(10 * 60);
 
 #[cfg(windows)]
 mod os {
@@ -69,9 +72,10 @@ pub fn delivery() -> Arc<dyn Delivery> {
     Arc::new(os::OsDelivery)
 }
 
-/// Creates the hidden overlay window up front so its page is loaded before the first
-/// dictation (events sent to a page that is still loading would be lost).
-pub fn create_overlay_window(app: &AppHandle) -> tauri::Result<()> {
+/// Creates the hidden overlay window on the first dictation. Events sent while its page is
+/// still loading are lost, but recording sends a state every level tick, so the overlay
+/// catches up within the first moments.
+fn create_overlay_window(app: &AppHandle) -> tauri::Result<()> {
     // No overlay where dictation has no OS side (U-2).
     if !super::features().dictation || app.get_webview_window(OVERLAY_LABEL).is_some() {
         return Ok(());
@@ -96,6 +100,8 @@ pub struct DesktopPlatform {
     hotkeys: Option<Hotkeys>,
     recorder: Recorder,
     overlay_visible: AtomicBool,
+    /// Bumped on every show; an idle-close timer only closes the overlay it hid.
+    overlay_generation: Arc<AtomicU64>,
 }
 
 impl DesktopPlatform {
@@ -109,7 +115,25 @@ impl DesktopPlatform {
                 }
             });
         }
-        Self { app, hotkeys, recorder: Recorder::default(), overlay_visible: AtomicBool::new(false) }
+        Self { app, hotkeys, recorder: Recorder::default(), overlay_visible: AtomicBool::new(false), overlay_generation: Arc::default() }
+    }
+
+    /// Closes the hidden overlay after [`OVERLAY_IDLE_CLOSE`] unless it was shown again.
+    fn close_overlay_when_idle(&self) {
+        let app = self.app.clone();
+        let generation = Arc::clone(&self.overlay_generation);
+        let hidden_at = generation.load(Ordering::Relaxed);
+        let spawned = std::thread::Builder::new().name("dictation-overlay-close".into()).spawn(move || {
+            std::thread::sleep(OVERLAY_IDLE_CLOSE);
+            if generation.load(Ordering::Relaxed) == hidden_at {
+                if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
+                    let _ = window.close();
+                }
+            }
+        });
+        if let Err(e) = spawned {
+            log::warn!("dictation: overlay close timer could not start: {e}");
+        }
     }
 }
 
@@ -147,14 +171,21 @@ impl Platform for DesktopPlatform {
     }
 
     fn show_overlay(&self, state: &OverlayState, target: Option<WindowId>) {
+        if state.phase != Phase::Hidden && self.app.get_webview_window(OVERLAY_LABEL).is_none() {
+            if let Err(e) = create_overlay_window(&self.app) {
+                log::error!("dictation: overlay window could not be created: {e}");
+            }
+        }
         let Some(window) = self.app.get_webview_window(OVERLAY_LABEL) else { return };
         let _ = self.app.emit_to(OVERLAY_LABEL, "dictation:overlay", state);
         if state.phase == Phase::Hidden {
             if self.overlay_visible.swap(false, Ordering::Relaxed) {
                 let _ = window.hide();
+                self.close_overlay_when_idle();
             }
             return;
         }
+        self.overlay_generation.fetch_add(1, Ordering::Relaxed);
         if !self.overlay_visible.swap(true, Ordering::Relaxed) {
             if let Some((x, y, w, h)) = os::overlay_rect(target, OVERLAY_SIZE, OVERLAY_MARGIN) {
                 let _ = window.set_size(tauri::PhysicalSize::new(w, h));

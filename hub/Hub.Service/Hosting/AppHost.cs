@@ -336,12 +336,13 @@ public sealed class AppHost : IAsyncDisposable
     /// <summary>Global quiet hours and "do not disturb" drop notifications here (spec §11.2); the desktop adds pane-visibility suppression.</summary>
     private void Notify(Api.NotificationDto notification)
     {
+        // The source (event pipeline, usage, projects) has already logged the notification; only a drop is news here.
         if (NotificationGate.IsSuppressed(DateTimeOffset.UtcNow, TimeZoneInfo.Local, Settings.DoNotDisturbUntil, Settings.QuietHours))
         {
+            Log.Information("Notification {Rule} for {Session} suppressed (quiet hours or do not disturb)", notification.RuleId, notification.SessionId);
             return;
         }
 
-        Log.Information("Notification {Rule} for {Session}", notification.RuleId, notification.SessionId);
         Stream.Publish("notification", notification);
     }
 
