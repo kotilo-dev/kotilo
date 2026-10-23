@@ -18,6 +18,7 @@ import { useLayoutStore } from "../../stores/layoutStore";
 import { useAgentStore } from "../../stores/agentStore";
 import { urgentStateForWorkspace } from "../agents/agentLogic";
 import { AgentBadge } from "../agents/AgentBadge";
+import { isModPressed } from "../../lib/keys";
 
 const ROW_HEIGHT = 22;
 const INDENT_PX = 14;
@@ -268,7 +269,7 @@ export function Tree() {
         e.preventDefault();
         const row = selectedRow();
         // Enter = double click (open in the preview tab), Ctrl+Enter = Ctrl+click (new tab).
-        if (row) openRow(row, e.ctrlKey);
+        if (row) openRow(row, isModPressed(e));
         break;
       }
       case "F2":
@@ -284,7 +285,7 @@ export function Tree() {
         // Ctrl+Shift+V is the terminal-paste shortcut everywhere now (faz4-spec §4.1 — the
         // panel toggle moved to Ctrl+Shift+U); without the shift/alt guard, a bare Ctrl+V
         // here would still collide with a clipboard-image save.
-        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        if (isModPressed(e) && !e.shiftKey && !e.altKey) {
           e.preventDefault();
           const row = selectedRow();
           if (row?.kind === "root") void saveClipboardImage(row.workspaceId, "");
@@ -483,7 +484,7 @@ export function Tree() {
           // on hover/selection, a double click or "Make active" in the context menu; the active
           // root's tree toggles with the arrow (▶/▼).
           if (row.kind === "file") {
-            if (e.ctrlKey) openRow(row as Row, true);
+            if (isModPressed(e)) openRow(row as Row, true);
             else select(workspaceId, rel);
             return;
           }
@@ -494,7 +495,7 @@ export function Tree() {
           openRow(row as Row, false);
         }}
         onDoubleClick={(e) => {
-          if (isEditingThis || e.ctrlKey) return;
+          if (isEditingThis || isModPressed(e)) return;
           if (row.kind === "file") openRow(row as Row, false);
           else if (isRoot && !isActive) void setActive(workspaceId);
         }}

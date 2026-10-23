@@ -8,6 +8,7 @@ import { useStrings } from "./i18n";
 import { routeShortcut, visibleRoutes, type RouteDef } from "./routes";
 import { useRouteStore } from "../stores/routeStore";
 import { useHubStore } from "../stores/hubStore";
+import { formatKeybinding } from "../lib/keys";
 
 /** Today + overdue open tasks from the hub stream; null when there are none (or for other routes). */
 function useTaskBadge(enabled: boolean): { count: number; overdue: boolean; text: string } | null {
@@ -28,7 +29,7 @@ function RailButton({ def, index }: { def: RouteDef; index: number }) {
       type="button"
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      title={`${label} (${routeShortcut(index)})`}
+      title={`${label} (${formatKeybinding(routeShortcut(index))})`}
       data-route={def.id}
       onClick={() => navigate(def.id)}
       className={

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime exceptions for the signed macOS build (U-3, bundle.macOS.entitlements).
+  Tauri signs the app, the hook and the hub sidecar with this one file.
+
+  allow-jit: the hub is a .NET single-file app (not Native AOT); .NET requires this entitlement
+  (https://learn.microsoft.com/dotnet/core/deploying/macos). The app (WKWebView, JIT runs in
+  WebKit's own processes) and the hook need none. No microphone: dictation is off on macOS.
+  Library validation stays on: the hub's only native library (libe_sqlite3.dylib) is signed
+  with the same identity by scripts/release-macos.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+</dict>
+</plist>

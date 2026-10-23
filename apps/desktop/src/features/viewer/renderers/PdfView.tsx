@@ -15,6 +15,7 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import { useStrings } from "../../../app/strings";
 import { fsReadBytes, fsStat, onFsChanged, onFsRescan, toAppError } from "../../../lib/ipc";
 import { parentRel } from "../../workspaces/paths";
+import { isModPressed } from "../../../lib/keys";
 import type { RendererProps } from "./types";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -414,7 +415,7 @@ export function PdfView({ workspaceId, rel }: RendererProps) {
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.ctrlKey && (e.key === "f" || e.key === "F")) {
+    if (isModPressed(e) && (e.key === "f" || e.key === "F")) {
       e.preventDefault();
       openSearch();
       return;

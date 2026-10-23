@@ -79,3 +79,57 @@ describe("routeKey", () => {
     expect(routeKey(key({ key: "v", ctrlKey: true }), true, true)).toBe("terminal");
   });
 });
+
+describe("routeKey on macOS (U-3)", () => {
+  const mac = (e: KeyRoutingEvent, hasSelection = false) => routeKey(e, true, hasSelection, "macos");
+
+  it("app shortcuts use Cmd; the same Ctrl combos go to the shell", () => {
+    expect(mac(key({ key: "b", metaKey: true }))).toBe("app");
+    expect(mac(key({ key: "j", metaKey: true }))).toBe("app");
+    expect(mac(key({ key: "p", metaKey: true, shiftKey: true }))).toBe("app");
+    expect(mac(key({ key: ",", metaKey: true }))).toBe("app");
+    expect(mac(key({ key: "3", metaKey: true }))).toBe("app");
+    expect(mac(key({ key: "b", ctrlKey: true }))).toBe("shell");
+    expect(mac(key({ key: "p", ctrlKey: true, shiftKey: true }))).toBe("shell");
+  });
+
+  it("Ctrl+Tab and Ctrl+` keep Ctrl (Cmd+Tab / Cmd+` belong to macOS)", () => {
+    expect(mac(key({ key: "Tab", ctrlKey: true }))).toBe("app");
+    expect(mac(key({ key: "Tab", ctrlKey: true, shiftKey: true }))).toBe("app");
+    expect(mac(key({ key: "`", code: "Backquote", ctrlKey: true }))).toBe("app");
+  });
+
+  it("Cmd+C copies (with or without a selection), Cmd+V pastes, Cmd+F finds", () => {
+    expect(mac(key({ key: "c", metaKey: true }), true)).toBe("terminal");
+    expect(mac(key({ key: "c", metaKey: true }), false)).toBe("terminal");
+    expect(mac(key({ key: "v", metaKey: true }))).toBe("terminal");
+    expect(mac(key({ key: "f", metaKey: true }))).toBe("terminal");
+    expect(mac(key({ key: "v", metaKey: true, shiftKey: true }))).toBe("terminal");
+  });
+
+  it("Ctrl+C and Ctrl+V always reach the shell, even with a selection", () => {
+    expect(mac(key({ key: "c", ctrlKey: true }), true)).toBe("shell");
+    expect(mac(key({ key: "c", ctrlKey: true }), false)).toBe("shell");
+    expect(mac(key({ key: "v", ctrlKey: true }))).toBe("shell");
+    expect(mac(key({ key: "f", ctrlKey: true }))).toBe("shell");
+  });
+
+  it("Option+digit switches routes by e.code although it types a character", () => {
+    expect(mac(key({ key: "¡", code: "Digit1", altKey: true }))).toBe("app");
+    expect(mac(key({ key: "™", code: "Digit2", altKey: true }))).toBe("app");
+  });
+});
+
+describe("routeKey on Windows/Linux stays as before (U-3)", () => {
+  it.each(["windows", "linux"])("%s: Ctrl shortcuts, Ctrl+C only with a selection, Cmd/Meta goes to the shell", (platform) => {
+    const r = (e: KeyRoutingEvent, sel = false) => routeKey(e, true, sel, platform);
+    expect(r(key({ key: "b", ctrlKey: true }))).toBe("app");
+    expect(r(key({ key: "c", ctrlKey: true }), true)).toBe("terminal");
+    expect(r(key({ key: "c", ctrlKey: true }), false)).toBe("shell");
+    expect(r(key({ key: "v", ctrlKey: true }))).toBe("terminal");
+    expect(r(key({ key: "f", ctrlKey: true }))).toBe("shell");
+    expect(r(key({ key: "f", ctrlKey: true, shiftKey: true }))).toBe("terminal");
+    expect(r(key({ key: "b", metaKey: true }))).toBe("shell");
+    expect(r(key({ key: "1", code: "Digit1", altKey: true }))).toBe("app");
+  });
+});

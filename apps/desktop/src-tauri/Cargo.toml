@@ -119,6 +119,12 @@ windows = { version = "0.62", features = [
     "Win32_System_SystemInformation",
 ] }
 
+# U-3: `kill`/`killpg` for a pane's process tree and `setsid` for the login-shell PATH
+# probe (`platform/processes.rs`, `platform/login_path.rs`). Already in the tree via
+# portable-pty and tokio.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 tempfile = "3"
 # Faz 5 §1.9: the real-pipe integration test drives the actual `agenthub-hook` `run`

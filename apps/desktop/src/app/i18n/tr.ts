@@ -5,7 +5,8 @@
 import { APP_NAME } from "../constants";
 import type { AgentKind, AppInfo, ErrorCode } from "../../lib/ipc";
 import type { HelpDocId } from "../../features/help/helpDocs";
-import { webviewName } from "../../lib/platform";
+import { perOs, webviewName } from "../../lib/platform";
+import { formatKeybinding } from "../../lib/keys";
 import type { Strings } from "./en";
 import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
@@ -425,7 +426,13 @@ export const tr: Strings = {
     modelsFailed: (reason: string) => `Modeller getirilemedi: ${reason}`,
     modelsSaveFirst: "Önce uç noktayı kaydedin, sonra modellerini getirin.",
     apiKey: "API anahtarı (isteğe bağlı)",
-    apiKeyHint: "Windows Kimlik Bilgileri Yöneticisi'nde saklanır; ayar dosyasına ya da günlüklere asla yazılmaz.",
+    get apiKeyHint() {
+      return perOs(
+        "Windows Kimlik Bilgileri Yöneticisi'nde saklanır; ayar dosyasına ya da günlüklere asla yazılmaz.",
+        "macOS Anahtar Zinciri'nde saklanır; ayar dosyasına ya da günlüklere asla yazılmaz.",
+        "Sistem anahtarlığında saklanır; ayar dosyasına ya da günlüklere asla yazılmaz.",
+      );
+    },
     apiKeyReplace: "Bir anahtar kayıtlı. Değiştirmek için yenisini girin.",
     apiKeyUnavailable: "Bu sistemde henüz anahtar kaydedilemiyor (kimlik bilgisi kasası yok).",
     keyFailed: (message: string) => `Uç nokta kaydedildi ama anahtar kaydedilemedi: ${message}`,
@@ -728,7 +735,9 @@ export const tr: Strings = {
       zoomIn: "Yakınlaştır",
       fitWidth: "Genişliğe sığdır",
       searchPlaceholder: "Belgede bul…",
-      searchTooltip: "Bul (Ctrl+F)",
+      get searchTooltip() {
+        return `Bul (${formatKeybinding("Mod+F")})`;
+      },
       matchCounter: (index: number, total: number) => `${index} / ${total}`,
       noMatches: "Eşleşme yok",
       searching: "Aranıyor…",
@@ -761,8 +770,16 @@ export const tr: Strings = {
     searchPrev: "Önceki eşleşme",
     searchNext: "Sonraki eşleşme",
     closeSearchTooltip: "Kapat",
-    ctrlClickToOpenFile: "Açmak için Ctrl+tıklayın",
-    ctrlClickToOpenLink: "Tarayıcıda açmak için Ctrl+tıklayın",
+    get ctrlClickToOpenFile() {
+      return perOs("Açmak için Ctrl+tıklayın", "Açmak için ⌘ ile tıklayın", "Açmak için Ctrl+tıklayın");
+    },
+    get ctrlClickToOpenLink() {
+      return perOs(
+        "Tarayıcıda açmak için Ctrl+tıklayın",
+        "Tarayıcıda açmak için ⌘ ile tıklayın",
+        "Tarayıcıda açmak için Ctrl+tıklayın",
+      );
+    },
   },
 
   workspaces: {
@@ -836,9 +853,13 @@ export const tr: Strings = {
     delete: "Sil",
     copyPath: "Yolu kopyala",
     copyRelativePath: "Göreli yolu kopyala",
-    revealInExplorer: "Gezginde göster",
+    get revealInExplorer() {
+      return perOs("Gezginde göster", "Finder'da göster", "Dosya yöneticisinde göster");
+    },
     makeActive: "Etkinleştir",
-    openInExplorer: "Gezginde aç",
+    get openInExplorer() {
+      return perOs("Gezginde aç", "Finder'da aç", "Dosya yöneticisinde aç");
+    },
     saveClipboardImageHere: "Panodaki görseli buraya kaydet",
     openTerminalHere: "Burada terminal aç",
     removeWorkspace: "Kaldır",
@@ -914,14 +935,22 @@ export const tr: Strings = {
       themeLight: "Açık",
       themeSystem: "Sistem",
       language: "Dil",
-      languageSystem: "Windows ile aynı",
+      get languageSystem() {
+        return perOs("Windows ile aynı", "macOS ile aynı", "Sistemle aynı");
+      },
       languageEnglish: "English",
       languageTurkish: "Türkçe",
       editorFontFamily: "Düzenleyici yazı tipi",
       editorFontSize: "Düzenleyici yazı boyutu",
       darkTheme: "Koyu tema",
       lightTheme: "Açık tema",
-      themeSystemHint: "Sistem modunda Windows ile birlikte koyu ve açık temanız arasında geçilir.",
+      get themeSystemHint() {
+        return perOs(
+          "Sistem modunda Windows ile birlikte koyu ve açık temanız arasında geçilir.",
+          "Sistem modunda macOS ile birlikte koyu ve açık temanız arasında geçilir.",
+          "Sistem modunda sistemle birlikte koyu ve açık temanız arasında geçilir.",
+        );
+      },
     },
     terminal: {
       fontFamily: "Terminal yazı tipi",

@@ -68,6 +68,7 @@ use crate::adapters::CloseStep;
 use crate::error::{AppError, AppResult};
 use crate::fsguard;
 use crate::ipc_server;
+use crate::platform::StopSignal;
 use crate::workspace::WorkspaceStore;
 
 /// A batch is flushed once it reaches this size even if 16 ms haven't elapsed.
@@ -424,6 +425,7 @@ pub fn pane_env_overrides(
     endpoint: &str,
     shell: ShellKind,
     existing_wslenv: Option<&str>,
+    hub_data_dir: Option<&str>,
 ) -> Vec<(String, String)> {
     let mut overrides = vec![
         ("AGENTHUB_PANE_ID".to_string(), pane_id.to_string()),
@@ -433,6 +435,12 @@ pub fn pane_env_overrides(
         ("COLORTERM".to_string(), "truecolor".to_string()),
         ("TERM".to_string(), "xterm-256color".to_string()),
     ];
+    // U-3: hooks find the hub from this instead of their own platform default (the two
+    // must agree; the hub was started with the same environment). Not added to `WSLENV`:
+    // a Windows path means nothing inside WSL.
+    if let Some(dir) = hub_data_dir.filter(|d| !d.is_empty()) {
+        overrides.push(("AGENTHUB_DATA_DIR".to_string(), dir.to_string()));
+    }
     if shell == ShellKind::Wsl {
         const NEW_VARS: &str = "AGENTHUB_PANE_ID:AGENTHUB_WORKSPACE_ID:AGENTHUB_ENDPOINT";
         let merged = match existing_wslenv {
@@ -496,8 +504,16 @@ pub fn build_command(
         cmd.env_remove(&key);
     }
 
-    for (key, value) in pane_env_overrides(pane_id, workspace_id, endpoint, profile.id, existing_wslenv.as_deref())
-    {
+    let hub_data_dir = crate::hub::data_dir(&|k| std::env::var(k).ok());
+    let hub_data_dir = hub_data_dir.as_ref().map(|d| d.to_string_lossy());
+    for (key, value) in pane_env_overrides(
+        pane_id,
+        workspace_id,
+        endpoint,
+        profile.id,
+        existing_wslenv.as_deref(),
+        hub_data_dir.as_deref(),
+    ) {
         cmd.env(key, value);
     }
 
@@ -896,6 +912,12 @@ impl PtyRegistry {
         if let Some(pane) = handle.as_ref() {
             reap_stray_descendants(pane);
         }
+        // U-3: no Job Object off Windows; the tree is stopped in the background (see
+        // `unix_reap_pane`) and app exit waits for it like for a graceful close.
+        #[cfg(not(windows))]
+        if let Some(rx) = handle.as_ref().and_then(unix_reap_pane) {
+            self.track_graceful_close(rx);
+        }
         handle
     }
 
@@ -966,6 +988,8 @@ impl PtyRegistry {
                 // released.
                 #[cfg(windows)]
                 reap_stray_descendants(&pane);
+                #[cfg(not(windows))]
+                waiters.extend(unix_reap_pane(&pane));
                 drop(pane);
             }
         }
@@ -1457,8 +1481,8 @@ fn pane_process_alive(pid: u32) -> bool {
 }
 
 #[cfg(not(windows))]
-fn pane_process_alive(_pid: u32) -> bool {
-    false
+fn pane_process_alive(pid: u32) -> bool {
+    crate::platform::processes::is_alive(pid)
 }
 
 /// Pure decision core of `agent_gone` (WSL blind-spot fix, review item 1): given whether
@@ -1499,27 +1523,20 @@ pub(crate) fn agent_gone_from(
 /// call for every process on the machine on every ~100 ms poll.
 fn agent_gone(shell_pid: u32, shell_image: &str) -> bool {
     let shell_alive = pane_process_alive(shell_pid);
-    #[cfg(windows)]
-    {
-        if !shell_alive {
-            return agent_gone_from(false, &[], shell_pid, shell_image);
-        }
-        let topology = system_process_topology();
-        let mut creation_time_cache: HashMap<u32, u64> = HashMap::new();
-        let descendants = walk_descendants_lazy(
-            &topology,
-            shell_pid,
-            &mut creation_time_cache,
-            &mut process_creation_time_or_zero,
-        );
-        let procs: Vec<(u32, Option<String>)> =
-            descendants.into_iter().map(|e| (e.pid, Some(e.name))).collect();
-        agent_gone_from(shell_alive, &procs, shell_pid, shell_image)
+    if !shell_alive {
+        return agent_gone_from(false, &[], shell_pid, shell_image);
     }
-    #[cfg(not(windows))]
-    {
-        agent_gone_from(shell_alive, &[], shell_pid, shell_image)
-    }
+    let topology = system_process_topology();
+    let mut creation_time_cache: HashMap<u32, u64> = HashMap::new();
+    let descendants = walk_descendants_lazy(
+        &topology,
+        shell_pid,
+        &mut creation_time_cache,
+        &mut process_creation_time_or_zero,
+    );
+    let procs: Vec<(u32, Option<String>)> =
+        descendants.into_iter().map(|e| (e.pid, Some(e.name))).collect();
+    agent_gone_from(shell_alive, &procs, shell_pid, shell_image)
 }
 
 /// Runs one pane's graceful close on a background thread and returns its `JoinHandle`
@@ -1562,7 +1579,13 @@ fn spawn_graceful_close_thread(
         // (KILL_ON_JOB_CLOSE) exactly as an immediate kill's teardown would.
         #[cfg(windows)]
         reap_stray_descendants(&pane);
+        // U-3: off Windows the same after-the-attempt stop, run right here on this
+        // background thread (whatever is left: usually just the shell, gone on SIGHUP).
+        #[cfg(not(windows))]
+        let tree = unix_pane_tree(&pane);
         drop(pane);
+        #[cfg(not(windows))]
+        unix_stop_tree(&tree, Some(shell_pid), &PANE_STOP_STEPS);
         drop(done);
     })
 }
@@ -1661,9 +1684,12 @@ pub fn decide_busy(job_procs: &[(u32, Option<String>)], shell_pid: u32, shell_im
 
 /// The "shell set" [`decide_busy`] leaves out: the shell itself, a process with the
 /// shell's image name, and the console host. `shell_image_lower` is lowercase already.
+/// U-3: a login shell's name may carry a leading `-` (`-zsh` in macOS `ps`).
 fn in_shell_set(pid: u32, name: &str, shell_pid: u32, shell_image_lower: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    pid == shell_pid || lower == shell_image_lower || CONSOLE_HOST_IMAGES.contains(&lower.as_str())
+    pid == shell_pid
+        || lower.trim_start_matches('-') == shell_image_lower
+        || CONSOLE_HOST_IMAGES.contains(&lower.as_str())
 }
 
 /// 0.3.2: at most this many process names in a `pty:leftover` event.
@@ -1987,6 +2013,16 @@ pub(crate) fn system_process_snapshot() -> Vec<ProcSnapshotEntry> {
         .collect()
 }
 
+/// Off Windows: the topology with unknown (`0`) creation times, which [`walk_descendants`]
+/// treats as "trust the topology".
+#[cfg(not(windows))]
+pub(crate) fn system_process_snapshot() -> Vec<ProcSnapshotEntry> {
+    system_process_topology()
+        .into_iter()
+        .map(|e| ProcSnapshotEntry { pid: e.pid, ppid: e.ppid, name: e.name, creation_time: 0 })
+        .collect()
+}
+
 #[cfg(windows)]
 fn process_creation_time(pid: u32) -> Option<u64> {
     unsafe {
@@ -2008,7 +2044,6 @@ fn process_creation_time(pid: u32) -> Option<u64> {
 /// nothing the job has *and* the walk somehow didn't see (belt-and-suspenders), and
 /// gives us a real image name straight from the snapshot instead of a second
 /// `OpenProcess` round-trip for pids already found there.
-#[cfg(windows)]
 fn pane_process_union(registry: &PtyRegistry, pane_id: &str, shell_pid: u32) -> Vec<(u32, Option<String>)> {
     let mut seen: HashSet<u32> = HashSet::new();
     let mut procs: Vec<(u32, Option<String>)> = Vec::new();
@@ -2065,6 +2100,138 @@ fn terminate_pid(pid: u32) {
     }
 }
 
+// ---------------------------------------------------------------------------------
+// U-3: a pane's process tree off Windows. There is no Job Object: closing the PTY master
+// only hangs up the terminal (SIGHUP to the shell and its foreground job), so pane
+// teardown signals the shell's process group (the shell is a session and group leader:
+// `portable-pty` spawns it with `setsid`) and every descendant found in the process
+// list, escalating SIGHUP → SIGTERM → SIGKILL on a background thread.
+// ---------------------------------------------------------------------------------
+
+/// Pane close: SIGHUP (what a closing terminal sends), then SIGTERM, then SIGKILL; each
+/// with how long to wait for the tree to go before the next one.
+#[cfg_attr(windows, allow(dead_code))]
+const PANE_STOP_STEPS: [(StopSignal, Duration); 3] = [
+    (StopSignal::Hangup, Duration::from_millis(500)),
+    (StopSignal::Terminate, Duration::from_millis(1000)),
+    (StopSignal::Kill, Duration::from_millis(200)),
+];
+/// The leftover strip's Stop: SIGTERM, then SIGKILL (Windows terminates at once).
+#[cfg_attr(windows, allow(dead_code))]
+const LEFTOVER_STOP_STEPS: [(StopSignal, Duration); 2] = [
+    (StopSignal::Terminate, Duration::from_millis(1000)),
+    (StopSignal::Kill, Duration::from_millis(200)),
+];
+#[cfg_attr(windows, allow(dead_code))]
+const STOP_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
+/// Pure sequencing core of a Unix tree stop (unit-tested with injected `live`/`send`/
+/// `sleep`). `targets` are `(pid, name)`; `live` returns the ones still running as the
+/// same process (same pid *and* name, so a recycled pid is never signalled). For each
+/// step: signal every live target, then poll until none is left or the step's wait has
+/// elapsed. Returns whether everything was observed gone.
+#[cfg_attr(windows, allow(dead_code))]
+pub(crate) fn stop_sequence(
+    targets: &[(u32, String)],
+    steps: &[(StopSignal, Duration)],
+    mut live: impl FnMut(&[(u32, String)]) -> Vec<(u32, String)>,
+    mut send: impl FnMut(u32, StopSignal),
+    mut sleep: impl FnMut(Duration),
+    poll_interval: Duration,
+) -> bool {
+    let mut remaining = targets.to_vec();
+    for &(signal, wait) in steps {
+        remaining = live(&remaining);
+        if remaining.is_empty() {
+            return true;
+        }
+        for (pid, _) in &remaining {
+            send(*pid, signal);
+        }
+        let mut waited = Duration::ZERO;
+        while waited < wait {
+            let slice = poll_interval.min(wait - waited);
+            sleep(slice);
+            waited += slice;
+            remaining = live(&remaining);
+            if remaining.is_empty() {
+                return true;
+            }
+        }
+    }
+    live(&remaining).is_empty()
+}
+
+/// The targets still running as the same process (pid and name in the process list).
+#[cfg(not(windows))]
+fn unix_live(targets: &[(u32, String)]) -> Vec<(u32, String)> {
+    let topology = system_process_topology();
+    targets
+        .iter()
+        .filter(|(pid, name)| topology.iter().any(|p| p.pid == *pid && p.name == *name))
+        .cloned()
+        .collect()
+}
+
+/// Stops `targets` (blocking, at most the steps' total wait). `group_leader`'s whole
+/// process group is signalled along with it.
+#[cfg(not(windows))]
+fn unix_stop_tree(targets: &[(u32, String)], group_leader: Option<u32>, steps: &[(StopSignal, Duration)]) {
+    if targets.is_empty() {
+        return;
+    }
+    stop_sequence(
+        targets,
+        steps,
+        unix_live,
+        |pid, signal| {
+            if Some(pid) == group_leader {
+                crate::platform::processes::signal_group(pid, signal);
+            }
+            crate::platform::processes::signal(pid, signal);
+        },
+        std::thread::sleep,
+        STOP_POLL_INTERVAL,
+    );
+}
+
+/// The pane's shell (while it still runs) and every descendant, shell first. Empty once
+/// the shell has exited: its orphans are out of reach (no creation times to remember
+/// them by, see [`merge_seen_descendants`]).
+#[cfg(not(windows))]
+fn unix_pane_tree(pane: &PaneHandle) -> Vec<(u32, String)> {
+    let topology = system_process_topology();
+    let Some(shell) = topology.iter().find(|p| p.pid == pane.shell_pid) else {
+        return Vec::new();
+    };
+    let mut tree = vec![(shell.pid, shell.name.clone())];
+    let mut cache: HashMap<u32, u64> = HashMap::new();
+    tree.extend(
+        walk_descendants_lazy(&topology, pane.shell_pid, &mut cache, &mut process_creation_time_or_zero)
+            .into_iter()
+            .map(|e| (e.pid, e.name)),
+    );
+    tree
+}
+
+/// Starts stopping the pane's tree on a background thread (the caller pays one process
+/// listing). The receiver disconnects once it is done, so app exit can wait on it under
+/// [`EXIT_GRACEFUL_CAP`]. `None` when there is nothing left to stop.
+#[cfg(not(windows))]
+fn unix_reap_pane(pane: &PaneHandle) -> Option<std::sync::mpsc::Receiver<()>> {
+    let tree = unix_pane_tree(pane);
+    if tree.is_empty() {
+        return None;
+    }
+    let shell_pid = pane.shell_pid;
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        unix_stop_tree(&tree, Some(shell_pid), &PANE_STOP_STEPS);
+        drop(tx);
+    });
+    Some(rx)
+}
+
 #[tauri::command(async)]
 pub fn pty_busy(registry: State<'_, PtyRegistry>, pane_id: String) -> AppResult<BusyInfo> {
     let Some((shell_pid, shell_image_name)) = registry.shell_info(&pane_id) else {
@@ -2074,19 +2241,8 @@ pub fn pty_busy(registry: State<'_, PtyRegistry>, pane_id: String) -> AppResult<
             processes: Vec::new(),
         });
     };
-    #[cfg(windows)]
-    {
-        let procs = pane_process_union(&registry, &pane_id, shell_pid);
-        Ok(decide_busy(&procs, shell_pid, &shell_image_name))
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (shell_pid, shell_image_name);
-        Ok(BusyInfo {
-            busy: false,
-            processes: Vec::new(),
-        })
-    }
+    let procs = pane_process_union(&registry, &pane_id, shell_pid);
+    Ok(decide_busy(&procs, shell_pid, &shell_image_name))
 }
 
 /// 0.3.2 (leftover strip's Stop button): terminates everything still running under the
@@ -2098,24 +2254,28 @@ pub fn pty_stop_leftovers(registry: State<'_, PtyRegistry>, pane_id: String) -> 
     let Some((shell_pid, shell_image_name)) = registry.shell_info(&pane_id) else {
         return Ok(());
     };
+    let mut procs = pane_process_union(&registry, &pane_id, shell_pid);
+    let known: HashSet<u32> = procs.iter().map(|(pid, _)| *pid).collect();
+    procs.extend(registry.remembered_survivors(&pane_id, &known));
+    let targets = leftover_kill_targets(&procs, shell_pid, &shell_image_name);
+    log::info!(
+        "pty pane={} stop leftovers: {} process(es)",
+        crate::agents::short_pane_id(&pane_id),
+        targets.len()
+    );
     #[cfg(windows)]
-    {
-        let mut procs = pane_process_union(&registry, &pane_id, shell_pid);
-        let known: HashSet<u32> = procs.iter().map(|(pid, _)| *pid).collect();
-        procs.extend(registry.remembered_survivors(&pane_id, &known));
-        let targets = leftover_kill_targets(&procs, shell_pid, &shell_image_name);
-        log::info!(
-            "pty pane={} stop leftovers: {} process(es)",
-            crate::agents::short_pane_id(&pane_id),
-            targets.len()
-        );
-        for pid in targets {
-            terminate_pid(pid);
-        }
+    for pid in targets {
+        terminate_pid(pid);
     }
+    // U-3: SIGTERM first, SIGKILL for whatever is still there a second later.
     #[cfg(not(windows))]
     {
-        let _ = (shell_pid, shell_image_name);
+        let named: Vec<(u32, String)> = procs
+            .into_iter()
+            .filter(|(pid, _)| targets.contains(pid))
+            .filter_map(|(pid, name)| Some((pid, name?)))
+            .collect();
+        unix_stop_tree(&named, None, &LEFTOVER_STOP_STEPS);
     }
     Ok(())
 }
@@ -2276,25 +2436,17 @@ pub(crate) fn process_command_line(pid: u32) -> Option<String> {
 /// name (cmdline is left `None` in the spike — see todo.md Faz 1, "cmdline optional").
 #[tauri::command(async)]
 pub fn pty_processes(registry: State<'_, PtyRegistry>, pane_id: String) -> AppResult<Vec<ProcessInfo>> {
-    #[cfg(windows)]
-    {
-        let Some((shell_pid, _)) = registry.shell_info(&pane_id) else {
-            return Ok(Vec::new());
-        };
-        Ok(pane_process_union(&registry, &pane_id, shell_pid)
-            .into_iter()
-            .map(|(pid, name)| ProcessInfo {
-                pid,
-                name,
-                cmdline: None,
-            })
-            .collect())
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (&registry, &pane_id);
-        Ok(Vec::new())
-    }
+    let Some((shell_pid, _)) = registry.shell_info(&pane_id) else {
+        return Ok(Vec::new());
+    };
+    Ok(pane_process_union(&registry, &pane_id, shell_pid)
+        .into_iter()
+        .map(|(pid, name)| ProcessInfo {
+            pid,
+            name,
+            cmdline: None,
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -2789,7 +2941,14 @@ mod tests {
 
     #[test]
     fn pane_env_overrides_sets_agenthub_and_terminal_vars() {
-        let overrides = pane_env_overrides("pane-1", "ws-1", r"\\.\pipe\agenthub-123", ShellKind::Pwsh, None);
+        let overrides = pane_env_overrides(
+            "pane-1",
+            "ws-1",
+            r"\\.\pipe\agenthub-123",
+            ShellKind::Pwsh,
+            None,
+            Some("/data/hub"),
+        );
         let map: StdHashMap<&str, &str> = overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
         assert_eq!(map["AGENTHUB_PANE_ID"], "pane-1");
         assert_eq!(map["AGENTHUB_WORKSPACE_ID"], "ws-1");
@@ -2798,11 +2957,12 @@ mod tests {
         assert_eq!(map["COLORTERM"], "truecolor");
         assert_eq!(map["TERM"], "xterm-256color");
         assert!(!map.contains_key("WSLENV"));
+        assert_eq!(map["AGENTHUB_DATA_DIR"], "/data/hub");
     }
 
     #[test]
     fn pane_env_overrides_merges_wslenv_only_for_wsl() {
-        let overrides = pane_env_overrides("p", "w", "e", ShellKind::Wsl, Some("FOO:BAR"));
+        let overrides = pane_env_overrides("p", "w", "e", ShellKind::Wsl, Some("FOO:BAR"), None);
         let map: StdHashMap<&str, &str> = overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
         assert_eq!(
             map["WSLENV"],
@@ -2812,8 +2972,9 @@ mod tests {
 
     #[test]
     fn pane_env_overrides_wsl_with_no_existing_wslenv() {
-        let overrides = pane_env_overrides("p", "w", "e", ShellKind::Wsl, None);
+        let overrides = pane_env_overrides("p", "w", "e", ShellKind::Wsl, None, Some(""));
         let map: StdHashMap<&str, &str> = overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        assert!(!map.contains_key("AGENTHUB_DATA_DIR"), "an empty data dir is not set");
         assert_eq!(
             map["WSLENV"],
             "AGENTHUB_PANE_ID:AGENTHUB_WORKSPACE_ID:AGENTHUB_ENDPOINT"
@@ -4228,5 +4389,136 @@ mod leftover_tests {
             _ => None,
         };
         assert_eq!(surviving_seen(&seen, &exclude, now), [(1, Some("a.exe".to_string()))]);
+    }
+}
+
+#[cfg(test)]
+mod unix_tree_tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    fn named(list: &[(u32, &str)]) -> Vec<(u32, String)> {
+        list.iter().map(|(pid, name)| (*pid, name.to_string())).collect()
+    }
+
+    /// A fake process table: `send` removes a pid when its `dies_on` signal arrives.
+    fn run(
+        targets: &[(u32, String)],
+        dies_on: &[(u32, StopSignal)],
+        steps: &[(StopSignal, Duration)],
+    ) -> (bool, Vec<(u32, StopSignal)>, Duration) {
+        let alive = RefCell::new(targets.to_vec());
+        let sent = RefCell::new(Vec::new());
+        let slept = RefCell::new(Duration::ZERO);
+        let done = stop_sequence(
+            targets,
+            steps,
+            |t| t.iter().filter(|p| alive.borrow().contains(p)).cloned().collect(),
+            |pid, signal| {
+                sent.borrow_mut().push((pid, signal));
+                if dies_on.contains(&(pid, signal)) {
+                    alive.borrow_mut().retain(|(p, _)| *p != pid);
+                }
+            },
+            |d| *slept.borrow_mut() += d,
+            Duration::from_millis(100),
+        );
+        (done, sent.into_inner(), slept.into_inner())
+    }
+
+    #[test]
+    fn stop_sequence_stops_after_the_first_signal_that_works() {
+        let targets = named(&[(10, "zsh"), (11, "node")]);
+        let (done, sent, slept) =
+            run(&targets, &[(10, StopSignal::Hangup), (11, StopSignal::Hangup)], &PANE_STOP_STEPS);
+        assert!(done);
+        assert_eq!(sent, [(10, StopSignal::Hangup), (11, StopSignal::Hangup)]);
+        assert_eq!(slept, Duration::from_millis(100));
+    }
+
+    #[test]
+    fn stop_sequence_escalates_only_for_survivors() {
+        let targets = named(&[(10, "zsh"), (11, "node")]);
+        let (done, sent, slept) =
+            run(&targets, &[(10, StopSignal::Hangup), (11, StopSignal::Kill)], &PANE_STOP_STEPS);
+        assert!(done);
+        assert_eq!(
+            sent,
+            [
+                (10, StopSignal::Hangup),
+                (11, StopSignal::Hangup),
+                (11, StopSignal::Terminate),
+                (11, StopSignal::Kill),
+            ]
+        );
+        assert_eq!(slept, Duration::from_millis(500 + 1000 + 100));
+    }
+
+    #[test]
+    fn stop_sequence_reports_a_process_that_survives_everything() {
+        let targets = named(&[(11, "node")]);
+        let (done, sent, slept) = run(&targets, &[], &LEFTOVER_STOP_STEPS);
+        assert!(!done);
+        assert_eq!(sent, [(11, StopSignal::Terminate), (11, StopSignal::Kill)]);
+        assert_eq!(slept, Duration::from_millis(1200));
+    }
+
+    #[test]
+    fn stop_sequence_never_signals_a_target_that_is_not_the_same_process() {
+        // `live` reports nothing (gone, or the pid now belongs to another program).
+        let mut sent = Vec::new();
+        let done = stop_sequence(
+            &named(&[(10, "zsh")]),
+            &PANE_STOP_STEPS,
+            |_| Vec::new(),
+            |pid, signal| sent.push((pid, signal)),
+            |_| {},
+            STOP_POLL_INTERVAL,
+        );
+        assert!(done);
+        assert!(sent.is_empty());
+    }
+
+    #[test]
+    fn a_login_shell_name_with_a_leading_dash_is_in_the_shell_set() {
+        let procs = vec![(100u32, Some("-zsh".to_string())), (101u32, Some("zsh".to_string()))];
+        assert!(!decide_busy(&procs, 99, "zsh").busy);
+        assert!(decide_busy(&[(102u32, Some("node".to_string()))], 99, "zsh").busy);
+    }
+}
+
+/// U-3: the real thing on Unix: a shell with a child in a PTY-less session, stopped the
+/// way a pane close stops it.
+#[cfg(all(test, unix))]
+mod unix_tree_process_tests {
+    use super::*;
+
+    #[test]
+    fn unix_stop_tree_ends_a_shell_and_its_child() {
+        let mut shell = std::process::Command::new("/bin/sh")
+            .args(["-c", "sleep 30 & wait"])
+            .spawn()
+            .expect("sh starts");
+        let shell_pid = shell.id();
+        // The child shows up in the process list once `sh` has forked it.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let tree = loop {
+            let topology = system_process_topology();
+            let mut cache = HashMap::new();
+            let kids = walk_descendants_lazy(&topology, shell_pid, &mut cache, &mut process_creation_time_or_zero);
+            if let (Some(sh), false) = (topology.iter().find(|p| p.pid == shell_pid), kids.is_empty()) {
+                let mut tree = vec![(sh.pid, sh.name.clone())];
+                tree.extend(kids.into_iter().map(|e| (e.pid, e.name)));
+                break tree;
+            }
+            assert!(Instant::now() < deadline, "sleep child never appeared");
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        let child_pid = tree[1].0;
+        // Not the group leader here (the test's own group), so no `killpg`.
+        let reaper = std::thread::spawn(move || shell.wait());
+        unix_stop_tree(&tree, None, &PANE_STOP_STEPS);
+        reaper.join().expect("reaper").expect("sh reaped");
+        assert!(unix_live(&tree[1..]).is_empty(), "child {child_pid} still running");
     }
 }

@@ -2,6 +2,7 @@
  * Pure helpers of the assistant popup (M7): keyboard mapping, footer variant and error texts.
  */
 import type { Strings } from "../../app/i18n";
+import { isMac } from "../../lib/keys";
 
 export type KeyAction = "send" | "stop" | "close" | "editLast" | "newChat";
 
@@ -27,7 +28,9 @@ export function keyAction(e: KeyLike, ctx: KeyContext): KeyAction | null {
   if (e.isComposing) return null;
   const plain = !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
   if (e.key === "Escape" && plain) return ctx.running ? "stop" : "close";
-  if ((e.key === "n" || e.key === "N") && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) return "newChat";
+  // Ctrl+N (Cmd+N on macOS).
+  const modOnly = isMac() ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+  if ((e.key === "n" || e.key === "N") && modOnly && !e.shiftKey && !e.altKey) return "newChat";
   if (!ctx.inComposer) return null;
   if (e.key === "Enter" && plain) return "send";
   if (e.key === "ArrowUp" && plain && ctx.composerEmpty && !ctx.running) return "editLast";

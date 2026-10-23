@@ -5,9 +5,9 @@
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use self::windows::{default_data_dir, endpoint_for_pid, known_local_app_data, process_chain, real_connect};
+pub use self::windows::{default_data_dir, endpoint_for_pid, known_home, known_local_app_data, process_chain, real_connect};
 
 #[cfg(not(windows))]
 mod other;
 #[cfg(not(windows))]
-pub use self::other::{default_data_dir, endpoint_for_pid, known_local_app_data, process_chain, real_connect};
+pub use self::other::{default_data_dir, endpoint_for_pid, known_home, known_local_app_data, process_chain, real_connect};

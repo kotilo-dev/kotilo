@@ -136,7 +136,7 @@ export function App() {
         id: "view.toggleLeftPanel",
         title: () => strings.commandTitles.toggleLeftPanel,
         category: () => strings.commandCategories.view,
-        keybinding: "Ctrl+B",
+        keybinding: "Mod+B",
         run: toggleLeft,
       }),
       // faz4-spec §4.1 (user decision 2026-09-27, VS Code layout): Ctrl+B left column
@@ -147,14 +147,14 @@ export function App() {
         id: "view.toggleTerminalPanel",
         title: () => strings.commandTitles.toggleTerminalPanel,
         category: () => strings.commandCategories.view,
-        keybinding: "Ctrl+J",
+        keybinding: "Mod+J",
         run: toggleTerminal,
       }),
       registerCommand({
         id: "view.toggleViewerPanel",
         title: () => strings.commandTitles.toggleViewerPanel,
         category: () => strings.commandCategories.view,
-        keybinding: "Ctrl+Shift+U",
+        keybinding: "Mod+Shift+U",
         run: toggleViewer,
       }),
       // faz4-spec §2.4/§4: focus the active workspace's active terminal (showing the column if
@@ -163,6 +163,7 @@ export function App() {
         id: "terminal.focusOrCreate",
         title: () => strings.commandTitles.focusTerminal,
         category: () => strings.commandCategories.terminal,
+        // Ctrl on every OS (U-3): macOS uses Cmd+` to cycle windows.
         keybinding: "Ctrl+`",
         run: () => {
           useRouteStore.getState().navigate("workspace");
@@ -188,7 +189,7 @@ export function App() {
         id: "agents.nextBlocked",
         title: () => strings.commandTitles.nextBlockedAgent,
         category: () => strings.commandCategories.agents,
-        keybinding: "Ctrl+Shift+A",
+        keybinding: "Mod+Shift+A",
         run: () => {
           const sorted = sortAgents(useAgentStore.getState().agents);
           const activeWorkspaceId = useWorkspaceStore.getState().activeId;
@@ -207,7 +208,7 @@ export function App() {
           id: `workspaces.switchTo${i + 1}`,
           title: () => strings.commandTitles.switchToWorkspace(i + 1),
           category: () => strings.commandCategories.workspaces,
-          keybinding: `Ctrl+${i + 1}`,
+          keybinding: `Mod+${i + 1}`,
           run: () => {
             const ws = useWorkspaceStore.getState().workspaces[i];
             if (ws) void useWorkspaceStore.getState().setActive(ws.id);
@@ -222,21 +223,21 @@ export function App() {
       registerCommand({
         id: "quickOpen.show",
         title: () => strings.commandTitles.quickOpenShow,
-        keybinding: "Ctrl+P",
+        keybinding: "Mod+P",
         scope: "notTerminal",
         run: () => useQuickPickStore.getState().openFile(),
       }),
       registerCommand({
         id: "palette.show",
         title: () => strings.commandTitles.paletteShow,
-        keybinding: "Ctrl+Shift+P",
+        keybinding: "Mod+Shift+P",
         run: () => useQuickPickStore.getState().openCommand(),
       }),
       registerCommand({
         id: "settings.open",
         title: () => strings.commandTitles.settingsOpen,
         category: () => strings.commandCategories.preferences,
-        keybinding: "Ctrl+,",
+        keybinding: "Mod+,",
         run: () => useRouteStore.getState().navigate("settings"),
       }),
       registerCommand({

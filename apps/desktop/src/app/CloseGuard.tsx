@@ -17,6 +17,7 @@ import { UnsavedChangesModal } from "../features/viewer/UnsavedChangesModal";
 import { collectDirtyDocs, saveAllDirty } from "../features/viewer/unsavedChanges";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useToastStore } from "../stores/toastStore";
+import { onQuitRequested } from "../lib/ipc";
 
 type Decision = "cancel" | "discard" | "saveAll";
 
@@ -61,6 +62,13 @@ export function CloseGuard() {
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
+    let unlistenQuit: (() => void) | undefined;
+
+    // U-3: the macOS menu's Quit (Cmd+Q) with the tray on; without the tray Rust closes the window itself.
+    void onQuitRequested(() => void requestQuit()).then((fn) => {
+      if (cancelled) fn();
+      else unlistenQuit = fn;
+    });
 
     void getCurrentWindow()
       .onCloseRequested(async (event) => {
@@ -109,6 +117,7 @@ export function CloseGuard() {
     return () => {
       cancelled = true;
       unlisten?.();
+      unlistenQuit?.();
     };
   }, []);
 

@@ -1,7 +1,8 @@
 name: Release
 
 # A `v*` tag builds the Windows installers (x64, ARM64), the Linux packages (AppImage, .deb, .rpm),
-# the updater signatures and `latest.json`, and attaches them
+# the macOS apps (Apple Silicon, Intel: .dmg + updater .app.tar.gz), the updater signatures and
+# `latest.json`, and attaches them
 # to a draft GitHub release. Publishing the draft is a manual step (and makes `latest.json` the
 # feed behind brand.json `updateEndpoint`:
 # https://github.com/kotilo-dev/kotilo/releases/latest/download/latest.json).
@@ -9,10 +10,19 @@ name: Release
 # Secrets: TAURI_SIGNING_PRIVATE_KEY (+ TAURI_SIGNING_PRIVATE_KEY_PASSWORD) from
 # `tauri signer generate`; the matching public key goes into tauri.conf.json
 # plugins.updater.pubkey. Without the key the installers are built but no `.sig`/`latest.json`.
+#
+# macOS signing (U-3), optional: without these secrets the macOS builds are ad-hoc signed test
+# builds; with them, Developer ID signed and notarized (scripts/release-macos.sh):
+#   APPLE_CERTIFICATE (base64 Developer ID Application .p12), APPLE_CERTIFICATE_PASSWORD, and for
+#   notarization APPLE_ID + APPLE_PASSWORD (app-specific password) + APPLE_TEAM_ID, or
+#   APPLE_API_KEY (key ID) + APPLE_API_ISSUER + APPLE_API_PRIVATE_KEY (.p8 contents).
 
+# A manual run ("Run workflow", or `gh workflow run release.yml --ref <branch>`) builds only the
+# macOS apps and uploads them as workflow artifacts: test builds for a Mac tester, no release.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,6 +30,7 @@ permissions:
 # Actions are pinned to commit SHAs (tag in the comment).
 jobs:
   build:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: true
       matrix:
@@ -82,6 +93,7 @@ jobs:
   # Linux x64 packages (U-2, D-061). Built on the oldest supported Ubuntu so they run on older
   # glibc versions too.
   build-linux:
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -118,8 +130,63 @@ jobs:
           path: target/release-artifacts/linux-x64/
           if-no-files-found: error
 
+  # macOS apps (U-3). Each arch on its own runner (native builds; Intel runners end with the
+  # macOS 15 image, fall 2027 – then cross-build x86_64 on arm64).
+  build-macos:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: aarch64
+            runner: macos-15
+            artifact: macos-aarch64
+          - arch: x86_64
+            runner: macos-15-intel
+            artifact: macos-x64
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # Empty when a secret is missing; the script treats empty as unset (ad-hoc build).
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.arch }}-apple-darwin
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: release-${{ matrix.artifact }}
+      - run: npm --prefix apps/desktop ci
+      - name: Build app
+        run: bash ./scripts/release-macos.sh ${{ matrix.arch }}
+      - name: Smoke test
+        run: bash ./scripts/macos-smoke.sh target/${{ matrix.arch }}-apple-darwin/release/bundle/macos/Kotilo.app
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-${{ matrix.artifact }}
+          path: target/release-artifacts/${{ matrix.artifact }}/
+          if-no-files-found: error
+
   release:
-    needs: [build, build-linux]
+    if: github.event_name == 'push'
+    needs: [build, build-linux, build-macos]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -150,7 +217,9 @@ jobs:
             @{ key = 'windows-aarch64'; filter = "*_$($version)_arm64-setup.exe" },
             @{ key = 'linux-x86_64'; filter = "*_$($version)_amd64.AppImage" },
             @{ key = 'linux-x86_64-deb'; filter = "*_$($version)_amd64.deb" },
-            @{ key = 'linux-x86_64-rpm'; filter = "*-$($version)-*.x86_64.rpm" }
+            @{ key = 'linux-x86_64-rpm'; filter = "*-$($version)-*.x86_64.rpm" },
+            @{ key = 'darwin-aarch64'; filter = "*_$($version)_aarch64.app.tar.gz" },
+            @{ key = 'darwin-x86_64'; filter = "*_$($version)_x64.app.tar.gz" }
           )
           foreach ($p in $targets) {
             $installer = Get-ChildItem upload -File -Filter $p.filter | Select-Object -First 1

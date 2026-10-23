@@ -36,6 +36,14 @@ export function platformId(): string {
   return current.platform;
 }
 
+/**
+ * U-3: picks the text that names the OS (Explorer/Finder, "Same as Windows"). Dictionaries call
+ * it from getters, so it is read at access time – after `hydratePlatform`.
+ */
+export function perOs(windows: string, macos: string, linux: string, platform: string = current.platform): string {
+  return platform === "macos" ? macos : platform === "linux" ? linux : windows;
+}
+
 /** The system web view's name for the About line and bug reports. */
 export function webviewName(platform: string = current.platform): string {
   if (platform === "macos") return "WKWebView";

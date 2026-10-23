@@ -70,8 +70,7 @@ public sealed class JsonHooksMerger : IHookInstaller
         _options = options;
         _hookExePath = hookExePath;
         File = new JsonConfigFile(options.ConfigPath, options.AllowComments, time);
-        _commands = options.Events.ToDictionary(
-            e => e.Event, e => HookCommandLine.For(options.Shell, hookExePath, options.AgentId, e.Event), StringComparer.Ordinal);
+        _commands = options.Events.ToDictionary(e => e.Event, e => Form(e.Event), StringComparer.Ordinal);
     }
 
     public JsonHooksOptions Options => _options;
@@ -85,7 +84,7 @@ public sealed class JsonHooksMerger : IHookInstaller
 
     /// <summary>The command written for <paramref name="eventName"/> (for Copilot: the <c>powershell</c> field).</summary>
     public string CommandFor(string eventName) =>
-        _commands.TryGetValue(eventName, out var form) ? form.Command : HookCommandLine.For(_options.Shell, _hookExePath, _options.AgentId, eventName).Command;
+        _commands.TryGetValue(eventName, out var form) ? form.Command : Form(eventName).Command;
 
     public HookStatus GetStatus()
     {
@@ -196,6 +195,14 @@ public sealed class JsonHooksMerger : IHookInstaller
             }
         }
     }
+
+    /// <summary>
+    /// The command in the adapter's shell form. Copilot's <c>powershell</c> field is read by PowerShell on every OS
+    /// (Unix uses the <c>bash</c> field), so it keeps the PowerShell form off Windows too.
+    /// </summary>
+    private HookCommandForm Form(string eventName) => _options.Shape == HookEntryShape.CopilotCommands
+        ? new(HookCommandLine.PowerShell(_hookExePath, _options.AgentId, eventName), true)
+        : HookCommandLine.For(_options.Shell, _hookExePath, _options.AgentId, eventName);
 
     private bool Grouped => _options.Shape is HookEntryShape.MatcherGroups or HookEntryShape.CodexGroups;
 

@@ -117,6 +117,7 @@ public static class HookCommand
         if (c.StartsWith('\''))
         {
             // PowerShell single-quoted string: '' is an escaped quote (C:\Users\O''Neil\…).
+            // POSIX: '\'' ends the string, adds an escaped quote and starts a new one (/Users/O'\''Neil/…).
             var path = new System.Text.StringBuilder();
             for (var i = 1; i < c.Length; i++)
             {
@@ -128,6 +129,11 @@ public static class HookCommand
                 {
                     path.Append('\'');
                     i++;
+                }
+                else if (c.AsSpan(i).StartsWith(@"'\''", StringComparison.Ordinal))
+                {
+                    path.Append('\'');
+                    i += 3;
                 }
                 else
                 {

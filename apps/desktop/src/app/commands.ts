@@ -7,6 +7,8 @@
  * `id`/`title` de taşır.
  */
 
+import { resolveKeybinding } from "../lib/keys";
+
 /** Text that is resolved when shown, so the palette follows the active UI language. */
 export type CommandText = string | (() => string);
 
@@ -17,7 +19,10 @@ export function resolveCommandText(text: CommandText | undefined): string | unde
 export interface Command {
   id: string;
   title: CommandText;
-  /** Örn. "Ctrl+B", "Ctrl+Shift+T". Normalize edilmiş biçim: bkz. `normalizeKeybinding`. */
+  /**
+   * Canonical form (U-3): `"Mod+B"`, `"Mod+Shift+P"` – `Mod` is Cmd on macOS, Ctrl elsewhere; a
+   * literal `Ctrl` (e.g. `"Ctrl+Tab"`) stays Ctrl on every OS. See `lib/keys.ts`.
+   */
   keybinding?: string;
   /**
    * faz4-spec §2.4/§4.1: `"global"` (varsayılan) terminal odaktayken de çalışır (ör. `Ctrl+B`,
@@ -89,6 +94,13 @@ export function normalizeKeybinding(
     return parts.join("+");
   }
 
+  // U-3: Alt/Option+digit matches on the physical key – on macOS Option+1 types "¡".
+  const digit = e.altKey && e.code ? /^Digit([0-9])$/.exec(e.code) : null;
+  if (digit) {
+    parts.push(digit[1]);
+    return parts.join("+");
+  }
+
   const rawKey = e.key;
   const key = KEY_ALIASES[rawKey] ?? (rawKey.length === 1 ? rawKey.toUpperCase() : rawKey);
 
@@ -125,7 +137,7 @@ export function installGlobalKeydownListener(target: Window = window): () => voi
   const handler = (e: KeyboardEvent) => {
     const combo = normalizeKeybinding(e);
     for (const command of commands.values()) {
-      if (!command.keybinding || command.keybinding !== combo) continue;
+      if (!command.keybinding || resolveKeybinding(command.keybinding) !== combo) continue;
       // faz4-spec §2.4/§4.1 (faz6-spec §10.6: yeniden adlandırıldı): "notTerminal" kapsamındaki
       // komutlar (Ctrl+S/W/Shift+M, Ctrl+P) terminal odaktayken çalışmaz — tuş burada
       // yutulmaz, xterm'in kendi `attachCustomKeyEventHandler`'ı (aynı yönlendirme kararıyla)

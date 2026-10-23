@@ -42,8 +42,9 @@ public sealed class AppPaths
     public AgentHomes Agents { get; init; }
 
     /// <summary>
-    /// User-defined adapters, <c>&lt;dir&gt;\&lt;id&gt;\adapter.json</c>: <c>%APPDATA%\kotilo\adapters</c>, or
-    /// <c>AGENTHUB_USER_ADAPTERS_DIR</c>. The constructor puts it in the data folder (tests).
+    /// User-defined adapters, <c>&lt;dir&gt;\&lt;id&gt;\adapter.json</c>: <c>%APPDATA%\kotilo\adapters</c>
+    /// (<see cref="UserFolders.Roaming"/>, the folder the desktop app writes: <c>~/Library/Application Support</c> on macOS),
+    /// or <c>AGENTHUB_USER_ADAPTERS_DIR</c>. The constructor puts it in the data folder (tests).
     /// </summary>
     public string UserAdaptersDir { get; init; }
 
@@ -129,13 +130,12 @@ public sealed class AppPaths
             codex = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
         }
 
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return new AppPaths(data, claude, codex)
         {
             Agents = new AgentHomes(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Environment.GetEnvironmentVariable),
             UserAdaptersDir = Environment.GetEnvironmentVariable("AGENTHUB_USER_ADAPTERS_DIR") is { Length: > 0 } user
                 ? user
-                : Path.Combine(appData, Brand.Current.Slug, "adapters"),
+                : Path.Combine(UserFolders.Roaming, Brand.Current.Slug, "adapters"),
             BuiltInAdaptersDir = Environment.GetEnvironmentVariable("AGENTHUB_ADAPTERS_DIR") is { Length: > 0 } builtIn
                 ? builtIn
                 : FindBuiltInAdapters(AppContext.BaseDirectory),

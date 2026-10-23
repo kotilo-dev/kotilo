@@ -2,6 +2,7 @@
 //! functions, so callers never carry `#[cfg]` themselves. New platform code goes here;
 //! the older inline `#[cfg(windows)]` blocks imported from AgentDeck move in over time.
 
+pub mod app_lifecycle;
 pub mod assistant;
 pub mod conpty;
 pub mod dictation;
@@ -9,6 +10,7 @@ pub mod fonts;
 pub mod hook_endpoint;
 pub mod hotkeys;
 pub mod idle;
+pub mod login_path;
 pub mod mascot;
 #[cfg(not(windows))]
 pub mod processes;
@@ -34,6 +36,16 @@ pub fn hide_console_window(cmd: &mut Command) {
     {
         let _ = cmd;
     }
+}
+
+/// U-3: the signals a pane's process tree is stopped with off Windows (Windows has no
+/// equivalent; it terminates through the pane's Job Object). Lives here, not in
+/// `processes`, so the core's pure stop sequence can name it on every OS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StopSignal {
+    Hangup,
+    Terminate,
+    Kill,
 }
 
 /// Which shells `pty` looks for: the Windows set (pwsh, Windows PowerShell, cmd, Git Bash,

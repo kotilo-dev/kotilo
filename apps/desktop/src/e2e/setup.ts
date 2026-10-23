@@ -24,6 +24,16 @@ const appearance = colorTheme ? { darkTheme: colorTheme, lightTheme: colorTheme 
 const aiLocal = params.get("ai") === "local";
 // `restore=agent`: the workspace comes back with a restored (not yet started) Claude tab.
 const restoreAgent = params.get("restore") === "agent";
+/** U-3: `?platform=macos` (or `linux`) makes `app_info` report that OS with the extras off. */
+const platform = params.get("platform") === "macos" ? "macos" : params.get("platform") === "linux" ? "linux" : "windows";
+const offWindows = {
+  globalHotkeys: false,
+  dictation: false,
+  mascot: false,
+  awaySummary: false,
+  bundledConpty: false,
+  windowsTerminalSchemes: false,
+};
 const restoredTerminals = {
   "ws-demo": { tabs: [{ title: "claude", titleEdited: false, profileId: "pwsh", cwdRel: "", agentCommand: "claude" }], activeIndex: 0 },
 };
@@ -179,6 +189,10 @@ mockIPC(
       case "terminal_wt_schemes":
         return themeFx.wtSchemes;
       case "app_info":
+        if (platform !== "windows") {
+          const os = platform === "macos" ? "macOS 15" : "Ubuntu 22.04";
+          return { osBuild: 0, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os, buildDate: "2026-10-04", platform, features: offWindows };
+        }
         return { osBuild: 26300, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os: "Windows 11", buildDate: "2026-10-04" };
       case "pty_profiles":
         return [{ id: "pwsh", name: "PowerShell", program: "pwsh.exe", args: [], available: true }];

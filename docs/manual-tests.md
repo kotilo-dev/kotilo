@@ -176,3 +176,40 @@ Preparation: a 0.3.2 build; Claude Code installed; Task Manager → Details sort
 | G-9 | Agents list and pane status in each state (working, permission, question, done, idle) | Each state has its own small icon in the state colour; the working icon spins unless reduced motion is on |
 | G-10 | Open an image with sixel output (e.g. `img2sixel`), then check the log | The image renders; no "WebAssembly … Content Security Policy" error in the log |
 | G-11 | Settings → About → diagnostics zip | Contains `hub-logs/` with the recent hub log; no repeated "taskbar: overlay icon not set" lines in the app log |
+
+## macOS beta (U-3, D-062)
+
+For an outside tester on a real Mac. Preparation: macOS 14 or later; Claude Code installed the usual way (e.g. `npm i -g @anthropic-ai/claude-code` or Homebrew), ideally a second agent (Codex or Gemini) too; the `.dmg` for the Mac's chip (`aarch64` = Apple Silicon, `x64` = Intel). Please note the macOS version, chip and login shell (`echo $SHELL`). Logs: `~/Library/Application Support/kotilo/logs` (app) and `~/Library/Application Support/kotilo/hub/logs` (hub); Settings → About → diagnostics zip collects both.
+
+**Smoke test (about 15 minutes; decides whether a public preview goes out):** MAC-1 to MAC-6.
+
+| # | Steps | Expected |
+|---|---|---|
+| MAC-1 | Open the .dmg, drag Kotilo to Applications, double-click it; on the warning click **Done**, then System Settings → Privacy & Security → **Open Anyway** → password → **Open** | Kotilo opens; later starts need no extra step |
+| MAC-2 | Start Kotilo from the Dock or Finder (not from a terminal); open a terminal tab | The terminal opens with your login shell and your normal PATH (`which claude`, `which git` find them); no "install command line developer tools" dialog appears |
+| MAC-3 | Settings → Agents → Agent integrations: install the Claude Code integration | Shows installed; Claude Code is listed as detected |
+| MAC-4 | Start Claude Code in a tab and give it a small task that needs a permission (e.g. run a shell command) | The pane goes Working → Needs permission (permission card) → Done; **Allow once** on the card answers Claude in the terminal |
+| MAC-5 | Mission control and Usage pages after MAC-4 | The session appears with its project; usage/cost numbers are filled in |
+| MAC-6 | Quit with ⌘Q, start Kotilo again | Quits within a few seconds; Activity Monitor shows no leftover `kotilo-hub`, `claude` or `node` from Kotilo; the app reopens normally |
+
+**Full checklist:**
+
+| # | Steps | Expected |
+|---|---|---|
+| MAC-7 | In a pane: `echo $AGENTHUB_DATA_DIR` | `~/Library/Application Support/kotilo/hub` (expanded) |
+| MAC-8 | Install the Codex (or Gemini) integration, run that agent, let it use a tool | The pane status changes as in MAC-4; the hub log has no hook errors. For Codex: approve the hook once in Codex's `/hooks` if it asks |
+| MAC-9 | With a slow or unusual shell setup (fish, or a `.zshrc` that takes a few seconds) start Kotilo from the Dock | Kotilo is usable within about 5 s; the app log has a line `login shell PATH: …` |
+| MAC-10 | In a plain shell tab run `sleep 1000 &` and `nohup sleep 1000 &`, then close the tab | Both `sleep` processes are gone in Activity Monitor within a few seconds |
+| MAC-11 | Close a tab while Claude Code is working | Kotilo asks/waits for the agent to stop; afterwards no `claude`/`node` from that tab remains |
+| MAC-12 | In Claude run a long background script, then `/exit` but keep the tab | A strip "Agent exited – 1 process still running" appears; **Stop** ends the script but not the shell |
+| MAC-13 | Open a file in the editor, change it without saving, press ⌘Q | The Save / Discard / Cancel prompt appears; Cancel keeps the app open |
+| MAC-14 | Settings: turn on "Keep running in the tray"; close the window; click the Dock icon; then ⌘Q | Closing hides the window; the Dock click brings it back; ⌘Q quits (with the prompt if something is unsaved) |
+| MAC-15 | Terminal: select text, ⌘C, then ⌘V | Copies and pastes once (not twice) |
+| MAC-16 | Terminal: Ctrl+C while a command runs, with and without a selection; Ctrl+V in Claude Code with an image on the clipboard | Ctrl+C always interrupts; Ctrl+V goes to Claude (image paste) |
+| MAC-17 | ⌘-click a URL and a file path printed in the terminal | The URL opens in the browser; the file opens in Kotilo's viewer |
+| MAC-18 | ⌘⇧P (command palette), ⌘, (settings), ⌘B, ⌘1…⌘9, Option+1…9, Ctrl+Tab, Ctrl+` | Each does what the palette lists next to it; nothing is typed into the terminal; the palette shows ⌘/⇧/⌥ symbols |
+| MAC-19 | ⌘W in the editor and in a terminal | Closes the editor tab / does nothing harmful; the main window does not close |
+| MAC-20 | Menu bar: Kotilo → About, Hide (⌘H); Edit → Copy/Paste in the editor; View → full screen | All work |
+| MAC-21 | Right-click a file in the workspace tree | The menu says "Reveal in Finder" / "Open in Finder" and they work |
+| MAC-22 | Notifications: let an agent finish while Kotilo is in the background | A macOS notification appears (allow notifications when asked) |
+| MAC-23 | Tray icon (with "Keep running in the tray" on) in light and dark menu bar | Visible in both (a full-colour icon is expected for now) |

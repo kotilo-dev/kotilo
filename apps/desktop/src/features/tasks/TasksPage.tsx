@@ -12,6 +12,7 @@ import { useToastStore } from "../../stores/toastStore";
 import { Button, Card, Dialog, EmptyState, Field, Notice, Page, PageHeader, SectionLabel, Segmented, Select, TextArea, TextInput } from "../settings/controls";
 import { asAppError, useHubResource } from "../settings/hubData";
 import { formatDue, formatRelative, groupTasks, isoDatePlusDays, splitNote } from "./taskLogic";
+import { formatKeybinding, isModPressed } from "../../lib/keys";
 
 type Filter = "open" | "done" | "all";
 
@@ -239,7 +240,7 @@ function TaskEditor({ draft, projects, onCancel, onSave }: { draft: Draft; proje
         <>
           <Button onClick={onCancel}>{s.tasks.cancel}</Button>
           <Button variant="primary" onClick={save}>
-            {s.tasks.save} <span className="font-mono text-label opacity-60">Ctrl Enter</span>
+            {s.tasks.save} <span className="font-mono text-label opacity-60">{formatKeybinding("Mod+Enter").replace("+", " ")}</span>
           </Button>
         </>
       }
@@ -247,7 +248,7 @@ function TaskEditor({ draft, projects, onCancel, onSave }: { draft: Draft; proje
       <div
         className="flex flex-col gap-4"
         onKeyDown={(e) => {
-          if (e.key === "Enter" && e.ctrlKey) {
+          if (e.key === "Enter" && isModPressed(e)) {
             e.preventDefault();
             save();
           }

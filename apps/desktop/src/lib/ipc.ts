@@ -954,6 +954,11 @@ export async function hubStatus(): Promise<HubProcessStatus> {
   return invoke<HubProcessStatus>("hub_status");
 }
 
+/** `app:quit-requested` — the macOS app menu's Quit while "keep running in the tray" is on (U-3). */
+export function onQuitRequested(handler: () => void): Promise<UnlistenFn> {
+  return listen("app:quit-requested", () => handler());
+}
+
 /** `hub:status` — whether the `/v1/stream` WebSocket is connected. */
 export function onHubStatus(handler: (status: { connected: boolean }) => void): Promise<UnlistenFn> {
   return listen<{ connected: boolean }>("hub:status", (e) => handler(e.payload));
