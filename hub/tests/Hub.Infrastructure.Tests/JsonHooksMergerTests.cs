@@ -85,7 +85,7 @@ public sealed class JsonHooksMergerTests : IDisposable
         var ours = (JsonObject)groups[1]!;
         ours["matcher"]!.GetValue<string>().Should().Be("*");
         var handler = (JsonObject)((JsonArray)ours["hooks"]!)[0]!;
-        handler["command"]!.GetValue<string>().Should().Be($"& '{HookExe}' --agent gemini --event BeforeTool");
+        handler["command"]!.GetValue<string>().Should().Be(OsForm.Pick($"& '{HookExe}' --agent gemini --event BeforeTool", $"'{HookExe}' --agent gemini --event BeforeTool"));
         handler["timeout"]!.GetValue<int>().Should().Be(5000);
         ((JsonObject)((JsonArray)root["hooks"]!["AfterAgent"]!)[0]!).ContainsKey("matcher").Should().BeFalse();
         Gemini(path).GetStatus().State.Should().Be(HookInstallState.Installed);
@@ -111,11 +111,12 @@ public sealed class JsonHooksMergerTests : IDisposable
         root.Select(kv => kv.Key).Should().Equal("version", "hooks");
         root["version"]!.GetValue<int>().Should().Be(1);
         var entry = (JsonObject)((JsonArray)root["hooks"]!["stop"]!).Single()!;
-        entry["command"]!.GetValue<string>().Should().Be("C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe --agent cursor --event stop");
+        entry["command"]!.GetValue<string>().Should().Be(OsForm.Pick(
+            "C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe --agent cursor --event stop", $"'{HookExe}' --agent cursor --event stop"));
         entry["timeout"]!.GetValue<int>().Should().Be(5);
         entry.ContainsKey("type").Should().BeFalse();
         merger.GetStatus().State.Should().Be(HookInstallState.Installed);
-        merger.ReferencedHookExes().Should().Equal("C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe");
+        merger.ReferencedHookExes().Should().Equal(OsForm.Pick("C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe", HookExe));
 
         merger.Uninstall();
         Read(path).Select(kv => kv.Key).Should().Equal("version");
@@ -221,7 +222,7 @@ public sealed class JsonHooksMergerTests : IDisposable
     [InlineData(HookShell.PowerShell, "& 'C:\\a b\\agenthub-hook.exe' --agent x --event E")]
     public void Command_forms_quote_paths_with_spaces(HookShell shell, string expected)
     {
-        var form = HookCommandLine.For(shell, @"C:\a b\agenthub-hook.exe", "x", "E");
+        var form = HookCommandLine.For(shell, @"C:\a b\agenthub-hook.exe", "x", "E", windows: true);
 
         form.Command.Should().Be(expected);
         form.Runs.Should().BeTrue();
@@ -231,10 +232,67 @@ public sealed class JsonHooksMergerTests : IDisposable
     [Fact]
     public void Unquoted_forms_keep_a_path_without_spaces_as_is()
     {
-        HookCommandLine.For(HookShell.CmdUnquoted, @"C:\tools\agenthub-hook.exe", "x", "E").Should().Be(new HookCommandForm(@"C:\tools\agenthub-hook.exe --agent x --event E", true));
-        HookCommandLine.For(HookShell.Any, @"C:\tools\agenthub-hook.exe", "x", "E").Command.Should().Be("C:/tools/agenthub-hook.exe --agent x --event E");
+        HookCommandLine.For(HookShell.CmdUnquoted, @"C:\tools\agenthub-hook.exe", "x", "E", windows: true).Should().Be(new HookCommandForm(@"C:\tools\agenthub-hook.exe --agent x --event E", true));
+        HookCommandLine.For(HookShell.Any, @"C:\tools\agenthub-hook.exe", "x", "E", windows: true).Command.Should().Be("C:/tools/agenthub-hook.exe --agent x --event E");
         HookCommandLine.PowerShell(@"C:\it's\agenthub-hook.exe", "x", "E").Should().Be(@"& 'C:\it''s\agenthub-hook.exe' --agent x --event E");
         HookCommand.ExePath(HookCommandLine.PowerShell(@"C:\it's\agenthub-hook.exe", "x", "E")).Should().Be(@"C:\it's\agenthub-hook.exe", "'' is PowerShell's escaped quote");
         HookCommand.ExePath("'/usr/local/bin/agenthub-hook' --agent x").Should().Be("/usr/local/bin/agenthub-hook");
+    }
+
+    private const string MacHookExe = "/Users/u/Library/Application Support/kotilo/hub/bin/kotilo-hook";
+
+    [Theory]
+    [InlineData(HookShell.CmdUnquoted)]
+    [InlineData(HookShell.Any)]
+    [InlineData(HookShell.PowerShell)]
+    public void Off_windows_the_non_cmd_forms_are_posix_shell_commands(HookShell shell)
+    {
+        // macOS: the data folder has a space, so the path is single-quoted (sh -c / bash -c), and it always runs.
+        HookCommandLine.For(shell, MacHookExe, "x", "E", windows: false)
+            .Should().Be(new HookCommandForm($"'{MacHookExe}' --agent x --event E", true));
+
+        // Linux: a plain path stays unquoted, the same text as before, so existing entries stay current.
+        HookCommandLine.For(shell, "/home/u/.local/share/kotilo/hub/bin/kotilo-hook", "x", "E", windows: false)
+            .Should().Be(new HookCommandForm("/home/u/.local/share/kotilo/hub/bin/kotilo-hook --agent x --event E", true));
+
+        var odd = HookCommandLine.For(shell, "/Users/O'Neil/$HOME/kotilo-hook", "x", "E", windows: false).Command;
+        odd.Should().Be(@"'/Users/O'\''Neil/$HOME/kotilo-hook' --agent x --event E");
+        HookCommand.ExePath(odd).Should().Be("/Users/O'Neil/$HOME/kotilo-hook", @"'\'' is the POSIX escaped quote");
+    }
+
+    [Fact]
+    public void Off_windows_the_cmd_form_keeps_its_double_quotes()
+    {
+        HookCommandLine.For(HookShell.Cmd, MacHookExe, "x", "E", windows: false)
+            .Should().Be(new HookCommandForm($"\"{MacHookExe}\" --agent x --event E", true), "sh reads it the same; Claude/Droid entries stay current");
+    }
+
+    [Theory]
+    [InlineData(HookShell.CmdUnquoted)]
+    [InlineData(HookShell.Any)]
+    [InlineData(HookShell.PowerShell)]
+    public void A_path_with_spaces_and_a_quote_installs_reads_back_and_stays_installed(HookShell shell)
+    {
+        var path = _dir.File("hooks.json");
+        var exe = OsForm.Pick(@"C:\Users\Dev O'Neil\AppData\Local\kotilo\hub\bin\kotilo-hook.exe", "/Users/Dev O'Neil/Library/Application Support/kotilo/hub/bin/kotilo-hook");
+        var merger = new JsonHooksMerger(new JsonHooksOptions(path, "x", [new("E")], HookEntryShape.MatcherGroups, shell), exe);
+
+        merger.Install();
+
+        merger.GetStatus().State.Should().Be(HookInstallState.Installed);
+        merger.ReferencedHookExes().Should().Equal(exe);
+        merger.Install().Should().BeNull("nothing changed");
+    }
+
+    [Fact]
+    public void A_powershell_entry_from_an_older_build_is_installed_on_windows_and_outdated_elsewhere()
+    {
+        var path = _dir.File("settings.json");
+        File.WriteAllText(path, $$"""{ "hooks": { "AfterAgent": [ { "hooks": [ { "type": "command", "command": "& '/home/u/.local/share/kotilo/hub/bin/kotilo-hook' --agent gemini --event AfterAgent", "timeout": 5 } ] } ] } }""");
+        var merger = new JsonHooksMerger(
+            new JsonHooksOptions(path, "gemini", [new("AfterAgent")], HookEntryShape.MatcherGroups, HookShell.PowerShell) { OwnedMarkers = ["kotilo-hook"] },
+            "/home/u/.local/share/kotilo/hub/bin/kotilo-hook");
+
+        merger.GetStatus().State.Should().Be(OsForm.Pick(HookInstallState.Installed, HookInstallState.Outdated), "the & form is a sh syntax error, so it is ours and gets repaired");
     }
 }

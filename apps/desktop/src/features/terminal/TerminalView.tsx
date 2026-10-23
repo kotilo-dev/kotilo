@@ -32,6 +32,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { currentTerminalColors, effectiveTerminalFont, getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
 import { routeKey } from "./keyRouting";
+import { isMac, isModPressed } from "../../lib/keys";
 import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
 import { countPastedLines, shouldWarnMultilinePaste } from "./pasteWarning";
@@ -42,6 +43,13 @@ const LINK_CACHE_LIMIT = 500;
 /** WebGL reloads after a context loss (GPU reset, driver update); a GPU that keeps losing it keeps the DOM renderer. */
 const WEBGL_MAX_RELOADS = 3;
 const WEBGL_RELOAD_DELAY_MS = 1000;
+/**
+ * U-3: a native `paste` event this soon after a paste shortcut we handled ourselves is the same
+ * key press (WKWebView may still run the Edit menu's Cmd+V after the keydown was prevented), so
+ * it is dropped instead of pasting twice.
+ */
+const SHORTCUT_PASTE_DEDUPE_MS = 1000;
+let lastShortcutPasteAt = Number.NEGATIVE_INFINITY;
 
 // --- Link resolution cache (LRU, 500 entries, fully cleared on fs:changed – §2.6) ------------
 
@@ -181,11 +189,12 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       tooltip.style.display = "none";
     };
 
-    // §4.6: web links also open only on Ctrl+click – the handler checks the modifier itself.
+    // §4.6: web links also open only on Ctrl+click (Cmd+click on macOS, where Ctrl+click is a
+    // right click) – the handler checks the modifier itself.
     term.loadAddon(
       new WebLinksAddon(
         (event, uri) => {
-          if (!event.ctrlKey) return;
+          if (!isModPressed(event)) return;
           void openExternalUrl(uri);
         },
         {
@@ -221,7 +230,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
               hover: (event: MouseEvent) => showTooltip(event, strings.terminal.ctrlClickToOpenFile),
               leave: () => hideTooltip(),
               activate: (event: MouseEvent) => {
-                if (!event.ctrlKey) return;
+                if (!isModPressed(event)) return;
                 // §4.9 fix: read cwdRel from the store at activation time – the link provider is
                 // registered once on open, so its closure holds a stale `tab.cwdRel` (the spawn
                 // cwd may have fallen back).
@@ -391,6 +400,12 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     const textarea = term.textarea;
     if (!textarea) return;
     const handler = (e: ClipboardEvent) => {
+      if (performance.now() - lastShortcutPasteAt < SHORTCUT_PASTE_DEDUPE_MS) {
+        lastShortcutPasteAt = Number.NEGATIVE_INFINITY;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       const text = e.clipboardData?.getData("text");
       if (!text) return; // no text (e.g. an image): leave it to xterm/the browser
       e.preventDefault();
@@ -611,9 +626,10 @@ async function pasteFromClipboard(
 }
 
 /**
- * `Ctrl+Shift+C/V/F`, `Ctrl+V` and `Ctrl+C` with a selection – `routeKey` classifies these as
- * `"terminal"` (§2.3, §4.3). keydown is `preventDefault`ed, so the browser fires no `paste`
- * event → pasting happens once.
+ * `Ctrl+Shift+C/V/F`, `Ctrl+V` and `Ctrl+C` with a selection (macOS: the same with Cmd, plus
+ * Cmd+C and Cmd+F) – `routeKey` classifies these as `"terminal"` (§2.3, §4.3). keydown is
+ * `preventDefault`ed, so the browser fires no `paste` event → pasting happens once (and the
+ * native paste listener drops a late one, see `SHORTCUT_PASTE_DEDUPE_MS`).
  */
 function handleTerminalLocalShortcut(
   e: KeyboardEvent,
@@ -626,11 +642,13 @@ function handleTerminalLocalShortcut(
     if (term.hasSelection()) {
       void clipboardWriteText(term.getSelection());
       // Like Windows Terminal: the selection clears after copying, the next Ctrl+C is SIGINT again.
-      if (!e.shiftKey) term.clearSelection();
+      // macOS keeps it (Cmd+C never reaches the shell there, as in Terminal.app).
+      if (!e.shiftKey && !isMac()) term.clearSelection();
     }
   } else if (e.key.toLowerCase() === "v") {
     // Plain Ctrl+V: without text on the clipboard (e.g. an image) ^V goes to the shell – claude
-    // takes clipboard images on Ctrl+V; Ctrl+Shift+V only pastes text.
+    // takes clipboard images on Ctrl+V; Ctrl+Shift+V only pastes text. Cmd+V on macOS does the same.
+    if (isMac()) lastShortcutPasteAt = performance.now();
     void pasteFromClipboard(term, !e.shiftKey, onNeedsPasteConfirm);
   } else if (e.key.toLowerCase() === "f") {
     toggleSearch();

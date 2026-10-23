@@ -1,3 +1,36 @@
+# U-3 – macOS beta (planned 2026-10-23)
+
+Goal: a macOS beta with the same core as Linux (terminals, agent status, permission card, hub, usage, tasks, themes, updates); Windows-only extras (dictation, mascot, global hotkeys, away summary, ConPTY, WT schemes) stay off via `app_info.features`. Builds run on GitHub's macOS runners; there is no Mac here, so every behaviour check is done by an outside tester (checklist below). Signing/notarization once the user's Apple Developer account exists; until then ad-hoc signed test builds.
+
+Found in the code (2026-10-23): macOS builds and tests already pass in CI (U-1); `ps`-based process listing, the Unix hook socket and Unix shell detection work on macOS. Gaps below.
+
+## Track A – Hook + hub (`crates/hook/**`, `hub/**`)
+- [x] Hook `default_data_dir` on macOS = `~/Library/Application Support/<slug>/hub` (today `~/.local/share`, so the hub would get no hook events); also set `AGENTHUB_DATA_DIR` in the pane env
+- [x] `HookCommandLine` off Windows: POSIX-quoted path for every shell kind (`cmdUnquoted`, `any`, `powershell`); the macOS BinDir has a space (Codex/Qwen/Cursor hooks would not run) and the Gemini `powershell` form is a sh syntax error on Linux too
+- [x] User adapters folder: hub and desktop agree on macOS (hub `ApplicationData` = `~/.config`, desktop = `~/Library/Application Support`)
+- [x] Fixtures + tests for each
+
+## Track B – Desktop core (`apps/desktop/src-tauri/**`)
+- [x] Login-shell PATH at start (`$SHELL -ilc`), before the hub starts: a Finder/Dock launch only has `/usr/bin:/bin:…`, so agents, git and CLI providers are not found (and `/usr/bin/git` can pop the Xcode tools dialog)
+- [x] Pane process tree on Unix: process group kill on pane close (SIGHUP → SIGTERM → SIGKILL), `pane_process_alive`, `pty_busy`, `pty_processes`, `pty_stop_leftovers` (the leftover strip's Stop does nothing today; graceful close never waits)
+- [x] App lifecycle: Dock click reopens the main window (`RunEvent::Reopen`); Cmd+Q goes through the close guard; template tray icon
+
+## Track C – Frontend (`apps/desktop/src/**`)
+- [x] Shortcuts: Cmd instead of Ctrl for app shortcuts on macOS (one `Mod` key); terminal Cmd+C/V copy/paste, Ctrl+C/V always to the shell; Cmd+click opens links; route shortcuts by `e.code` (Option+digit types characters)
+- [x] Copy: Finder instead of Explorer, Cmd in shortcut labels, "Same as system" (en + tr)
+
+## Track D – Packaging (`scripts/**`, `.github/workflows/**`, `tauri.conf.json`)
+- [x] `scripts/release-macos.sh`: hub `osx-arm64` / `osx-x64` (no Whisper natives; dictation is off), `.app` + `.dmg` + updater `.app.tar.gz`, per-arch names
+- [x] `bundle.macOS`: minimum system version, hardened runtime, entitlements (hub needs JIT; check .NET's and Tauri's current docs before choosing)
+- [x] `release.yml` `build-macos` job; `latest.json` `darwin-aarch64` / `darwin-x86_64`; signing + notarization steps that run only when the Apple secrets exist
+- [x] CI smoke test (`scripts/macos-smoke.sh`, CI `macos-smoke` + each release build): the app starts through Launch Services, the hub answers, a hook started with an almost empty environment reaches the hub, nothing is left after quit
+- [ ] Unsigned test build for the tester (manual run of the release workflow, macOS only)
+
+## Docs and trial
+- [x] D-062 (macOS beta scope, data folders, hook command form, signing), README macOS section
+- [x] Tester checklist (`docs/manual-tests.md`, English: the tester is not us): install, open, terminal + agent, permission card, hooks for two agents, update
+- [ ] Tester run on a real Mac; Apple Developer ID signing + notarization once the account is ready
+
 # 0.3.5 – Performance from the second-machine measurement (planned 2026-10-23)
 
 Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corporate Windows machine). Idle: hub reads ~456 KB/s with no DB growth and holds ~300 MB private memory. With 2+ working agents WebView2 uses 1.55× the agents' CPU and GPU 3D reaches 13–31 %. Checked against the code: PTY output is already batched (16 ms / 64 KB, raw binary channel) and causes no React work per chunk, so the report's H1 does not hold as written.

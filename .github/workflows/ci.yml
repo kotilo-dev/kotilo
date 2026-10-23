@@ -114,3 +114,30 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build hub/AgentHub.sln
       - run: dotnet test hub/AgentHub.sln --no-build
+
+  # U-3, D-062: builds the macOS app (ad-hoc signed, as a test build) and starts it on the runner's
+  # desktop: hub up, a hook event reaches it, nothing left running after quit.
+  macos-smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: macos-smoke
+      - run: npm --prefix apps/desktop ci
+      - name: Build app
+        run: bash ./scripts/release-macos.sh aarch64
+      - name: Smoke test
+        run: bash ./scripts/macos-smoke.sh target/aarch64-apple-darwin/release/bundle/macos/Kotilo.app

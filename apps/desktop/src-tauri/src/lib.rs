@@ -67,6 +67,10 @@ pub fn run() {
     // gets *some* handling (the log line is simply lost if it fires before the logger
     // plugin's setup runs; every panic once the app is up does not).
     logging::install_panic_hook();
+    // U-3: before anything reads the environment (and while still single-threaded): a
+    // Finder/Dock start on macOS gets the login shell's PATH, so agents, git and the hub
+    // (started below with this environment) are found.
+    let login_path = platform::login_path::apply();
     logging::mark_start();
     // After a rename: move the legacy-named data folders before anything reads them
     // (logged once the logger is attached, in `.setup()`).
@@ -88,7 +92,8 @@ pub fn run() {
     // "the user (or the crash-loop recovery screen) reloaded".
     let main_first_load_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    tauri::Builder::default()
+    let builder = platform::app_lifecycle::configure(tauri::Builder::default());
+    builder
         // Faz 7 §9.1: registered first — its own `.setup()` runs, and attaches the
         // global logger, before the app-level `.setup()` below (where every store now
         // loads) ever starts.
@@ -262,6 +267,9 @@ pub fn run() {
             // `state.json`/`settings.json` (see `persistence::load_json_from`) always has
             // somewhere to log its `.corrupt` line to.
             brand::log_migrations(&brand_migrations);
+            if login_path != platform::login_path::Outcome::Skipped {
+                log::info!("login shell PATH: {login_path:?}");
+            }
             let state_store = StateStore::load();
             let workspace_store = WorkspaceStore::load_from_state_store(&state_store);
             // Snapshot the roots to watch *before* moving the store into `.manage()`.
@@ -362,6 +370,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            platform::app_lifecycle::on_run_event(app, &event);
             // Faz 4 §4.20: on app exit, drop every PTY pane — closing each one's Job
             // Object handle (D8) kills every subprocess tree (`pwsh`, `claude`, ...)
             // still alive, rather than leaving them running after the window closes.

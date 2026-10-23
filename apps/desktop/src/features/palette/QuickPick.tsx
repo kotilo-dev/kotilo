@@ -18,6 +18,7 @@ import { useViewerStore } from "../../stores/viewerStore";
 import { fsQuickOpen } from "../../lib/ipc";
 import { RequestGuard } from "../../lib/staleGuard";
 import { EMPTY_ARRAY } from "../../lib/emptyArray";
+import { formatKeybinding, isModPressed } from "../../lib/keys";
 import { moveIndex, PAGE_STEP } from "./listNav";
 import {
   baseNameMatchIndices,
@@ -195,7 +196,7 @@ export function QuickPick() {
       setSelected((i) => moveIndex(i, rowCount, -PAGE_STEP));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (selected >= 0) activateRow(selected, e.ctrlKey);
+      if (selected >= 0) activateRow(selected, isModPressed(e));
     }
   }
 
@@ -279,7 +280,7 @@ export function QuickPick() {
                   </span>
                   {row.command.keybinding && (
                     <span className="shrink-0 text-label text-muted">
-                      {row.command.keybinding}
+                      {formatKeybinding(row.command.keybinding)}
                     </span>
                   )}
                 </button>

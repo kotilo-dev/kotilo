@@ -30,8 +30,9 @@ public sealed class CursorHooksMergerTests : IDisposable
             ["preToolUse", "beforeShellExecution", "beforeMCPExecution", "beforeReadFile", "beforeSubmitPrompt", "subagentStart"],
             "deciding hooks would make agent-hub part of Cursor's permission answer (D-025)");
         var entry = (JsonObject)hooks["afterShellExecution"]![0]!;
-        entry["command"]!.GetValue<string>().Should().Be(
-            "C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe --agent cursor --event afterShellExecution");
+        entry["command"]!.GetValue<string>().Should().Be(OsForm.Pick(
+            "C:/Users/u/AppData/Local/agent-hub/hub/bin/agenthub-hook.exe --agent cursor --event afterShellExecution",
+            $"'{HookExe}' --agent cursor --event afterShellExecution"));
         entry["timeout"]!.GetValue<int>().Should().Be(5);
         merger.CommandRunsOnWindows.Should().BeTrue();
         merger.GetStatus().Should().Be(new HookStatus(HookInstallState.Installed, path));

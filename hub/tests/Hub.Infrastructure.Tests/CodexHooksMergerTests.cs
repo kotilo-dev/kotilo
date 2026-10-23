@@ -38,7 +38,7 @@ public sealed class CodexHooksMergerTests : IDisposable
         {
             var handler = Handlers(root, eventName).Should().ContainSingle().Subject;
             // Unquoted: Codex's `cmd /C "<command>"` wrapper does not run commands containing quotes (D-013).
-            var expected = $"{HookExe} --agent codex --event {eventName}";
+            var expected = OsForm.Pick($"{HookExe} --agent codex --event {eventName}", $"'{HookExe}' --agent codex --event {eventName}");
             handler["type"]!.GetValue<string>().Should().Be("command");
             handler["command"]!.GetValue<string>().Should().Be(expected);
             handler["commandWindows"]!.GetValue<string>().Should().Be(expected);

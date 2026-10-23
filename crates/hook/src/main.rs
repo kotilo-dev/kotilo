@@ -34,13 +34,13 @@ fn main() {
 
     let args = collect_args(std::env::args_os());
     // Codex runs hooks with an empty environment on Windows, so the data folder falls back
-    // to the known-folder API when LOCALAPPDATA is absent (tests never take this path:
-    // they call `run` with their own lookup).
+    // to the known-folder API when LOCALAPPDATA is absent, and to the password database when
+    // HOME is absent on Unix (tests never take this path: they call `run` with their own lookup).
     let env_lookup = |k: &str| {
-        std::env::var(k).ok().filter(|v| !v.is_empty()).or_else(|| {
-            (k == "LOCALAPPDATA")
-                .then(agenthub_hook::platform::known_local_app_data)
-                .flatten()
+        std::env::var(k).ok().filter(|v| !v.is_empty()).or_else(|| match k {
+            "LOCALAPPDATA" => agenthub_hook::platform::known_local_app_data(),
+            "HOME" => agenthub_hook::platform::known_home(),
+            _ => None,
         })
     };
     let mut stdin = std::io::stdin();

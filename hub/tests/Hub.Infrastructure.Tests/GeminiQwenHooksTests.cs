@@ -53,7 +53,7 @@ public sealed class GeminiQwenHooksTests : IDisposable
         foreach (var spec in GeminiHooksInstaller.Events)
         {
             var own = Handlers(root, spec.Event).Where(h => h["command"]!.GetValue<string>().Contains("agenthub-hook")).Should().ContainSingle().Subject;
-            own["command"]!.GetValue<string>().Should().Be($"& '{HookExe}' --agent gemini --event {spec.Event}");
+            own["command"]!.GetValue<string>().Should().Be(OsForm.Pick($"& '{HookExe}' --agent gemini --event {spec.Event}", $"'{HookExe}' --agent gemini --event {spec.Event}"));
             own["timeout"]!.GetValue<int>().Should().Be(5000, "Gemini timeouts are milliseconds");
             own["type"]!.GetValue<string>().Should().Be("command");
         }
@@ -94,7 +94,10 @@ public sealed class GeminiQwenHooksTests : IDisposable
     {
         var installer = new GeminiHooksInstaller(_dir.File("s.json"), @"C:\Program Files\it's\agenthub-hook.exe");
 
-        installer.CommandFor("AfterAgent").Should().Be(@"& 'C:\Program Files\it''s\agenthub-hook.exe' --agent gemini --event AfterAgent");
+        installer.CommandFor("AfterAgent").Should().Be(OsForm.Pick(
+            @"& 'C:\Program Files\it''s\agenthub-hook.exe' --agent gemini --event AfterAgent",
+            @"'C:\Program Files\it'\''s\agenthub-hook.exe' --agent gemini --event AfterAgent"));
+        HookCommand.ExePath(installer.CommandFor("AfterAgent")).Should().Be(@"C:\Program Files\it's\agenthub-hook.exe");
     }
 
     [Fact]
@@ -126,7 +129,9 @@ public sealed class GeminiQwenHooksTests : IDisposable
         foreach (var spec in QwenHooksInstaller.Events)
         {
             var own = Handlers(root, spec.Event).Where(h => h["command"]!.GetValue<string>().Contains("agenthub-hook")).Should().ContainSingle().Subject;
-            own["command"]!.GetValue<string>().Should().Be($"{HookExe} --agent qwen --event {spec.Event}", "cmd without verbatim arguments breaks on quotes");
+            own["command"]!.GetValue<string>().Should().Be(
+                OsForm.Pick($"{HookExe} --agent qwen --event {spec.Event}", $"'{HookExe}' --agent qwen --event {spec.Event}"),
+                "cmd without verbatim arguments breaks on quotes");
             own["timeout"]!.GetValue<int>().Should().Be(5);
         }
 

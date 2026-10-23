@@ -1,6 +1,6 @@
 //! Unix implementations: the process-tree query (`/proc` on Linux, one `ps` on macOS), the
 //! desktop app's Unix socket connect, and the data folder matching .NET's
-//! `LocalApplicationData` on Unix.
+//! `LocalApplicationData` on Unix (`~/Library/Application Support` on macOS, the XDG data folder elsewhere).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -99,16 +99,29 @@ pub fn known_local_app_data() -> Option<String> {
     None
 }
 
+/// The home folder when `HOME` is missing (an agent may start hooks with an empty environment, as
+/// Codex does on Windows): the password database, the same fallback .NET uses for the hub's folders.
+pub fn known_home() -> Option<String> {
+    #[allow(deprecated)]
+    std::env::home_dir().map(|h| h.to_string_lossy().into_owned()).filter(|h| !h.is_empty())
+}
+
+/// `<LocalApplicationData>/<brand slug>/hub`, the hub's default data folder (`AppPaths.FromEnvironment`).
 pub fn default_data_dir(env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
-    let base = env("XDG_DATA_HOME")
+    Some(local_app_data(cfg!(target_os = "macos"), env)?.join(agenthub_proto::brand::SLUG).join("hub"))
+}
+
+/// .NET 8+ `SpecialFolder.LocalApplicationData` on Unix: `~/Library/Application Support` on macOS,
+/// else `$XDG_DATA_HOME` or `~/.local/share`.
+fn local_app_data(macos: bool, env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
+    let home = || env("HOME").filter(|v| !v.is_empty()).map(PathBuf::from);
+    if macos {
+        return home().map(|h| h.join("Library").join("Application Support"));
+    }
+    env("XDG_DATA_HOME")
         .filter(|v| !v.is_empty())
         .map(PathBuf::from)
-        .or_else(|| {
-            env("HOME")
-                .filter(|v| !v.is_empty())
-                .map(|h| PathBuf::from(h).join(".local").join("share"))
-        })?;
-    Some(base.join(agenthub_proto::brand::SLUG).join("hub"))
+        .or_else(|| home().map(|h| h.join(".local").join("share")))
 }
 
 #[cfg(test)]
@@ -159,6 +172,45 @@ mod tests {
         assert_eq!(parse_ps_line("900 812 -zsh"), Some((900, (812, "-zsh".to_string()))));
         assert_eq!(parse_ps_line("1 0 /sbin/launchd with space"), Some((1, (0, "launchd with space".to_string()))));
         assert_eq!(parse_ps_line("x 1 bad"), None);
+    }
+
+    #[test]
+    fn local_app_data_on_macos_is_application_support_and_ignores_xdg() {
+        let env = |k: &str| match k {
+            "HOME" => Some("/Users/u".to_string()),
+            "XDG_DATA_HOME" => Some("/x/data".to_string()),
+            _ => None,
+        };
+        assert_eq!(local_app_data(true, &env), Some(PathBuf::from("/Users/u/Library/Application Support")));
+        assert_eq!(local_app_data(true, &|_| None), None);
+    }
+
+    #[test]
+    fn local_app_data_elsewhere_is_xdg_data_home_or_local_share() {
+        let xdg = |k: &str| match k {
+            "HOME" => Some("/home/u".to_string()),
+            "XDG_DATA_HOME" => Some("/x/data".to_string()),
+            _ => None,
+        };
+        assert_eq!(local_app_data(false, &xdg), Some(PathBuf::from("/x/data")));
+        let home = |k: &str| (k == "HOME").then(|| "/home/u".to_string());
+        assert_eq!(local_app_data(false, &home), Some(PathBuf::from("/home/u/.local/share")));
+        assert_eq!(local_app_data(false, &|_| None), None);
+    }
+
+    #[test]
+    fn default_data_dir_is_the_brand_hub_folder_for_this_os() {
+        let env = |k: &str| (k == "HOME").then(|| "/h".to_string());
+        let base = if cfg!(target_os = "macos") { "/h/Library/Application Support" } else { "/h/.local/share" };
+        assert_eq!(
+            default_data_dir(&env),
+            Some(PathBuf::from(base).join(agenthub_proto::brand::SLUG).join("hub"))
+        );
+    }
+
+    #[test]
+    fn known_home_is_not_empty() {
+        assert!(known_home().is_some_and(|h| h.starts_with('/')));
     }
 
     #[test]

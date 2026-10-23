@@ -35,3 +35,16 @@ public sealed class CommandLinePathsTests : IDisposable
         }
     }
 }
+
+public sealed class UserFoldersTests
+{
+    [Fact]
+    public void Roaming_is_the_desktop_apps_settings_root()
+    {
+        var expected = OperatingSystem.IsMacOS()
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support")
+            : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+        UserFolders.Roaming.Should().Be(expected);
+    }
+}

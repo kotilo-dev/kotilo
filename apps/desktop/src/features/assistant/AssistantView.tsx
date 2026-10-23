@@ -21,6 +21,7 @@ import {
 import { errorText, footerVariant, keyAction, needsSettings } from "./assistantLogic";
 import { conversationReducer, INITIAL_CONVERSATION, isRunning, lastUserText, messagesFor, runningTurn, type ChatMeta, type Turn } from "./conversation";
 import { CloseIcon, NewChatIcon, SendIcon, SettingsIcon, SparkIcon, StopIcon } from "./icons";
+import { formatKeybinding } from "../../lib/keys";
 import "./assistant.css";
 
 type T = Strings["assistant"];
@@ -265,7 +266,7 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
             </span>
           )}
         </div>
-        <IconButton label={t.newChat} title={`${t.newChat} (Ctrl+N)`} onClick={newChat}>
+        <IconButton label={t.newChat} title={`${t.newChat} (${formatKeybinding("Mod+N")})`} onClick={newChat}>
           <NewChatIcon />
         </IconButton>
         <IconButton label={t.close} title={`${t.close} (Esc)`} onClick={() => void assistantHide().catch(() => {})}>

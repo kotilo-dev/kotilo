@@ -40,6 +40,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "hardenedRuntime": true,
+      "entitlements": "./Entitlements.plist"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",

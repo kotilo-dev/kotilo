@@ -6,7 +6,8 @@
 import { APP_NAME } from "../constants";
 import type { AgentKind, AppInfo, ErrorCode } from "../../lib/ipc";
 import type { HelpDocId } from "../../features/help/helpDocs";
-import { webviewName } from "../../lib/platform";
+import { perOs, webviewName } from "../../lib/platform";
+import { formatKeybinding } from "../../lib/keys";
 import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
@@ -432,7 +433,13 @@ export const en = {
     modelsFailed: (reason: string) => `Models could not be loaded: ${reason}`,
     modelsSaveFirst: "Save the endpoint first, then load its models.",
     apiKey: "API key (optional)",
-    apiKeyHint: "Stored in Windows Credential Manager, never in the settings file or logs.",
+    get apiKeyHint() {
+      return perOs(
+        "Stored in Windows Credential Manager, never in the settings file or logs.",
+        "Stored in the macOS Keychain, never in the settings file or logs.",
+        "Stored in the system keyring, never in the settings file or logs.",
+      );
+    },
     apiKeyReplace: "A key is saved. Enter a new one to replace it.",
     apiKeyUnavailable: "Keys can't be saved on this system yet (no credential vault).",
     keyFailed: (message: string) => `The endpoint was saved, but the key was not: ${message}`,
@@ -752,7 +759,9 @@ export const en = {
       zoomIn: "Zoom in",
       fitWidth: "Fit width",
       searchPlaceholder: "Find in document…",
-      searchTooltip: "Find (Ctrl+F)",
+      get searchTooltip() {
+        return `Find (${formatKeybinding("Mod+F")})`;
+      },
       matchCounter: (index: number, total: number) => `${index} / ${total}`,
       noMatches: "No matches",
       searching: "Searching…",
@@ -785,8 +794,12 @@ export const en = {
     searchPrev: "Previous match",
     searchNext: "Next match",
     closeSearchTooltip: "Close",
-    ctrlClickToOpenFile: "Ctrl+click to open",
-    ctrlClickToOpenLink: "Ctrl+click to open in browser",
+    get ctrlClickToOpenFile() {
+      return perOs("Ctrl+click to open", "⌘-click to open", "Ctrl+click to open");
+    },
+    get ctrlClickToOpenLink() {
+      return perOs("Ctrl+click to open in browser", "⌘-click to open in browser", "Ctrl+click to open in browser");
+    },
   },
 
   workspaces: {
@@ -866,9 +879,13 @@ export const en = {
     delete: "Delete",
     copyPath: "Copy Path",
     copyRelativePath: "Copy Relative Path",
-    revealInExplorer: "Reveal in Explorer",
+    get revealInExplorer() {
+      return perOs("Reveal in Explorer", "Reveal in Finder", "Show in file manager");
+    },
     makeActive: "Make active",
-    openInExplorer: "Open in Explorer",
+    get openInExplorer() {
+      return perOs("Open in Explorer", "Open in Finder", "Open in file manager");
+    },
     saveClipboardImageHere: "Save clipboard image here",
     openTerminalHere: "Open terminal here",
     removeWorkspace: "Remove",
@@ -947,14 +964,22 @@ export const en = {
       themeLight: "Light",
       themeSystem: "System",
       language: "Language",
-      languageSystem: "Same as Windows",
+      get languageSystem() {
+        return perOs("Same as Windows", "Same as macOS", "Same as system");
+      },
       languageEnglish: "English",
       languageTurkish: "Türkçe",
       editorFontFamily: "Editor font family",
       editorFontSize: "Editor font size",
       darkTheme: "Dark theme",
       lightTheme: "Light theme",
-      themeSystemHint: "System mode switches between your dark and light theme with Windows.",
+      get themeSystemHint() {
+        return perOs(
+          "System mode switches between your dark and light theme with Windows.",
+          "System mode switches between your dark and light theme with macOS.",
+          "System mode switches between your dark and light theme with the system.",
+        );
+      },
     },
     terminal: {
       fontFamily: "Terminal font family",

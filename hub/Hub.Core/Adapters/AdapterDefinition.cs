@@ -11,7 +11,10 @@ public enum AdapterSource
     User,
 }
 
-/// <summary>Command form an agent's Windows hook runner needs (adapter.json <c>hooks.shell</c>).</summary>
+/// <summary>
+/// Command form an agent's Windows hook runner needs (adapter.json <c>hooks.shell</c>). Off Windows every form except
+/// <see cref="Cmd"/> is a POSIX shell command (path single-quoted when needed); <see cref="Cmd"/>'s form is valid sh as is.
+/// </summary>
 public enum HookShell
 {
     /// <summary><c>"C:\…\kotilo-hook.exe" --agent x --event Y</c> (cmd.exe; Claude Code, Droid).</summary>

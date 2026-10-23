@@ -194,12 +194,12 @@ export function ViewerPanel() {
 
   useEffect(() => {
     const unregisterFns = [
-      registerCommand({ id: "viewer.save", title: () => strings.commandTitles.viewerSave, category: () => strings.commandCategories.viewer, keybinding: "Ctrl+S", scope: "notTerminal", run: () => void saveActiveTab() }),
+      registerCommand({ id: "viewer.save", title: () => strings.commandTitles.viewerSave, category: () => strings.commandCategories.viewer, keybinding: "Mod+S", scope: "notTerminal", run: () => void saveActiveTab() }),
       registerCommand({
         id: "viewer.closeActiveTab",
         title: () => strings.commandTitles.viewerCloseTab,
         category: () => strings.commandCategories.viewer,
-        keybinding: "Ctrl+W",
+        keybinding: "Mod+W",
         scope: "notTerminal",
         run: () => {
           const workspaceId = useWorkspaceStore.getState().activeId;
@@ -207,6 +207,7 @@ export function ViewerPanel() {
           if (workspaceId && ws?.activeTabId) requestCloseTab(workspaceId, ws.activeTabId, setPendingClose);
         },
       }),
+      // Ctrl+Tab stays Ctrl on macOS too (U-3): Cmd+Tab is the system app switcher.
       registerCommand({ id: "viewer.nextTab", title: () => strings.commandTitles.viewerNextTab, category: () => strings.commandCategories.viewer, keybinding: "Ctrl+Tab", run: () => cycleTab(1) }),
       registerCommand({
         id: "viewer.prevTab",
@@ -219,7 +220,7 @@ export function ViewerPanel() {
         id: "viewer.toggleMarkdownMode",
         title: () => strings.commandTitles.viewerToggleMarkdownMode,
         category: () => strings.commandCategories.viewer,
-        keybinding: "Ctrl+Shift+M",
+        keybinding: "Mod+Shift+M",
         scope: "notTerminal",
         run: toggleMarkdownMode,
       }),

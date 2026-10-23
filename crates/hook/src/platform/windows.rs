@@ -17,6 +17,11 @@ pub fn default_data_dir(env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf>
         .map(|d| PathBuf::from(d).join(agenthub_proto::brand::SLUG).join("hub"))
 }
 
+/// Windows uses `LOCALAPPDATA`, never `HOME`, for the data folder.
+pub fn known_home() -> Option<String> {
+    None
+}
+
 /// `%LOCALAPPDATA%` from the shell's known-folder API, for when the environment doesn't carry it:
 /// Codex starts hooks with an empty environment on Windows (verified with codex-cli 0.160.0).
 pub fn known_local_app_data() -> Option<String> {

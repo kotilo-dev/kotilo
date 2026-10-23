@@ -102,7 +102,17 @@ Then start Kotilo and install the agent integrations as above. Requirements: a d
 
 Not on Linux yet: dictation, the mascot, global hotkeys, the taskbar badge, the back-at-the-desk summary and saving API keys for OpenAI-compatible AI providers (no keyring support yet; the installed agent CLI works). The tray icon needs a desktop with AppIndicator support (on GNOME, the AppIndicator extension).
 
-macOS support is planned.
+### macOS (beta)
+
+macOS 14 Sonoma or later. Download `Kotilo_<version>_aarch64.dmg` (Apple Silicon: M1 and later) or `Kotilo_<version>_x64.dmg` (Intel) from [GitHub Releases](https://github.com/kotilo-dev/kotilo/releases), open it and drag Kotilo to Applications. Then start Kotilo and install the agent integrations as above. Terminals use your login shell (`$SHELL`); shortcuts use ⌘ where Windows uses Ctrl, and in a terminal ⌘C/⌘V copy and paste while Ctrl+C and Ctrl+V go to the shell.
+
+**First launch:** beta builds are not yet signed with an Apple Developer ID, so macOS blocks the first start ("Apple could not verify 'Kotilo' is free of malware…"). Since macOS 15, Control-click → Open no longer skips this. Instead:
+
+1. Double-click Kotilo in Applications and click **Done** in the warning.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Next to the message about Kotilo, click **Open Anyway** (shown for about an hour after the blocked start), enter your login password, then click **Open**.
+
+macOS remembers the exception. Not on macOS yet: dictation, the mascot, global hotkeys, the Dock badge, the back-at-the-desk summary and saving API keys for OpenAI-compatible AI providers (the installed agent CLI works).
 
 ## Privacy
 

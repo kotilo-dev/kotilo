@@ -22,6 +22,7 @@ dependencies = [
  "encoding_rs",
  "globset",
  "ignore",
+ "libc",
  "log",
  "mime_guess",
  "notify-debouncer-mini",
