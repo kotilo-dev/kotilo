@@ -93,6 +93,9 @@ public sealed class UsageService : IAsyncDisposable
     /// <summary>Raised on the worker thread after each refresh.</summary>
     public event Action<UsageSnapshot>? SnapshotChanged;
 
+    /// <summary>Raised on the worker thread after a refresh that reloaded rows (a clock-only refresh does not).</summary>
+    public event Action? EntriesReloaded;
+
     /// <summary>Raised on the worker thread for each usage notification.</summary>
     public event Action<UsageNotification>? NotificationRequested;
 
@@ -176,7 +179,7 @@ public sealed class UsageService : IAsyncDisposable
                 "Usage backfill: {Files} files, {Entries} entries, {Rows} rows in {Ms} ms",
                 backfill.FilesRead, backfill.Entries, backfill.RowsWritten, (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds);
             _backfillDone = true;
-            Refresh(backfillDone: true);
+            Refresh(reload: true);
             var pruned = _repository.Prune(DateTimeOffset.UtcNow - Retention);
             _ruleState.Prune(DateTimeOffset.UtcNow - TimeSpan.FromDays(30));
             Log.Information("Usage retention removed {Rows} rows", pruned);
@@ -246,7 +249,7 @@ public sealed class UsageService : IAsyncDisposable
                 if (changed || NeedsClockRefresh(Current, now, lastRefresh, TimeZoneInfo.Local))
                 {
                     lastRefresh = now;
-                    Refresh(backfillDone: true);
+                    Refresh(reload: changed);
                 }
             }
         }
@@ -262,8 +265,8 @@ public sealed class UsageService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Refresh without new data (it reloads 35 days of rows): only while a block is active, whose remaining time and burn
-    /// rate move with the clock (the refresh after its end clears it), and once when the local day changes.
+    /// Refresh without new data (it recomputes from the rows in memory): only while a block is active, whose remaining
+    /// time and burn rate move with the clock (the refresh after its end clears it), and once when the local day changes.
     /// </summary>
     internal static bool NeedsClockRefresh(UsageSnapshot current, DateTimeOffset now, DateTimeOffset lastRefresh, TimeZoneInfo zone) =>
         now - lastRefresh >= RefreshInterval
@@ -329,11 +332,20 @@ public sealed class UsageService : IAsyncDisposable
         return result;
     }
 
-    private void Refresh(bool backfillDone)
+    /// <summary>The rows of the last load still inside the backfill window; they are ordered by time.</summary>
+    internal static IReadOnlyList<UsageEntry> Window(IReadOnlyList<UsageEntry> entries, DateTimeOffset since) =>
+        entries.Count == 0 || entries[0].Timestamp >= since ? entries : entries.Where(e => e.Timestamp >= since).ToList();
+
+    /// <summary>
+    /// Recomputes the snapshot. Only <paramref name="reload"/> reads the rows again: every write to the usage table
+    /// happens on this worker and reports itself as changed, so a clock-only refresh can reuse the rows in memory
+    /// (reloading 35 days every 30 s kept the hub reading from disk while idle).
+    /// </summary>
+    private void Refresh(bool reload)
     {
         var now = DateTimeOffset.UtcNow;
         var zone = TimeZoneInfo.Local;
-        var entries = _repository.Load(now - Backfill);
+        var entries = reload ? _repository.Load(now - Backfill) : Window(Current.Entries, now - Backfill);
         var today = UsageAggregator.LocalDate(now, zone);
         var active = BlockCalculator.Active(entries, now);
         var todayTotals = UsageAggregator.Day(entries, zone, today);
@@ -348,7 +360,7 @@ public sealed class UsageService : IAsyncDisposable
             UsageAggregator.Daily(entries, zone, today.AddDays(-29), today),
             BlockCalculator.Identify(entries),
             entries,
-            backfillDone);
+            BackfillDone: true);
         Current = snapshot;
 
         foreach (var n in Rules.Evaluate(active, todayTotals, today, now))
@@ -358,6 +370,10 @@ public sealed class UsageService : IAsyncDisposable
         }
 
         SnapshotChanged?.Invoke(snapshot);
+        if (reload)
+        {
+            EntriesReloaded?.Invoke();
+        }
     }
 
     private void StartWatchers()

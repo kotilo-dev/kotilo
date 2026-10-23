@@ -10,6 +10,7 @@ const ipc = vi.hoisted(() => ({
   hooksStatus: vi.fn(),
   hooksUninstall: vi.fn(),
   onAgentsChanged: vi.fn(),
+  onHubStatus: vi.fn(),
   toAppError: (e: unknown) => {
     if (typeof e === "object" && e !== null && "code" in e && "message" in e) return e;
     return { code: "io", message: String(e) };
@@ -70,12 +71,18 @@ function agent(partial: Partial<Agent> & Pick<Agent, "id" | "paneId" | "state">)
 }
 
 let agentsChangedHandler: ((agents: Agent[]) => void) | undefined;
+let hubStatusHandler: ((status: { connected: boolean }) => void) | undefined;
 
 async function freshStore() {
   vi.resetModules();
   agentsChangedHandler = undefined;
+  hubStatusHandler = undefined;
   ipc.onAgentsChanged.mockImplementation((h: typeof agentsChangedHandler) => {
     agentsChangedHandler = h;
+    return Promise.resolve(() => {});
+  });
+  ipc.onHubStatus.mockImplementation((h: typeof hubStatusHandler) => {
+    hubStatusHandler = h;
     return Promise.resolve(() => {});
   });
   const mod = await import("./agentStore");
@@ -125,6 +132,41 @@ describe("init", () => {
     expect(useAgentStore.getState().agents).toEqual(initialAgents);
     expect(useAgentStore.getState().hooks).toEqual({ hubAvailable: true, installed: true, upToDate: true, state: "installed", settingsPath: "y" });
     expect(useAgentStore.getState().ready).toBe(true);
+  });
+
+  it("re-checks the hooks status when the hub connects after start", async () => {
+    const down: HooksStatus = { hubAvailable: false, installed: false, upToDate: false, state: null, settingsPath: null };
+    const up: HooksStatus = { hubAvailable: true, installed: true, upToDate: true, state: "installed", settingsPath: "y" };
+    ipc.hooksStatus.mockResolvedValue(down);
+
+    const { useAgentStore } = await freshStore();
+    await useAgentStore.getState().init();
+    expect(useAgentStore.getState().hooks).toEqual(down);
+
+    ipc.hooksStatus.mockResolvedValue(up);
+    hubStatusHandler?.({ connected: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(useAgentStore.getState().hooks).toEqual(up);
+  });
+
+  it("keeps the newer hooks status when the start-up check answers last", async () => {
+    let answerFirst: (h: HooksStatus) => void = () => {};
+    const up: HooksStatus = { hubAvailable: true, installed: true, upToDate: true, state: "installed", settingsPath: "y" };
+    ipc.hooksStatus
+      .mockImplementationOnce(() => new Promise<HooksStatus>((resolve) => (answerFirst = resolve)))
+      .mockResolvedValue(up);
+
+    const { useAgentStore } = await freshStore();
+    const init = useAgentStore.getState().init();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ipc.hooksStatus).toHaveBeenCalledTimes(1);
+    hubStatusHandler?.({ connected: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(useAgentStore.getState().hooks).toEqual(up);
+
+    answerFirst({ hubAvailable: false, installed: false, upToDate: false, state: null, settingsPath: null });
+    await init;
+    expect(useAgentStore.getState().hooks).toEqual(up);
   });
 
   it("does not send a notification for the initial snapshot even if it already contains a blocked agent", async () => {

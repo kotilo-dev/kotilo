@@ -6,6 +6,8 @@
     <AssemblyName>$(BrandExePrefix)-hub</AssemblyName>
     <RootNamespace>Hub.Service</RootNamespace>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- The Web SDK defaults to Server GC (a heap per core); a mostly idle background service needs one small heap. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hub.Core\Hub.Core.csproj" />

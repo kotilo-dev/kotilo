@@ -28,6 +28,17 @@ public sealed class UsageServiceTests
         UsageService.NeedsClockRefresh(Snapshot(T0, false), T0.AddMinutes(10), T0, utc).Should().BeFalse("nothing moves with the clock");
     }
 
+    [Fact]
+    public void Clock_refresh_drops_only_the_rows_that_left_the_window()
+    {
+        UsageEntry At(DateTimeOffset ts) => new($"k{ts.Ticks}", ts, 1, 1, 0, 0, 0);
+        var rows = new[] { At(T0.AddDays(-36)), At(T0.AddDays(-34)), At(T0) };
+
+        UsageService.Window(rows, T0.AddDays(-35)).Should().Equal(rows[1], rows[2]);
+        var inside = rows[1..];
+        UsageService.Window(inside, T0.AddDays(-35)).Should().BeSameAs(inside, "nothing to drop, no copy");
+    }
+
     [Theory]
     [InlineData(SessionState.Working, 600, true)]
     [InlineData(SessionState.Idle, 20, true)]

@@ -22,6 +22,7 @@ import {
   hooksStatus,
   hooksUninstall,
   onAgentsChanged,
+  onHubStatus,
   toAppError,
   type Agent,
   type HooksStatus,
@@ -211,6 +212,20 @@ function installFocusReporting(): void {
 
 let initPromise: Promise<void> | null = null;
 
+/** Only the newest `hooks_status` answer is applied: an older, slower one may predate the hub's start. */
+let hooksRequest = 0;
+
+async function loadHooksStatus(): Promise<{ current: boolean; hooks: HooksStatus | null }> {
+  const id = ++hooksRequest;
+  let hooks: HooksStatus | null = null;
+  try {
+    hooks = await hooksStatus();
+  } catch {
+    hooks = null;
+  }
+  return { current: id === hooksRequest, hooks };
+}
+
 export const useAgentStore = create<AgentStore>((set, get) => ({
   ready: false,
   agents: [],
@@ -225,6 +240,13 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       // aksi halde fetch sürerken gelen bir `agents:changed` tamamen kaybolurdu.
       installAgentsChangedListener(get, set);
       installHubNotificationOwner(() => get().agents);
+      // The hub may start after this first check (slow start, restart): without a re-check the
+      // "background service is not running" banner stayed on although the hub was up.
+      void onHubStatus(() => {
+        void loadHooksStatus().then(({ current, hooks }) => {
+          if (current) set({ hooks });
+        });
+      });
 
       let agents: Agent[] = [];
       try {
@@ -233,12 +255,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         agents = [];
       }
 
-      let hooks: HooksStatus | null = null;
-      try {
-        hooks = await hooksStatus();
-      } catch {
-        hooks = null;
-      }
+      const loaded = await loadHooksStatus();
+      const hooks = loaded.current ? loaded.hooks : get().hooks;
 
       if (!seeded) {
         // Fetch, herhangi bir event'ten önce çözüldü: ilk görüntüyü sessizce doldurur

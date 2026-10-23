@@ -1,3 +1,20 @@
+# 0.3.5 – Performance from the second-machine measurement (planned 2026-10-23)
+
+Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corporate Windows machine). Idle: hub reads ~456 KB/s with no DB growth and holds ~300 MB private memory. With 2+ working agents WebView2 uses 1.55× the agents' CPU and GPU 3D reaches 13–31 %. Checked against the code: PTY output is already batched (16 ms / 64 KB, raw binary channel) and causes no React work per chunk, so the report's H1 does not hold as written.
+
+## Wave 1
+- [x] Hub: the 30 s clock refresh recomputes from the in-memory entries instead of reloading 35 days of `usage_entries`; session totals/context queries only after new rows; tests
+- [x] Hub: Workstation GC (`ServerGarbageCollection=false`; Server GC is the `Microsoft.NET.Sdk.Web` default)
+- [x] Desktop: the "background service is not running" banner refreshes the hook status when the hub stream (re)connects (it was read once at start, so a slow hub start left it on for good)
+
+## Wave 2 (after the user's reduced-motion check on the second machine)
+- [ ] Working-state animations: `.shimmer-text` (`background-clip: text`, repaints every frame) and spinners → compositor-only (opacity/transform) or static; pause while the window is hidden/unfocused
+- [ ] Dictation overlay window created on first use, not at start
+- [ ] Project scan: mtime cache for todo/task files; lighter 60 s activity query; HealthMonitor re-reads agent configs only on change
+- [ ] Terminal: reload WebGL after a context loss (stays on the DOM renderer today)
+- [ ] Hook latency test; one log line per notification (`EventPipeline` + `AppHost` both log it)
+- [ ] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets
+
 # U-2 – Linux core (planned 2026-10-17)
 
 Goal: Kotilo runs on Linux with its core (terminals, agent status, permission card, hub, usage); extras that are Windows-only today (global hotkeys, dictation paste, mascot, taskbar badge) stay off. macOS follows in U-3 (needs a Mac and an Apple Developer account).
