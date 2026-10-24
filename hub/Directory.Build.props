@@ -7,7 +7,7 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <Version>0.3.5</Version>
+    <Version>0.3.6</Version>
     <!-- ProductVersion is exactly $(Version) (no "+<commit>"): code signing enforces the same version on every exe (D-051). -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
