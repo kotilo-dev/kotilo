@@ -39,6 +39,13 @@ public sealed class ProjectRepositoryTests : IDisposable
         activity.Keys.Should().BeEquivalentTo([@"C:\a", @"C:\b"]);
         activity[@"C:\a"].Should().Be(T0.AddHours(-1));
         activity[@"C:\b"].Should().Be(T0);
+
+        // The recent form (ix_usage_ts) returns the same rows for its cut-off.
+        _repo.Activity(T0.AddHours(-2), recent: true).Should().BeEquivalentTo(new Dictionary<string, DateTimeOffset>
+        {
+            [@"C:\a"] = T0.AddHours(-1),
+            [@"C:\b"] = T0,
+        });
     }
 
     [Fact]

@@ -45,12 +45,18 @@ Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corpo
 - [x] Hub: usage refresh merges the rows `Upsert` wrote instead of reloading 35 days on every transcript write (2.4–2.9 MB/s while agents worked); tests
 - [x] Dictation overlay window created on first use (not at start) and closed after 10 min hidden
 - [x] Project scan: todo files with an unchanged write time are reused, not re-read every 60 s; tests
-- [ ] Only if the re-measurement still shows idle reads: the 60 s project activity query scans all of `ix_usage_project_ts`; HealthMonitor re-reads the agent configs every 30 s (a few KB, left as is)
+- [x] Idle reads remained (0.3.6 measurement: ~3.9 MB of SQLite pages every 60 s): the project activity sweep reads only recent rows via `ix_usage_ts`, full window at start and every 15 min (D-064); HealthMonitor re-reads the agent configs every 30 s (a few KB, left as is)
 - [x] Terminal: WebGL reloads 1 s after a context loss (at most 3 times per terminal); it stayed on the DOM renderer until a tab switch
 - [x] One log line per notification: the source logs it; `AppHost` only logs a quiet-hours/DND drop
 - [ ] Hook latency test (process start + process snapshot + loopback POST per event)
 - [x] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets (`kotilo-performans-analizi-2026-10-24-v0.3.5.md`: memory targets met; UI targets only with Windows animations off; idle hub reads 2 KB/s on thin evidence)
-- [ ] Third measurement with Windows animations ON after this wave (WebView2 < 15 %, hub reads under load)
+- [x] Third measurement with Windows animations ON (0.3.6, raw samples `docs/test/2026-10-25-v0.3.6-*.zip`): hub fixed (load reads 2,373 → ~110 KB/s, CPU 10.7 → 1.7 %); unfocused WebView2 2–3 % under load; focused, a Working ring alone held WebView2 at ~25 % of a core + 25 % GPU, also with no agent output (a background shell kept the session Working)
+
+## Wave 3 (0.3.7, after the 0.3.6 measurement)
+- [x] Spinner `steps(8)`: Chromium draws a frame per step only (e2e trace, one working agent: 60 → 16 frames/s) (D-064)
+- [x] Working only for background work (`backgroundTasks`): the ring stands still in the header pill, agents list, status bar and Mission Control; Mission Control shows "Background: …" (D-064)
+- [x] Hub: incremental project activity sweep (above)
+- [ ] Fourth measurement: focused idle with a background shell, and A/B/C with Windows animations on; note the times of focus changes
 
 # U-2 – Linux core (planned 2026-10-17)
 

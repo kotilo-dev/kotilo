@@ -20,14 +20,18 @@ public sealed class ProjectRepository(Database db)
             .ToList();
     }
 
-    /// <summary>Latest activity per raw project root (as stored; callers normalize) since <paramref name="since"/>.</summary>
-    public IReadOnlyDictionary<string, DateTimeOffset> Activity(DateTimeOffset since)
+    /// <summary>
+    /// Latest activity per raw project root (as stored; callers normalize) since <paramref name="since"/>.
+    /// <paramref name="recent"/>: the cut-off is minutes ago, so read usage rows by <c>ix_usage_ts</c>; the planner
+    /// otherwise walks all of <c>ix_usage_project_ts</c> whatever the cut-off (~4 MB a minute on a 25 MB database).
+    /// </summary>
+    public IReadOnlyDictionary<string, DateTimeOffset> Activity(DateTimeOffset since, bool recent = false)
     {
         using var c = db.Open();
         var rows = c.Query<(string Root, long At)>(
-            """
+            $"""
             SELECT project_root, MAX(at) FROM (
-                SELECT project_root, MAX(ts) AS at FROM usage_entries
+                SELECT project_root, MAX(ts) AS at FROM usage_entries {(recent ? "INDEXED BY ix_usage_ts" : "")}
                 WHERE ts >= @since AND project_root IS NOT NULL AND project_root <> '' GROUP BY project_root
                 UNION ALL
                 SELECT project_root, MAX(last_event_at) AS at FROM sessions

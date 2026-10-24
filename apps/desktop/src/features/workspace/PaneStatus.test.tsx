@@ -20,6 +20,11 @@ describe("PaneStatusDot", () => {
     expect(screen.getByRole("img", { name: "Error" }).querySelector("svg")).not.toBeNull();
     expect(container.textContent ?? "").not.toMatch(EMOJI);
   });
+
+  it("keeps the working ring still for background work", () => {
+    render(<PaneStatusDot state="working" label="Working · Background: bash" background />);
+    expect(screen.getByRole("img", { name: "Working · Background: bash" }).querySelector("svg")).not.toHaveClass("motion-safe:animate-spin");
+  });
 });
 
 describe("PaneStatusDot shapes", () => {

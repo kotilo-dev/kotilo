@@ -107,12 +107,12 @@ v1'de tanımlanacak; token adları aynı kalır, değerler `[data-theme="light"]
 
 | Ad | Tanım | Kullanım |
 |---|---|---|
-| `spin` | 1s doğrusal, 360° | Çalışan araç / ilerleme halkası |
+| `spin` | 1s, 8 adım (`steps(8)`), 360° | Çalışan araç / ilerleme halkası |
 | `pulse` | 1.4s, dışa açılan hale (sözde öğede `transform` + `opacity`) | Blocked durum noktası |
 | `rise` | 0.25s ease-out, 12px yukarı + opaklık | İzin kartı, bildirim şeridi |
 | Geçiş | 120–180ms ease | Hover, sekme, seçim |
 
-Sürekli animasyonlar yalnız `transform` ve `opacity` kullanır (her karede yeniden boyama yok). Pencere odakta değilken ya da gizliyken duraklar; `prefers-reduced-motion` açıksa pulse/spin durur. Durum yine ikon ve renkle anlaşılır. (0.3.5: Working etiketindeki shimmer kaldırıldı, her karede metni yeniden boyuyordu.)
+Sürekli animasyonlar yalnız `transform` ve `opacity` kullanır (her karede yeniden boyama yok). Pencere odakta değilken ya da gizliyken duraklar; `prefers-reduced-motion` açıksa pulse/spin durur. Durum yine ikon ve renkle anlaşılır. (0.3.5: Working etiketindeki shimmer kaldırıldı, her karede metni yeniden boyuyordu.) 0.3.7: `transform` animasyonu da WebView2'de tüm pencereyi her karede birleştirir; spin bu yüzden saniyede 8 adım atar. Ajan yalnız arka plan işini bekliyorsa (Working + arka plan görevi) halka dönmez.
 
 ## 7. Bileşenler
 

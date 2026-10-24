@@ -238,14 +238,19 @@ function MissionTile({
   const since = formatDuration(secondsSince(session.stateSince, now));
   const sub = [agentDisplayName(session.agent), workspaceName ?? session.model].filter(Boolean).join(" · ");
   const fallback = preview.length === 0 ? fallbackLines(session) : [];
+  // 0.3.7: Working only for background work – a still ring and the task names instead of context.
+  const backgroundTasks = session.state === "Working" ? (session.backgroundTasks ?? []) : [];
+  const background = backgroundTasks.length > 0;
 
   const metaLeft = attention
     ? s.mission.waiting(since)
-    : session.contextUsedPercent !== null
-      ? s.mission.context(formatPercent100(session.contextUsedPercent))
-      : session.currentTool
-        ? s.mission.tool(session.currentTool)
-        : "";
+    : background
+      ? s.workspace.background(backgroundTasks.join(", "))
+      : session.contextUsedPercent !== null
+        ? s.mission.context(formatPercent100(session.contextUsedPercent))
+        : session.currentTool
+          ? s.mission.tool(session.currentTool)
+          : "";
   // No price for this agent (e.g. Codex): show its tokens, never a made-up cost.
   const metaRight = session.costUsd !== null ? formatCost(session.costUsd) : s.mission.tokens(formatTokenCount(session.tokens));
 
@@ -257,7 +262,7 @@ function MissionTile({
           <span className="truncate font-semibold text-text">{session.projectName}</span>
           <span className="truncate text-meta text-muted">{sub}</span>
         </div>
-        <StatusPill state={session.state} suffix={since} unseen={unseen} />
+        <StatusPill state={session.state} suffix={since} unseen={unseen} background={background} />
       </div>
       {/* Not a live region: a once-a-second terminal echo would flood screen readers. */}
       <div

@@ -54,7 +54,7 @@ export function AgentHeaderStrip(p: AgentHeaderStripProps) {
         <span className="truncate text-meta text-muted">{meta}</span>
       </div>
       <span aria-live={urgent ? "assertive" : "polite"}>
-        <PaneStatePill state={p.state} suffix={p.elapsed ?? undefined} />
+        <PaneStatePill state={p.state} suffix={p.elapsed ?? undefined} background={!!p.background} />
       </span>
       {p.background && <span className="min-w-0 max-w-[16rem] truncate text-meta text-muted" title={p.background}>{p.background}</span>}
       <div className="flex-1" />

@@ -66,8 +66,21 @@ export function useStateLabel(): (state: SessionState) => string {
   };
 }
 
-/** `unseen`: an Idle session whose finished work nobody looked at yet shows as Done (D-056). */
-export function StatusPill({ state, suffix, unseen = false }: { state: SessionState; suffix?: string; unseen?: boolean }) {
+/**
+ * `unseen`: an Idle session whose finished work nobody looked at yet shows as Done (D-056).
+ * `background`: Working only because background work runs (0.3.7) – the ring stands still.
+ */
+export function StatusPill({
+  state,
+  suffix,
+  unseen = false,
+  background = false,
+}: {
+  state: SessionState;
+  suffix?: string;
+  unseen?: boolean;
+  background?: boolean;
+}) {
   const s = useStrings();
   const stateLabel = useStateLabel();
   const done = unseen && state === "Idle";
@@ -78,7 +91,7 @@ export function StatusPill({ state, suffix, unseen = false }: { state: SessionSt
       className={`inline-flex h-[26px] shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[13px] px-2.5 text-small font-semibold ${TONE_CLASS[tone]}`}
     >
       {tone === "working" ? (
-        <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" className={background ? undefined : "animate-spin"} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
           <path d="M21 12a9 9 0 1 1-9-9" />
         </svg>
       ) : tone === "error" ? (

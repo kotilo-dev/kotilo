@@ -291,7 +291,9 @@
 
   --shadow-float: var(--elev-float);
 
-  --animate-spin: spin 1s linear infinite;
+  /* 0.3.7: eight steps a second. A linear spin makes WebView2 compose the whole window at 60 fps
+     (~25 % of a core and 25 % GPU for one ring); with steps Chromium draws a frame per step only. */
+  --animate-spin: spin 1s steps(8) infinite;
   --animate-rise: rise 0.25s ease-out;
   --animate-blink: blink 0.96s steps(1, end) infinite;
 }

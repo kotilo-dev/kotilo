@@ -18,6 +18,11 @@ public sealed class ProjectService : IAsyncDisposable
 {
     public static readonly TimeSpan ActivityWindow = TimeSpan.FromDays(60);
     private static readonly TimeSpan SweepInterval = TimeSpan.FromSeconds(60);
+
+    // 0.3.7: sweeps merge the activity of the last minutes; the whole window is re-read at start and every 15 min
+    // (catches rows written with an older timestamp, e.g. the backfill).
+    private static readonly TimeSpan FullActivityInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan ActivityOverlap = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(500);
     private static readonly string TempDir = Path.GetFullPath(Path.GetTempPath());
 
@@ -38,6 +43,9 @@ public sealed class ProjectService : IAsyncDisposable
     private volatile GlobPattern _glob;
     private volatile bool _rediscover = true;
     private Dictionary<string, ProjectProgress> _projects = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTimeOffset> _rawActivity = new(StringComparer.OrdinalIgnoreCase);
+    private DateTimeOffset _activityFullAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _activityReadAt;
     private Task? _worker;
 
     public ProjectService(AppPaths paths, Database db, ProjectRootResolver roots, string? tasksGlob, Func<IReadOnlyList<SessionInfo>> sessions)
@@ -184,11 +192,38 @@ public sealed class ProjectService : IAsyncDisposable
     }
 
     /// <summary>Rebuilds the project list from activity and the <c>projects</c> table, then rescans every project.</summary>
+    /// <summary>Latest activity per raw root in the window: a full read at start and every 15 min, else the recent rows merged in.</summary>
+    private Dictionary<string, DateTimeOffset> RawActivity(DateTimeOffset now)
+    {
+        var full = now - _activityFullAt >= FullActivityInterval;
+        if (full)
+        {
+            _rawActivity.Clear();
+            _activityFullAt = now;
+        }
+
+        foreach (var (raw, at) in _repository.Activity(full ? now - ActivityWindow : _activityReadAt - ActivityOverlap, recent: !full))
+        {
+            if (!_rawActivity.TryGetValue(raw, out var known) || at > known)
+            {
+                _rawActivity[raw] = at;
+            }
+        }
+
+        _activityReadAt = now;
+        foreach (var stale in _rawActivity.Where(kv => kv.Value < now - ActivityWindow).Select(kv => kv.Key).ToList())
+        {
+            _rawActivity.Remove(stale);
+        }
+
+        return _rawActivity;
+    }
+
     private void Rediscover(DateTimeOffset now)
     {
         var started = DateTimeOffset.UtcNow;
         var activity = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (raw, at) in _repository.Activity(now - ActivityWindow))
+        foreach (var (raw, at) in RawActivity(now))
         {
             // Throwaway folders under %TEMP% (scripted `claude -p` runs) are not projects; adding one by hand still works.
             if (_roots.Resolve(raw) is not { Length: > 0 } root || !Directory.Exists(root)

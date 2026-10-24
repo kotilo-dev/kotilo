@@ -105,7 +105,11 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
           }
         }}
       >
-        <PaneStatusDot state={visualStateForAgent(agent.state)} label={background ? `${strings.status.working} · ${background}` : undefined} />
+        <PaneStatusDot
+          state={visualStateForAgent(agent.state)}
+          label={background ? `${strings.status.working} · ${background}` : undefined}
+          background={!!background}
+        />
         <span className="shrink-0 text-muted">
           {agentLabel(agent)}
         </span>

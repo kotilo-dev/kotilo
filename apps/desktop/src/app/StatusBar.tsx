@@ -89,11 +89,13 @@ function AgentSummary() {
   const counts = countsByState(agents);
   const parts = (["blocked", "working", "done"] as const).filter((state) => counts[state] > 0);
   if (parts.length === 0) return null;
+  // 0.3.7: the working ring stands still when every working agent only waits for background work.
+  const background = agents.every((a) => a.state !== "working" || (a.backgroundTasks?.length ?? 0) > 0);
   return (
     <span className="flex items-center gap-3">
       {parts.map((state) => (
         <span key={state} className="flex items-center gap-1">
-          <PaneStatusDot state={visualStateForAgent(state)} />
+          <PaneStatusDot state={visualStateForAgent(state)} background={state === "working" && background} />
           <span className="font-mono">{counts[state]}</span>
         </span>
       ))}

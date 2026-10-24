@@ -52,8 +52,11 @@ function WarningIcon({ size }: { size: number }) {
   );
 }
 
-/** §7.3 state label: Working spin, waiting pulse, error icon. */
-export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffix?: string }) {
+/**
+ * §7.3 state label: Working spin, waiting pulse, error icon. `background`: the turn ended and
+ * only background work runs (0.3.7) – the ring stands still; it may run for hours.
+ */
+export function PaneStatePill({ state, suffix, background = false }: { state: PaneVisualState; suffix?: string; background?: boolean }) {
   const label = usePaneStateLabel()(state);
   const family = statusFamily(state);
   return (
@@ -62,7 +65,7 @@ export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffi
       className={`inline-flex h-[26px] shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[13px] px-2.5 text-small font-semibold ${PILL_CLASS[family]}`}
     >
       {family === "working" ? (
-        <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" className={background ? undefined : "animate-spin"} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
           <path d="M21 12a9 9 0 1 1-9-9" />
         </svg>
       ) : family === "error" ? (
@@ -85,7 +88,7 @@ const ICON_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
 };
 
 /** 0.3.2: one small glyph per state (same colours as before, now also a distinct shape). */
-function StateGlyph({ state, size }: { state: PaneVisualState; size: number }) {
+function StateGlyph({ state, size, background }: { state: PaneVisualState; size: number; background: boolean }) {
   const common = {
     "aria-hidden": true,
     width: size,
@@ -100,7 +103,7 @@ function StateGlyph({ state, size }: { state: PaneVisualState; size: number }) {
   switch (state) {
     case "working":
       return (
-        <svg {...common} strokeWidth={3} className="motion-safe:animate-spin">
+        <svg {...common} strokeWidth={3} className={background ? undefined : "motion-safe:animate-spin"}>
           <path d="M21 12a9 9 0 1 1-9-9" />
         </svg>
       );
@@ -141,8 +144,8 @@ function StateGlyph({ state, size }: { state: PaneVisualState; size: number }) {
   }
 }
 
-/** Compact state marker for lists and the status bar; labelled for screen readers. */
-export function PaneStatusDot({ state, label }: { state: PaneVisualState; label?: string }) {
+/** Compact state marker for lists and the status bar; labelled for screen readers. `background` as on the pill. */
+export function PaneStatusDot({ state, label, background = false }: { state: PaneVisualState; label?: string; background?: boolean }) {
   const family = statusFamily(state);
   const toLabel = usePaneStateLabel();
   const text = label ?? toLabel(state);
@@ -154,7 +157,7 @@ export function PaneStatusDot({ state, label }: { state: PaneVisualState; label?
       data-state={state}
       className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${ICON_CLASS[family]}`}
     >
-      <StateGlyph state={state} size={12} />
+      <StateGlyph state={state} size={12} background={background} />
     </span>
   );
 }

@@ -45,6 +45,13 @@ describe("AgentHeaderStrip", () => {
     expect(container.querySelector(".pulse-halo")).not.toBeNull();
   });
 
+  it("keeps the ring still while only background work runs", () => {
+    const { container } = render(<AgentHeaderStrip {...props({ state: "working", background: "Background: bash" })} />);
+    expect(screen.getByText("Working")).toBeInTheDocument();
+    expect(screen.getByText("Background: bash")).toBeInTheDocument();
+    expect(container.querySelector(".animate-spin")).toBeNull();
+  });
+
   it("shows project, agent · branch · model, context, tokens and the limit", () => {
     render(<AgentHeaderStrip {...props({})} />);
     expect(screen.getByText("payments-gateway")).toBeInTheDocument();
