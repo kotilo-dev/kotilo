@@ -1,5 +1,5 @@
 /**
- * §7.3 state label for a hub session: 26px pill, state tint + ink. Working shimmers with a
+ * §7.3 state label for a hub session: 26px pill, state tint + ink. Working shows a
  * spinning ring, waiting states pulse, errors carry a warning icon — so a state never relies on
  * color alone (§2.3, §6). Motion stops under prefers-reduced-motion (index.css).
  */
@@ -35,7 +35,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
 
 const DOT_CLASS: Record<StatusTone, string> = {
   working: "bg-working",
-  blocked: "bg-blocked animate-pulse-halo",
+  blocked: "bg-blocked pulse-halo",
   done: "bg-done",
   idle: "bg-idle",
   error: "bg-error",
@@ -89,7 +89,7 @@ export function StatusPill({ state, suffix, unseen = false }: { state: SessionSt
       ) : (
         <span aria-hidden className={`h-2 w-2 rounded-full ${DOT_CLASS[tone]}`} />
       )}
-      <span className={tone === "working" ? "shimmer-text" : undefined}>{label}</span>
+      <span>{label}</span>
       {suffix && <span className="font-mono font-medium opacity-80">· {suffix}</span>}
     </span>
   );

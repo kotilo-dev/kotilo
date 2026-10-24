@@ -18,6 +18,13 @@ public sealed class UsageRepository(Database db)
         FROM usage_entries
         """;
 
+    /// <summary>Above this many unread writes (a backfill) the journal gives up and asks for a full load.</summary>
+    private const int WrittenLimit = 20_000;
+
+    private readonly object _writtenLock = new();
+    private List<UsageEntry> _written = [];
+    private bool _writtenOverflow;
+
     /// <summary>Inserts new entries and applies duplicate replacement. Returns the number of rows written.</summary>
     public int Upsert(IReadOnlyCollection<UsageEntry> entries)
     {
@@ -29,9 +36,10 @@ public sealed class UsageRepository(Database db)
         using var c = db.Open();
         using var tx = c.BeginTransaction();
         var written = 0;
+        var rows = new List<UsageEntry>();
         foreach (var e in entries)
         {
-            written += c.Execute(
+            var n = c.Execute(
                 """
                 INSERT INTO usage_entries (dedup_key, agent, session_id, project_root, model, ts, input, output,
                                            cache_create, cache_create_1h, cache_read, cost_usd, sidechain, fast, cost_reported)
@@ -50,10 +58,43 @@ public sealed class UsageRepository(Database db)
                 """,
                 Params(e),
                 tx);
+            if (n > 0)
+            {
+                written += n;
+                rows.Add(AsStored(e));
+            }
         }
 
         tx.Commit();
+        lock (_writtenLock)
+        {
+            if (!_writtenOverflow)
+            {
+                _written.AddRange(rows);
+                if (_written.Count > WrittenLimit)
+                {
+                    _written = [];
+                    _writtenOverflow = true;
+                }
+            }
+        }
+
         return written;
+    }
+
+    /// <summary>
+    /// The rows <see cref="Upsert"/> inserted or replaced since the last call, as <see cref="Load"/> would return them,
+    /// so a caller holding loaded rows can merge them instead of loading again. <c>null</c>: too many to keep, load again.
+    /// </summary>
+    public IReadOnlyList<UsageEntry>? TakeWritten()
+    {
+        lock (_writtenLock)
+        {
+            var written = _writtenOverflow ? null : _written;
+            _written = [];
+            _writtenOverflow = false;
+            return written;
+        }
     }
 
     public IReadOnlyList<UsageEntry> Load(DateTimeOffset since)
@@ -140,6 +181,13 @@ public sealed class UsageRepository(Database db)
         using var c = db.Open();
         return c.Execute("DELETE FROM usage_entries WHERE ts < @cutoff", new { cutoff = olderThan.ToUnixTimeMilliseconds() });
     }
+
+    /// <summary>The entry as a read gives it back: millisecond UTC time and the cost through a REAL column.</summary>
+    private static UsageEntry AsStored(UsageEntry e) => e with
+    {
+        Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(e.Timestamp.ToUnixTimeMilliseconds()),
+        CostUsd = e.CostUsd is { } cost ? (decimal)(double)cost : null,
+    };
 
     private static object Params(UsageEntry e) => new
     {

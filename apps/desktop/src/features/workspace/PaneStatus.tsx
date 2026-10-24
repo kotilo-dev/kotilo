@@ -1,7 +1,7 @@
 /**
  * Pane state visuals (DESIGN_SYSTEM §2.3, §6, §10): a 26px state pill for the header strip
  * and a 12px state icon for lists/status bar. Each state differs by shape or motion as well as
- * color — Working spins + shimmers, waiting states pulse, errors carry a warning icon.
+ * color — Working spins, waiting states pulse, errors carry a warning icon.
  */
 import { useStrings } from "../../app/i18n";
 import { statusFamily, type PaneVisualState } from "./paneSession";
@@ -17,7 +17,7 @@ const PILL_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
 /** The dot inside the pill (non-working, non-error states). */
 const DOT_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
   working: "bg-working",
-  blocked: "bg-blocked animate-pulse-halo",
+  blocked: "bg-blocked pulse-halo",
   done: "bg-done",
   idle: "bg-idle",
   error: "bg-error",
@@ -52,7 +52,7 @@ function WarningIcon({ size }: { size: number }) {
   );
 }
 
-/** §7.3 state label: Working shimmer + spin, waiting pulse, error icon. */
+/** §7.3 state label: Working spin, waiting pulse, error icon. */
 export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffix?: string }) {
   const label = usePaneStateLabel()(state);
   const family = statusFamily(state);
@@ -70,7 +70,7 @@ export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffi
       ) : (
         <span aria-hidden className={`h-2 w-2 rounded-full ${DOT_CLASS[family]}`} />
       )}
-      <span className={family === "working" ? "shimmer-text" : undefined}>{label}</span>
+      <span>{label}</span>
       {suffix && <span className="font-mono font-medium opacity-80">· {suffix}</span>}
     </span>
   );
@@ -78,7 +78,7 @@ export function PaneStatePill({ state, suffix }: { state: PaneVisualState; suffi
 
 const ICON_CLASS: Record<ReturnType<typeof statusFamily>, string> = {
   working: "text-working",
-  blocked: "text-blocked animate-pulse-halo rounded-full",
+  blocked: "text-blocked pulse-halo rounded-full",
   done: "text-done",
   idle: "text-idle",
   error: "text-error",

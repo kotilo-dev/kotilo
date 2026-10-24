@@ -179,7 +179,7 @@ public sealed class UsageService : IAsyncDisposable
                 "Usage backfill: {Files} files, {Entries} entries, {Rows} rows in {Ms} ms",
                 backfill.FilesRead, backfill.Entries, backfill.RowsWritten, (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds);
             _backfillDone = true;
-            Refresh(reload: true);
+            Refresh(reload: true, full: true);
             var pruned = _repository.Prune(DateTimeOffset.UtcNow - Retention);
             _ruleState.Prune(DateTimeOffset.UtcNow - TimeSpan.FromDays(30));
             Log.Information("Usage retention removed {Rows} rows", pruned);
@@ -200,6 +200,7 @@ public sealed class UsageService : IAsyncDisposable
                 }
 
                 var changed = false;
+                var repriced = false;
                 if (_pricingChanged)
                 {
                     _pricingChanged = false;
@@ -207,6 +208,7 @@ public sealed class UsageService : IAsyncDisposable
                     {
                         Log.Information("pricing.json reloaded; repriced {Rows} entries", _repository.Reprice(_pricing.Current));
                         changed = true;
+                        repriced = true;
                     }
                     else
                     {
@@ -249,7 +251,7 @@ public sealed class UsageService : IAsyncDisposable
                 if (changed || NeedsClockRefresh(Current, now, lastRefresh, TimeZoneInfo.Local))
                 {
                     lastRefresh = now;
-                    Refresh(reload: changed);
+                    Refresh(reload: changed, full: repriced);
                 }
             }
         }
@@ -337,15 +339,60 @@ public sealed class UsageService : IAsyncDisposable
         entries.Count == 0 || entries[0].Timestamp >= since ? entries : entries.Where(e => e.Timestamp >= since).ToList();
 
     /// <summary>
-    /// Recomputes the snapshot. Only <paramref name="reload"/> reads the rows again: every write to the usage table
-    /// happens on this worker and reports itself as changed, so a clock-only refresh can reuse the rows in memory
-    /// (reloading 35 days every 30 s kept the hub reading from disk while idle).
+    /// The rows in memory with the rows <see cref="UsageRepository.Upsert"/> wrote since (a rewritten row replaces its
+    /// older copy), cut to the window and ordered by time like a fresh load.
     /// </summary>
-    private void Refresh(bool reload)
+    internal static IReadOnlyList<UsageEntry> Merge(IReadOnlyList<UsageEntry> entries, IReadOnlyList<UsageEntry> written, DateTimeOffset since)
+    {
+        if (written.Count == 0)
+        {
+            return Window(entries, since);
+        }
+
+        var latest = new Dictionary<string, UsageEntry>(StringComparer.Ordinal);
+        foreach (var e in written)
+        {
+            latest[e.DedupKey] = e;
+        }
+
+        var merged = new List<UsageEntry>(entries.Count + latest.Count);
+        merged.AddRange(entries.Where(e => e.Timestamp >= since && !latest.ContainsKey(e.DedupKey)));
+        var tail = merged.Count == 0 ? DateTimeOffset.MinValue : merged[^1].Timestamp;
+        var added = latest.Values.Where(e => e.Timestamp >= since).OrderBy(e => e.Timestamp).ToList();
+        merged.AddRange(added);
+
+        // New usage almost always comes after the rows in memory; only an older one needs a full (stable) sort.
+        return added.Count > 0 && added[0].Timestamp < tail ? merged.OrderBy(e => e.Timestamp).ToList() : merged;
+    }
+
+    /// <summary>
+    /// Recomputes the snapshot. Only <paramref name="reload"/> takes new rows: every write to the usage table happens on
+    /// this worker and reports itself as changed, so a clock-only refresh reuses the rows in memory (reloading 35 days
+    /// every 30 s kept the hub reading from disk while idle). A reload merges the rows the repository wrote since; it
+    /// reads the window again only when <paramref name="full"/> (backfill, repricing) or the repository lost track.
+    /// Reading 35 days on every transcript write made the hub read MB/s while agents worked (0.3.5 measurement).
+    /// </summary>
+    private void Refresh(bool reload, bool full = false)
     {
         var now = DateTimeOffset.UtcNow;
         var zone = TimeZoneInfo.Local;
-        var entries = reload ? _repository.Load(now - Backfill) : Window(Current.Entries, now - Backfill);
+        var since = now - Backfill;
+        IReadOnlyList<UsageEntry> entries;
+        if (!reload)
+        {
+            entries = Window(Current.Entries, since);
+        }
+        else if (!full && Current.BackfillDone && _repository.TakeWritten() is { } written)
+        {
+            entries = Merge(Current.Entries, written, since);
+        }
+        else
+        {
+            // Taken before the load: a write after it lands in the journal and merges idempotently next time.
+            _repository.TakeWritten();
+            entries = _repository.Load(since);
+        }
+
         var today = UsageAggregator.LocalDate(now, zone);
         var active = BlockCalculator.Active(entries, now);
         var todayTotals = UsageAggregator.Day(entries, zone, today);

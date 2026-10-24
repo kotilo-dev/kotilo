@@ -107,13 +107,12 @@ v1'de tanımlanacak; token adları aynı kalır, değerler `[data-theme="light"]
 
 | Ad | Tanım | Kullanım |
 |---|---|---|
-| `shimmer` | 1.6s doğrusal, arka plan kayması | "Working" durum etiketi |
 | `spin` | 1s doğrusal, 360° | Çalışan araç / ilerleme halkası |
-| `pulse` | 1.4s, dışa açılan hale | Blocked durum noktası |
+| `pulse` | 1.4s, dışa açılan hale (sözde öğede `transform` + `opacity`) | Blocked durum noktası |
 | `rise` | 0.25s ease-out, 12px yukarı + opaklık | İzin kartı, bildirim şeridi |
 | Geçiş | 120–180ms ease | Hover, sekme, seçim |
 
-`prefers-reduced-motion` açıksa shimmer/pulse/spin durur; durum yine ikon ve renkle anlaşılır.
+Sürekli animasyonlar yalnız `transform` ve `opacity` kullanır (her karede yeniden boyama yok). Pencere odakta değilken ya da gizliyken duraklar; `prefers-reduced-motion` açıksa pulse/spin durur. Durum yine ikon ve renkle anlaşılır. (0.3.5: Working etiketindeki shimmer kaldırıldı, her karede metni yeniden boyuyordu.)
 
 ## 7. Bileşenler
 
@@ -126,7 +125,7 @@ Uygulama işareti + ad, workspace sekmeleri (sekme başında durum noktası), ko
 Avatar · proje · "ajan · branch" · durum noktası; altında son mesajın tek satırı; en altta durum metni (durum renginde) + göreli zaman. Seçili: `--surface-4` + `1px rgba(accent,0.35)`. Blocked noktada hale.
 
 ### 7.3 Ajan başlık şeridi (1, 2)
-Avatar · proje + "ajan · branch · model" · **durum etiketi** · boşluk · context çubuğu (120px) · oturum token/maliyet · panel eylemleri. Durum etiketi: 26px yükseklik, 13px yarıçap, durum zemini + mürekkep, Working'de shimmer + spin ikonu, Blocked'da pulse noktası.
+Avatar · proje + "ajan · branch · model" · **durum etiketi** · boşluk · context çubuğu (120px) · oturum token/maliyet · panel eylemleri. Durum etiketi: 26px yükseklik, 13px yarıçap, durum zemini + mürekkep, Working'de spin ikonu, Blocked'da pulse noktası.
 
 ### 7.4 Ajan paneli çerçevesi (1, 2)
 Çalışırken `1px rgba(working,0.28)` + 4px hale; izin beklerken `1px rgba(blocked,0.55)` + hale + yumuşak parıltı; boşta nötr `--border`.

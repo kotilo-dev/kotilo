@@ -15,7 +15,7 @@ describe("PaneStatusDot", () => {
         <PaneStatusDot state="error" />
       </>,
     );
-    expect(screen.getByRole("img", { name: "Needs permission" })).toHaveClass("animate-pulse-halo");
+    expect(screen.getByRole("img", { name: "Needs permission" })).toHaveClass("pulse-halo");
     expect(screen.getByRole("img", { name: "Working" }).querySelector("svg")).toHaveClass("motion-safe:animate-spin");
     expect(screen.getByRole("img", { name: "Error" }).querySelector("svg")).not.toBeNull();
     expect(container.textContent ?? "").not.toMatch(EMOJI);

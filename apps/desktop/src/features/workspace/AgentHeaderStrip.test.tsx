@@ -36,13 +36,13 @@ describe("AgentHeaderStrip", () => {
     expect(container.querySelector(`[data-state="${state}"]`)).not.toBeNull();
   });
 
-  it("shimmers and spins only while working", () => {
+  it("spins only while working and pulses while blocked", () => {
     const { container, rerender } = render(<AgentHeaderStrip {...props({ state: "working" })} />);
-    expect(container.querySelector(".shimmer-text")).not.toBeNull();
     expect(container.querySelector(".animate-spin")).not.toBeNull();
+    expect(container.querySelector(".pulse-halo")).toBeNull();
     rerender(<AgentHeaderStrip {...props({ state: "permission" })} />);
-    expect(container.querySelector(".shimmer-text")).toBeNull();
-    expect(container.querySelector(".animate-pulse-halo")).not.toBeNull();
+    expect(container.querySelector(".animate-spin")).toBeNull();
+    expect(container.querySelector(".pulse-halo")).not.toBeNull();
   });
 
   it("shows project, agent · branch · model, context, tokens and the limit", () => {

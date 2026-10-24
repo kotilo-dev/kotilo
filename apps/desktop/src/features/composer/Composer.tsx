@@ -506,7 +506,7 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
           title={micLabel}
           aria-pressed={dictation === "recording"}
           disabled={dictation === "transcribing"}
-          className={`${iconButton} ${dictation === "recording" ? "border-blocked bg-blocked-bg text-blocked-ink animate-pulse-halo" : ""}`}
+          className={`${iconButton} ${dictation === "recording" ? "border-blocked bg-blocked-bg text-blocked-ink pulse-halo [--halo-scale:1.5]" : ""}`}
           onClick={toggleDictation}
         >
           <MicIcon />

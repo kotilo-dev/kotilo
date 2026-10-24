@@ -39,6 +39,22 @@ public sealed class UsageServiceTests
         UsageService.Window(inside, T0.AddDays(-35)).Should().BeSameAs(inside, "nothing to drop, no copy");
     }
 
+    [Fact]
+    public void Merge_replaces_rewritten_rows_appends_new_ones_and_keeps_time_order()
+    {
+        UsageEntry At(string key, DateTimeOffset ts, long output = 1) => new(key, ts, 1, output, 0, 0, 0);
+        var rows = new[] { At("old", T0.AddDays(-36)), At("a", T0.AddHours(-2)), At("b", T0.AddHours(-1)) };
+        var since = T0.AddDays(-35);
+
+        UsageService.Merge(rows, [], since).Select(e => e.DedupKey).Should().Equal("a", "b");
+        UsageService.Merge(rows, [At("b", T0.AddHours(-1), 9), At("c", T0)], since)
+            .Select(e => (e.DedupKey, e.Output)).Should().Equal(("a", 1), ("b", 9), ("c", 1));
+        UsageService.Merge(rows, [At("early", T0.AddHours(-3))], since)
+            .Select(e => e.DedupKey).Should().Equal("early", "a", "b");
+        UsageService.Merge(rows, [At("a", T0.AddHours(-2), 2), At("a", T0.AddHours(-2), 3)], since)
+            .Single(e => e.DedupKey == "a").Output.Should().Be(3, "the last write wins");
+    }
+
     [Theory]
     [InlineData(SessionState.Working, 600, true)]
     [InlineData(SessionState.Idle, 20, true)]

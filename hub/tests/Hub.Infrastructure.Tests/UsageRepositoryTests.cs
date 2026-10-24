@@ -50,6 +50,32 @@ public sealed class UsageRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void Journal_returns_the_written_rows_as_a_load_would()
+    {
+        _repo.Upsert([E("a", 10, cost: 0.123456789012345678m) with { Timestamp = T0.AddTicks(1234).ToOffset(TimeSpan.FromHours(3)) }, E("b", 10)]);
+        _repo.Upsert([E("a", 5)]).Should().Be(0);
+        _repo.Upsert([E("b", 50)]);
+
+        var written = _repo.TakeWritten();
+        written.Should().NotBeNull();
+        written!.Select(e => (e.DedupKey, e.Output)).Should().Equal(("a", 10), ("b", 10), ("b", 50));
+        var loaded = _repo.Load(T0).Single(e => e.DedupKey == "a");
+        written[0].Should().Be(loaded, "the merged copy must match the stored row exactly");
+
+        _repo.TakeWritten().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Journal_gives_up_after_a_backfill_sized_burst()
+    {
+        _repo.Upsert(Enumerable.Range(0, 20_001).Select(i => E($"k{i}", 1)).ToList());
+
+        _repo.TakeWritten().Should().BeNull("too many rows to keep: the caller loads again");
+        _repo.Upsert([E("next", 1)]);
+        _repo.TakeWritten().Should().ContainSingle();
+    }
+
+    [Fact]
     public void Main_chain_replaces_sidechain_copy()
     {
         _repo.Upsert([E("k", 500, sidechain: true)]);

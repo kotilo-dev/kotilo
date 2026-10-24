@@ -6,6 +6,7 @@ import { NavRail } from "./NavRail";
 import { RoutePage } from "./RoutePage";
 import { registerRouteCommands } from "./routeCommands";
 import { installThemeSync } from "./theme/themeSync";
+import { installMotionPause } from "./ui/motionPause";
 import { useResolvedTheme } from "./theme/resolvedTheme";
 import { initHubStore } from "../stores/hubStore";
 import { useRouteStore } from "../stores/routeStore";
@@ -104,6 +105,7 @@ export function App() {
   // in zustand's listener order: `TerminalView`'s own xterm theme effect must read the CSS
   // tokens AFTER this update (see the live font/theme effect in `TerminalView.tsx`).
   useEffect(() => installThemeSync(), []);
+  useEffect(() => installMotionPause(), []);
 
   useEffect(() => {
     installRecentTabsTracking();

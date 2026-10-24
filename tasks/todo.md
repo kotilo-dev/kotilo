@@ -41,14 +41,16 @@ Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corpo
 - [x] Desktop: the "background service is not running" banner refreshes the hook status when the hub stream (re)connects (it was read once at start, so a slow hub start left it on for good)
 
 ## Wave 2 (after the user's reduced-motion check on the second machine)
-- [ ] Working-state animations: `.shimmer-text` (`background-clip: text`, repaints every frame) and spinners → compositor-only (opacity/transform) or static; pause while the window is hidden/unfocused
+- [x] Working-state animations (D-063; re-measurement 2026-10-24: WebView2 44 % → 11 % with Windows animations off): shimmer removed, Blocked halo on `transform`/`opacity`, all animations pause while the window is unfocused or hidden
+- [x] Hub: usage refresh merges the rows `Upsert` wrote instead of reloading 35 days on every transcript write (2.4–2.9 MB/s while agents worked); tests
 - [x] Dictation overlay window created on first use (not at start) and closed after 10 min hidden
 - [x] Project scan: todo files with an unchanged write time are reused, not re-read every 60 s; tests
 - [ ] Only if the re-measurement still shows idle reads: the 60 s project activity query scans all of `ix_usage_project_ts`; HealthMonitor re-reads the agent configs every 30 s (a few KB, left as is)
 - [x] Terminal: WebGL reloads 1 s after a context loss (at most 3 times per terminal); it stayed on the DOM renderer until a tab switch
 - [x] One log line per notification: the source logs it; `AppHost` only logs a quiet-hours/DND drop
 - [ ] Hook latency test (process start + process snapshot + loopback POST per event)
-- [ ] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets
+- [x] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets (`kotilo-performans-analizi-2026-10-24-v0.3.5.md`: memory targets met; UI targets only with Windows animations off; idle hub reads 2 KB/s on thin evidence)
+- [ ] Third measurement with Windows animations ON after this wave (WebView2 < 15 %, hub reads under load)
 
 # U-2 – Linux core (planned 2026-10-17)
 

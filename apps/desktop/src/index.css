@@ -291,36 +291,41 @@
 
   --shadow-float: var(--elev-float);
 
-  --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-spin: spin 1s linear infinite;
-  --animate-pulse-halo: pulse-halo 1.4s ease-out infinite;
   --animate-rise: rise 0.25s ease-out;
   --animate-blink: blink 0.96s steps(1, end) infinite;
 }
 
 /* §6 Motion */
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
+/* Blocked halo: a ring on a pseudo-element that grows and fades. Only transform and opacity
+   move, so the compositor runs it without repainting (a box-shadow animation repainted every
+   frame). `--halo-scale` sets how far it grows: small dots need more than a button. */
+@utility pulse-halo {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-blocked) 45%, transparent);
+    pointer-events: none;
+    animation: pulse-halo 1.4s ease-out infinite;
+  }
+}
 @keyframes pulse-halo {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-blocked) 45%, transparent);
+    transform: scale(1);
+    opacity: 1;
   }
-  70% {
-    box-shadow: 0 0 0 10px transparent;
-  }
+  70%,
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    transform: scale(var(--halo-scale, 2.6));
+    opacity: 0;
   }
 }
 /* Dictation record dot (CCC blinks every 12 × 40 ms ticks). */
@@ -340,21 +345,11 @@
   }
 }
 
-/* Working label shimmer: a soft highlight sliding across the status ink. */
-.shimmer-text {
-  background: linear-gradient(
-      90deg,
-      currentColor 0%,
-      currentColor 40%,
-      color-mix(in srgb, currentColor 45%, white) 50%,
-      currentColor 60%,
-      currentColor 100%
-    )
-    0 0 / 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 1.6s linear infinite;
+/* 0.3.5: animations pause while the window is unfocused or hidden (App sets the attribute). */
+:root[data-motion-paused] *,
+:root[data-motion-paused] *::before,
+:root[data-motion-paused] *::after {
+  animation-play-state: paused !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -364,10 +359,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-  .shimmer-text {
-    -webkit-text-fill-color: currentColor;
-    background: none;
   }
 }
 
