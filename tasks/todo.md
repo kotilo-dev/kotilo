@@ -32,7 +32,7 @@ Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Koti
 ## Release 0.4.0
 - [x] Turkish user guide and keybindings brought up to date (D-065…D-069)
 - [x] Manual checks R-1…R-14 in `docs/manual-tests.md`
-- [ ] Version 0.4.0, tag, CI + Release, draft release with notes (covers 0.3.5…0.4.0)
+- [x] Version 0.4.0 (8b4c99c), tag v0.4.0 on 337f3ef, CI + Release green, DRAFT "Kotilo 0.4.0 (beta)" with notes (covers 0.3.5…0.4.0; Windows x64/arm64, Linux, macOS aarch64/x64)
 - [ ] User checks R-1…R-14 on the desktop; publish
 
 # U-3 – macOS beta (planned 2026-10-23)
