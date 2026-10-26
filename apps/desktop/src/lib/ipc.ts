@@ -864,6 +864,10 @@ export interface SavedPrompt {
   id: string;
   title: string;
   text: string;
+  /** D-069: `"command"` = a shell command for a terminal; missing (older settings) = a prompt. */
+  kind?: "prompt" | "command";
+  /** D-069: workspace folder the entry is limited to; missing or empty = every workspace. */
+  project?: string;
 }
 
 export interface ComposerSettings {

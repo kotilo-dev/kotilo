@@ -10,7 +10,8 @@ import { HeaderButton } from "../../app/HeaderButton";
 import { PanelHeader } from "../../app/PanelHeader";
 import { ConfirmModal } from "../../app/ConfirmModal";
 import { useStrings } from "../../app/strings";
-import { ptyBusy, type ShellProfile } from "../../lib/ipc";
+import { ptyBusy, type SavedPrompt, type ShellProfile } from "../../lib/ipc";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
 import { useAgentStore } from "../../stores/agentStore";
@@ -25,6 +26,10 @@ import { splitBeside, splitTabToRight } from "./splitLayout";
 import { focusTerminal } from "./terminalRegistry";
 import { copyOutputWithToast, resetWithToast } from "./terminalActions";
 import { AgentPane } from "../workspace/AgentPane";
+import { quickCommandsFor } from "../quickCommands/quickCommandLogic";
+import { agentTabFor, openQuickCommandSettings, runQuickCommand } from "../quickCommands/quickCommandActions";
+
+const NO_QUICK_COMMANDS: SavedPrompt[] = [];
 
 // faz4-spec §4.21 / LOW #8c: `windowsPty.buildNumber` is now read in `terminalStore.init()`,
 // BEFORE restored tabs become a `Terminal` in `terminalRegistry` – fetching it here as well
@@ -126,14 +131,30 @@ function NewMenuButton({
   launch: LaunchOption[];
 }) {
   const strings = useStrings();
-  const [menu, setMenu] = useState<"profile" | "agent" | null>(null);
+  const [menu, setMenu] = useState<"profile" | "agent" | "quick" | null>(null);
   const btnRef = useRef<HTMLDivElement>(null);
+  const quickList = useSettingsStore((st) => st.settings.composer?.savedPrompts ?? NO_QUICK_COMMANDS);
+  const workspacePath = useWorkspaceStore((st) => st.workspaces.find((w) => w.id === workspaceId)?.path ?? null);
 
-  function openMenu(kind: "profile" | "agent") {
+  function openMenu(kind: "profile" | "agent" | "quick") {
     setMenu((m) => (m === kind ? null : kind));
   }
 
-  function itemsFor(kind: "profile" | "agent"): ContextMenuItem[] {
+  /** D-069: commands first, then prompts (disabled while no agent runs), then "Manage…". */
+  function quickItems(): ContextMenuItem[] {
+    const commands = quickCommandsFor(quickList, workspacePath, "command");
+    const prompts = quickCommandsFor(quickList, workspacePath, "prompt");
+    const hasAgent = agentTabFor(workspaceId) !== null;
+    const run = (entry: SavedPrompt) => () => void runQuickCommand(entry, workspaceId);
+    return [
+      ...commands.map((e) => ({ label: e.title, onClick: run(e) })),
+      ...prompts.map((e, i) => ({ label: e.title, onClick: run(e), disabled: !hasAgent, separatorBefore: i === 0 && commands.length > 0 })),
+      { label: strings.quickCommands.manage, onClick: openQuickCommandSettings, separatorBefore: commands.length + prompts.length > 0 },
+    ];
+  }
+
+  function itemsFor(kind: "profile" | "agent" | "quick"): ContextMenuItem[] {
+    if (kind === "quick") return quickItems();
     if (kind === "profile") {
       return profiles.map((p) => ({
         label: p.name,
@@ -163,6 +184,11 @@ function NewMenuButton({
       {hasAgentCommands && (
         <HeaderButton onClick={() => openMenu("agent")}>{strings.terminal.newAgent} ▶</HeaderButton>
       )}
+      <HeaderButton title={strings.quickCommands.button} aria-label={strings.quickCommands.button} aria-haspopup="menu" onClick={() => openMenu("quick")}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
+        </svg>
+      </HeaderButton>
       {menu && rect && (
         <ContextMenu
           state={{ x: rect.left, y: rect.bottom, items: itemsFor(menu) }}

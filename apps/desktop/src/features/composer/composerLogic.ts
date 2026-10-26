@@ -112,6 +112,13 @@ export function titleFromText(text: string): string {
   return first.length > TITLE_FROM_TEXT_CHARS ? `${first.slice(0, TITLE_FROM_TEXT_CHARS - 1)}…` : first;
 }
 
+/** A new saved prompt / quick command id. */
+export function newPromptId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /** Adds a prompt to the front of the list (newest first), within the settings' limits. */
 export function addSavedPrompt(list: readonly SavedPrompt[], text: string, id: string, title?: string): SavedPrompt[] {
   const body = text.trim();

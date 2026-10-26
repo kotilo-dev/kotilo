@@ -23,6 +23,7 @@ import { TerminalPanel } from "../features/terminal/TerminalPanel";
 import { focusTerminal } from "../features/terminal/terminalRegistry";
 import { spawnTerminal } from "../features/terminal/defaultShell";
 import { copyOutputWithToast, currentTerminalTabId, resetWithToast } from "../features/terminal/terminalActions";
+import { installQuickCommands } from "../features/quickCommands/quickCommandActions";
 import { ViewerPanel } from "../features/viewer/ViewerPanel";
 import { TimelineRail } from "../features/timeline/TimelineRail";
 import { ToastHost } from "../features/toast/ToastHost";
@@ -115,6 +116,9 @@ export function App() {
   // M3: "Agents: New <agent>" palette commands for every installed adapter definition plus
   // the user's own commands (re-registered when either list changes).
   useEffect(() => installLaunchCommands(), []);
+
+  // D-069: "Run: <name>" / "Prompt: <name>" palette commands for the quick commands.
+  useEffect(() => installQuickCommands(), []);
 
   // M5: one automatic update check a few seconds after launch (Settings → About can turn it off).
   useEffect(() => scheduleStartupUpdateCheck(), []);

@@ -5,7 +5,7 @@
  * elements, so the terminal keeps all of its keys; the composer never takes focus by itself.
  * Dictated text arrives as `dictation:composer` for this pane – never through the OS.
  */
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useStrings } from "../../app/i18n";
 import {
   clipboardSaveImage,
@@ -26,6 +26,8 @@ import { PasteWarningModal } from "../terminal/PasteWarningModal";
 import { shouldWarnMultilinePaste } from "../terminal/pasteWarning";
 import { bracketedPasteMode, focusTerminal } from "../terminal/terminalRegistry";
 import { useComposerInbox } from "./composerInbox";
+import { quickCommandsFor } from "../quickCommands/quickCommandLogic";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import {
   APP_WORKSPACE_DIR,
   ATTACHMENTS_DIR,
@@ -38,6 +40,7 @@ import {
   hasImage,
   insertText,
   moveIndex,
+  newPromptId,
   pastePayload,
   removeSavedPrompt,
   SUGGESTION_LIMIT,
@@ -60,12 +63,6 @@ export interface ComposerProps {
 }
 
 const EMPTY_PROMPTS: SavedPrompt[] = [];
-
-function newPromptId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 async function ensureDir(workspaceId: string, dirRel: string, name: string): Promise<void> {
   try {
@@ -104,6 +101,9 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
   const s = useStrings();
   const c = s.composer;
   const savedPrompts = useSettingsStore((st) => st.settings.composer?.savedPrompts ?? EMPTY_PROMPTS);
+  const workspacePath = useWorkspaceStore((st) => st.workspaces.find((w) => w.id === workspaceId)?.path ?? null);
+  // D-069: the list also holds shell commands and prompts of other workspaces.
+  const ownPrompts = useMemo(() => quickCommandsFor(savedPrompts, workspacePath, "prompt"), [savedPrompts, workspacePath]);
   const hintShown = useSettingsStore((st) => st.settings.composer?.attachmentsHintShown ?? false);
 
   const [text, setText] = useState("");
@@ -368,7 +368,7 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
     el?.focus();
   }
 
-  const visiblePrompts = filterSavedPrompts(savedPrompts, promptFilter);
+  const visiblePrompts = filterSavedPrompts(ownPrompts, promptFilter);
   const micLabel = dictation === "recording" ? c.stopDictation : dictation === "transcribing" ? c.transcribing : c.dictate;
   const iconButton = "flex h-9 w-9 shrink-0 items-center justify-center rounded-button border border-border bg-surface-5 text-text-2 hover:text-text disabled:opacity-50";
 
@@ -431,7 +431,7 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
               {c.savePrompt}
             </button>
           </div>
-          {savedPrompts.length > 0 && (
+          {ownPrompts.length > 0 && (
             <input
               aria-label={c.filterPrompts}
               placeholder={c.filterPrompts}
@@ -448,7 +448,7 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
             />
           )}
           <div className="min-h-0 flex-1 overflow-y-auto py-1">
-            {savedPrompts.length === 0 && <div className="px-3 py-2 text-body text-muted">{c.promptsEmpty}</div>}
+            {ownPrompts.length === 0 && <div className="px-3 py-2 text-body text-muted">{c.promptsEmpty}</div>}
             {visiblePrompts.map((p) => (
               <div key={p.id} className="group flex items-start gap-2 px-3 py-1.5 hover:bg-surface-4">
                 <button type="button" className="flex min-w-0 flex-1 flex-col text-left" onClick={() => applyPrompt(p)}>

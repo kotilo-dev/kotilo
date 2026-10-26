@@ -322,6 +322,10 @@ pub struct DiagnosticsSettings {
 /// piece of prompt content Kotilo keeps at rest – an explicit, user-approved exception to
 /// rule 5 (the user writes it here on purpose); it never goes into logs or a diagnostics zip
 /// ([`settings_for_diagnostics`]).
+///
+/// D-069 quick commands are the same list: `kind` `"command"` is a shell command for a terminal,
+/// anything else a prompt for an agent's composer; `project` is a workspace folder the entry is
+/// limited to (empty = every workspace).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedPrompt {
@@ -331,6 +335,10 @@ pub struct SavedPrompt {
     pub title: String,
     #[serde(default)]
     pub text: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub project: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -441,8 +449,9 @@ fn clip_chars(text: &str, max: usize) -> String {
     text.chars().take(max).collect()
 }
 
-/// Saved prompts: trimmed id/title, text clipped, entries without id or text dropped,
-/// duplicate ids dropped (first wins), at most [`MAX_SAVED_PROMPTS`].
+/// Saved prompts: trimmed id/title/project, text clipped, `kind` either `"command"` or
+/// `"prompt"`, entries without id or text dropped, duplicate ids dropped (first wins), at most
+/// [`MAX_SAVED_PROMPTS`].
 fn normalize_saved_prompts(prompts: Vec<SavedPrompt>) -> Vec<SavedPrompt> {
     let mut seen = std::collections::HashSet::new();
     prompts
@@ -451,6 +460,8 @@ fn normalize_saved_prompts(prompts: Vec<SavedPrompt>) -> Vec<SavedPrompt> {
             id: p.id.trim().to_string(),
             title: clip_chars(p.title.trim(), MAX_PROMPT_TITLE_CHARS),
             text: clip_chars(&p.text, MAX_PROMPT_TEXT_CHARS),
+            kind: if p.kind == "command" { "command" } else { "prompt" }.to_string(),
+            project: p.project.trim().to_string(),
         })
         .filter(|p| !p.id.is_empty() && !p.text.trim().is_empty())
         .filter(|p| seen.insert(p.id.clone()))
@@ -746,7 +757,7 @@ mod tests {
     use super::*;
 
     fn prompt(id: &str, title: &str, text: &str) -> SavedPrompt {
-        SavedPrompt { id: id.to_string(), title: title.to_string(), text: text.to_string() }
+        SavedPrompt { id: id.to_string(), title: title.to_string(), text: text.to_string(), ..Default::default() }
     }
 
     #[test]
@@ -787,6 +798,21 @@ mod tests {
         assert_eq!(out.composer.saved_prompts[0].title, "Title");
         assert_eq!(out.composer.saved_prompts[1].title.chars().count(), MAX_PROMPT_TITLE_CHARS);
         assert_eq!(out.composer.saved_prompts[1].text.chars().count(), MAX_PROMPT_TEXT_CHARS);
+    }
+
+    #[test]
+    fn validate_normalizes_quick_command_kind_and_project() {
+        let mut s = Settings::default();
+        s.composer.saved_prompts = vec![
+            SavedPrompt { kind: "command".into(), project: "  C:\\src\\app ".into(), ..prompt("c1", "Test", "npm test") },
+            SavedPrompt { kind: "weird".into(), ..prompt("p1", "Review", "Review the diff") },
+            prompt("p2", "Old", "saved before D-069"),
+        ];
+        let out = validate_and_normalize(s).unwrap();
+        let kinds: Vec<&str> = out.composer.saved_prompts.iter().map(|p| p.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["command", "prompt", "prompt"]);
+        assert_eq!(out.composer.saved_prompts[0].project, "C:\\src\\app");
+        assert_eq!(out.composer.saved_prompts[2].project, "");
     }
 
     #[test]

@@ -52,7 +52,7 @@ exits silently.
 | File | Contents |
 |---|---|
 | `%APPDATA%\kotilo\state.json` | Workspace list, active workspace, expanded tree folders, open viewer tabs, panel/window layout, open terminal tabs, UI language. Written atomically (temp file + rename) with a short debounce. |
-| `%APPDATA%\kotilo\settings.json` | The app settings (Appearance, Editor, Terminal, Files, Agents, About in [Settings](#settings)) and your composer's saved prompts — kept separate from `state.json` so a settings write can never corrupt your layout or vice versa. |
+| `%APPDATA%\kotilo\settings.json` | The app settings (Appearance, Editor, Terminal, Files, Agents, About in [Settings](#settings)) and your saved prompts and quick commands — kept separate from `state.json` so a settings write can never corrupt your layout or vice versa. |
 | `%LOCALAPPDATA%\kotilo\logs\kotilo.log` | The desktop app's own log file — see [Logs and diagnostics](#logs-and-diagnostics). |
 | `%LOCALAPPDATA%\kotilo\diagnostics\` | Zips written by **Collect diagnostics**. |
 | `%LOCALAPPDATA%\kotilo\hub\` | The background service's data: `hub.db` (sessions, usage, tasks, dictation history), `settings.json` (notification, usage, project, task and dictation settings), `pricing.json`, `logs\`, and `bin\kotilo-hook.exe` (the hook helper your agents' hooks call). |
@@ -305,6 +305,35 @@ half the permission card scrolls instead of covering the whole pane. The header 
 button exists on agent panes only; plain shell tabs split through the tab menu or by
 dragging.
 
+### Quick commands
+
+Quick commands are shell commands and agent prompts you run often, saved once and started
+with a click. Manage them in Settings → **Quick commands**: **Add** asks for the type
+(**Shell command** or **Agent prompt**), a name, the command or prompt text, and where it
+is available (**All workspaces** or one workspace folder). **Edit** and **Delete** sit on
+each row. Prompts saved from an agent's message field (see [Composer](#composer)) are the
+same list, so they show up here too.
+
+Run one from:
+
+- the **lightning button** in the terminal panel header: commands first, then prompts,
+  then **Manage quick commands…**;
+- the [command palette](#command-palette-and-quick-open): **Run: <name>** for commands,
+  **Prompt: <name>** for prompts. Only the ones available in the active workspace are listed.
+
+Where it goes:
+
+- A **shell command** is typed into the current terminal and run (Enter), when a plain
+  shell runs there. If an agent runs in the current tab, or the tab has exited, the
+  command starts in a new tab instead, so it never lands in an agent's input. A command
+  is one line.
+- An **agent prompt** goes into the message field of the current tab's agent (or the
+  workspace's first running agent). Nothing is sent: you read it, edit it if needed and
+  send it. Prompts are greyed out in the menu while no agent runs in the workspace.
+
+Quick commands are kept with your saved prompts in the app's `settings.json`; diagnostics
+zips contain just their number.
+
 ## Agents
 
 ### Agent states
@@ -412,7 +441,9 @@ keys meant for the terminal.
   shortcut is off. Nothing is pasted through Windows or the clipboard.
 - **Saved prompts:** the bookmark button opens your saved prompts. **Save message as
   prompt** stores the current text (its first line becomes the title); click a prompt to
-  insert it at the cursor, filter the list, or delete one with **×**. Saved prompts are
+  insert it at the cursor, filter the list, or delete one with **×**. The list shows the
+  prompts available in this workspace; shell commands and folder-limited entries are
+  managed in [Quick commands](#quick-commands). Saved prompts are
   your own text and are kept in the app's `settings.json` (see
   [Data locations](#data-locations)) — the only prompt text Kotilo stores, and only
   because you saved it. Diagnostics zips contain just their number.
@@ -853,6 +884,7 @@ Visual effects).
   [Keybindings](keybindings.md) for the exact scoping rules.
 - The palette's **Go** category opens each screen, and its **Help** category opens
   this guide, Keybindings, Troubleshooting, or About (same content as **F1**).
+- **Run** and **Prompt** entries are your [quick commands](#quick-commands).
 
 ## Status bar
 
@@ -876,6 +908,7 @@ command palette. The section list is on the left.
 | Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe), Background opacity (30–100 %: below 100 % the desktop shows through the window background and terminals while text stays solid, like Windows Terminal), Blur the background (acrylic, Windows only) |
 | Editor | Editor font family and size (8–32) for Monaco |
 | Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal… |
+| Quick commands | Saved shell commands and agent prompts, for every workspace or one folder (see [Quick commands](#quick-commands)) |
 | Files | Hidden patterns (name-only globs; a pattern with `/`, `\` or a leading `!` is rejected), respect `.gitignore`, copy the path after saving a clipboard image |
 | Agents | Agent commands for "New agent ▶", agent notifications on/off, Summary when I'm back (on by default) and its minutes (default 10), [Agent integrations](#agent-integrations), [custom agents](#custom-agents) |
 | About & diagnostics | Version and build, license (Apache-2.0), project links (source, issues, discussions – when the build has a repository), contact, **Check for updates**, **Check for updates on start** (on by default: one check a few seconds after launch; a found update shows a prompt with **Install and restart** / **Later**), the open-source licenses list (searchable), **Collect diagnostics**, **Copy version info**, **Open help**, **Verbose logging** (switches the log level from `info` to `debug` — turn it on before reproducing an intermittent problem), **Open logs folder** |

@@ -12,6 +12,7 @@ import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
 import { timelineTr } from "./timeline.tr";
 import { reviewTr } from "./review.tr";
+import { quickCommandsTr } from "./quickCommands.tr";
 import { sessionsTr } from "./sessions.tr";
 import { missionTr } from "./mission.tr";
 import { updateTr } from "./update.tr";
@@ -213,6 +214,7 @@ export const tr: Strings = {
       mascot: "Maskot",
       editor: "Editör",
       terminal: "Terminal",
+      quickCommands: "Hızlı komutlar",
       files: "Dosyalar",
       agents: "Ajanlar",
       ai: "Yapay zekâ",
@@ -608,6 +610,7 @@ export const tr: Strings = {
   composer: composerTr,
   timeline: timelineTr,
   review: reviewTr,
+  quickCommands: quickCommandsTr,
   sessions: sessionsTr,
   mission: missionTr,
   update: updateTr,
@@ -1105,6 +1108,8 @@ export const tr: Strings = {
     preferences: "Tercihler",
     help: "Yardım",
     viewer: "Görüntüleyici",
+    quickCommand: "Çalıştır",
+    quickPrompt: "İstem",
   },
 
   commandTitles: {
@@ -1121,6 +1126,7 @@ export const tr: Strings = {
     terminalNew: "Yeni terminal",
     terminalReset: "Terminali sıfırla (takılı fare ya da tuşlar)",
     terminalCopyOutput: "Son terminal çıktısını kopyala",
+    manageQuickCommands: "Hızlı komutları yönet",
     workspacesAdd: "Çalışma alanı ekle…",
     newAgent: (cmd: string) => `Yeni ${cmd}`,
     installHooks: "Claude Code entegrasyonunu kur",

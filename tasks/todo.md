@@ -1,3 +1,34 @@
+# 0.4.0 – Review loop, session history, terminal extras, quick commands (planned 2026-10-26)
+
+Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Kotilo's rules; left out: account switching and cookie/API-key usage reads (rule 3), the native chat UI (wraps the agent, rule 5), telemetry. Worktree-per-task is a separate later phase. Order: A → B → C → D.
+
+## A – Diff review notes to the agent
+- [x] Notes store, in memory only (rule 5): per workspace + file, line range, text, resolved
+- [x] DiffView: add a note on a line or a selection of the working-copy side (gutter "+", context menu "Add review note", key `c`), shown under the line; edit, delete, resolve
+- [x] Notes follow their lines while the file changes (re-anchor by line text on reload; otherwise marked outdated)
+- [x] "Send N notes to…" in the diff header: the workspace's agent panes; one prompt (file:lines + quoted code + note) put into that agent's composer, the user sends it; unresolved notes go again next time
+- [x] Note count on the timeline's changed-files rows
+- [x] Unit tests (prompt builder, re-anchoring), e2e + screenshot, en + tr strings, D-066
+
+## B – Session history and resume
+- [x] Each agent's resume command checked against its current docs → `adapter.json` `resume` (schema stays backward compatible; "no resume" allowed)
+- [x] Hub: session history endpoint from existing metadata (agent, id, project, cwd, model, first/last activity, tokens/cost, last state); no transcript content
+- [x] UI: session history with scope (workspace / project / all), grouping (project / agent), search (project, folder, model, agent), sorted by last activity
+- [x] Resume: new terminal tab in the session's folder running the resume command; copy resume command / session id
+- [x] Tests (hub, adapter schema, UI), e2e, D-067
+
+## C – Terminal extras
+- [x] OSC 52 clipboard writes from TUI apps (setting, on by default; read requests ignored)
+- [x] Reset terminal (context menu): clears stuck mouse/keyboard modes without restarting the shell
+- [x] Copy recent output (context menu, bounded)
+- [x] Link click choices: viewer / system browser / copy; Ctrl+click opens directly
+- [x] Tests + e2e
+
+## D – Quick commands
+- [x] Saved shell commands and agent prompts, global or per project (grows out of saved prompts)
+- [x] Run from the terminal tab bar and the command palette: commands go to the active terminal, prompts to the agent's composer
+- [x] Tests, e2e, user guide, D-069
+
 # U-3 – macOS beta (planned 2026-10-23)
 
 Goal: a macOS beta with the same core as Linux (terminals, agent status, permission card, hub, usage, tasks, themes, updates); Windows-only extras (dictation, mascot, global hotkeys, away summary, ConPTY, WT schemes) stay off via `app_info.features`. Builds run on GitHub's macOS runners; there is no Mac here, so every behaviour check is done by an outside tester (checklist below). Signing/notarization once the user's Apple Developer account exists; until then ad-hoc signed test builds.

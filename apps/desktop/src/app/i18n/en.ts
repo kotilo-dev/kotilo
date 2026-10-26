@@ -12,6 +12,7 @@ import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
 import { reviewEn } from "./review.en";
+import { quickCommandsEn } from "./quickCommands.en";
 import { sessionsEn } from "./sessions.en";
 import { missionEn } from "./mission.en";
 import { updateEn } from "./update.en";
@@ -219,6 +220,7 @@ export const en = {
       mascot: "Mascot",
       editor: "Editor",
       terminal: "Terminal",
+      quickCommands: "Quick commands",
       files: "Files",
       agents: "Agents",
       ai: "AI",
@@ -627,6 +629,7 @@ export const en = {
   /** M4: workspace timeline rail and diff tab (`timeline.en.ts`). */
   timeline: timelineEn,
   review: reviewEn,
+  quickCommands: quickCommandsEn,
   sessions: sessionsEn,
   /** M4: Mission control page (`mission.en.ts`). */
   mission: missionEn,
@@ -1149,6 +1152,8 @@ export const en = {
     preferences: "Preferences",
     help: "Help",
     viewer: "Viewer",
+    quickCommand: "Run",
+    quickPrompt: "Prompt",
   },
 
   // Categories are rendered separately ("Category: Title"), so titles never repeat them.
@@ -1166,6 +1171,7 @@ export const en = {
     terminalNew: "New terminal",
     terminalReset: "Reset terminal (stuck mouse or keys)",
     terminalCopyOutput: "Copy recent terminal output",
+    manageQuickCommands: "Manage quick commands",
     workspacesAdd: "Add workspace…",
     newAgent: (cmd: string) => `New ${cmd}`,
     installHooks: "Install Claude Code integration",

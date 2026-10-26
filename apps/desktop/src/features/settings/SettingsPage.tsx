@@ -10,6 +10,7 @@ import { dictationReload, hubRequest } from "../../lib/ipc";
 import type { AiSettings, HubSettings } from "../../lib/hubTypes";
 import { AiSection } from "./AiSection";
 import { MascotSection } from "./MascotSection";
+import { QuickCommandsSection } from "./QuickCommandsSection";
 import { useMascotSettingsStore } from "./mascotSettings";
 import { AboutSection, AgentsSection, AppearanceSection, EditorSection, FilesSection, TerminalSection } from "./AppSections";
 import { Button, Notice, Page, PageHeader } from "./controls";
@@ -25,6 +26,7 @@ export type SettingsSectionId =
   | "mascot"
   | "editor"
   | "terminal"
+  | "quickCommands"
   | "files"
   | "agents"
   | "ai"
@@ -45,6 +47,7 @@ const SECTIONS: readonly Section[] = [
   { id: "mascot", app: MascotSection, needs: "mascot" },
   { id: "editor", app: EditorSection },
   { id: "terminal", app: TerminalSection },
+  { id: "quickCommands", app: QuickCommandsSection },
   { id: "files", app: FilesSection },
   { id: "agents", app: AgentsSection },
   { id: "ai", hub: AiSection },

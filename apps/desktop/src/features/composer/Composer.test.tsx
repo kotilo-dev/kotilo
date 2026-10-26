@@ -23,6 +23,7 @@ const registry = vi.hoisted(() => ({ bracketedPasteMode: vi.fn(), focusTerminal:
 vi.mock("../terminal/terminalRegistry", () => registry);
 
 import { DEFAULT_SETTINGS, resetSettingsStoreForTest, useSettingsStore } from "../../stores/settingsStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { Composer } from "./Composer";
 
 let dictationHandler: ((r: DictationComposerResult) => void) | undefined;
@@ -162,6 +163,30 @@ describe("Composer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete “Review the diff carefully”" }));
     expect(useSettingsStore.getState().settings.composer!.savedPrompts).toEqual([]);
     expect(screen.getByText(/No saved prompts yet/)).toBeInTheDocument();
+  });
+
+  it("lists only prompts for this workspace, not shell commands (D-069)", () => {
+    useWorkspaceStore.setState({ workspaces: [{ id: "ws1", name: "app", path: "C:\\src\\app", expandedDirs: [] }] });
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        composer: {
+          attachmentsHintShown: false,
+          savedPrompts: [
+            { id: "g", title: "Global prompt", text: "g" },
+            { id: "c", title: "Run tests", text: "npm test", kind: "command" },
+            { id: "o", title: "Other project", text: "o", project: "C:\\src\\other" },
+            { id: "h", title: "This project", text: "h", project: "c:/src/app/" },
+          ],
+        },
+      },
+    });
+    renderComposer();
+    fireEvent.click(screen.getByRole("button", { name: "Saved prompts" }));
+    expect(screen.getByRole("button", { name: /^Global prompt/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^This project/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Run tests/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Other project/ })).toBeNull();
   });
 
   it("starts from settings without a composer section", () => {
