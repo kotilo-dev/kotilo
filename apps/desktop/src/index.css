@@ -392,6 +392,33 @@ html[data-view="dictation-overlay"] body {
   box-sizing: border-box;
 }
 
+/* D-066: review notes in the diff tab: the "+" in the glyph margin and the noted lines. */
+.review-add-glyph {
+  cursor: pointer;
+}
+.review-add-glyph::before {
+  content: "+";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  border-radius: var(--r-badge);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.review-zone {
+  position: absolute;
+}
+.review-note-range {
+  background: var(--accent-soft);
+}
+
 /* D-065: xterm's stylesheet paints its viewport black under the cells. */
 :root[data-translucent] .xterm .xterm-viewport {
   background-color: transparent;

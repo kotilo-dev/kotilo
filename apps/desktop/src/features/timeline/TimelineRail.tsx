@@ -24,6 +24,7 @@ import { useViewerStore } from "../../stores/viewerStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useActivityStore } from "./activityStore";
 import { useChangesStore } from "./changesStore";
+import { useOpenNoteCount } from "../review/reviewStore";
 import {
   baseNameOf,
   dirNameOf,
@@ -447,6 +448,8 @@ function FileRow({ file, workspaceId, touched }: { file: GitChangedFile; workspa
   const strings = useStrings();
   const dir = dirNameOf(file.path);
   const counts = file.added === null && file.removed === null;
+  // D-066: open review notes on this file.
+  const notes = useOpenNoteCount(workspaceId, file.path);
   return (
     <li>
       <button
@@ -465,6 +468,11 @@ function FileRow({ file, workspaceId, touched }: { file: GitChangedFile; workspa
           <span className={touched ? "text-text" : "text-text-2"}>{baseNameOf(file.path)}</span>
           {dir && <span className="ml-1.5 text-label text-faint">{dir}</span>}
         </span>
+        {notes > 0 && (
+          <span className="shrink-0 rounded-badge bg-accent-soft px-1.5 font-ui text-label text-accent" title={strings.review.noteCount(notes)}>
+            {notes}
+          </span>
+        )}
         <span className="shrink-0 whitespace-nowrap">
           {counts ? (
             <span className="text-faint">{NO_VALUE}</span>

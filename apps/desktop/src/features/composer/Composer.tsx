@@ -25,6 +25,7 @@ import { useToastStore } from "../../stores/toastStore";
 import { PasteWarningModal } from "../terminal/PasteWarningModal";
 import { shouldWarnMultilinePaste } from "../terminal/pasteWarning";
 import { bracketedPasteMode, focusTerminal } from "../terminal/terminalRegistry";
+import { useComposerInbox } from "./composerInbox";
 import {
   APP_WORKSPACE_DIR,
   ATTACHMENTS_DIR,
@@ -168,6 +169,25 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
       clearTimeout(timer);
     };
   }, [workspaceId, mention]);
+
+  // D-066: text handed over from elsewhere (review notes) lands in the field, after what is
+  // already there; the user sends it.
+  useEffect(() => {
+    const takeInbox = () => {
+      const handed = useComposerInbox.getState().take(paneId);
+      if (handed === null) return;
+      setText((current) => {
+        const next = current.trim() === "" ? handed : `${current.replace(/\s+$/, "")}\n\n${handed}`;
+        caretRef.current = next.length;
+        return next;
+      });
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    takeInbox();
+    return useComposerInbox.subscribe((state) => {
+      if (state.pending[paneId] !== undefined) takeInbox();
+    });
+  }, [paneId]);
 
   // Composer dictation results for this pane only.
   useEffect(() => {

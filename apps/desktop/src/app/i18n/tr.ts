@@ -11,6 +11,7 @@ import type { Strings } from "./en";
 import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
 import { timelineTr } from "./timeline.tr";
+import { reviewTr } from "./review.tr";
 import { missionTr } from "./mission.tr";
 import { updateTr } from "./update.tr";
 import { assistantTr } from "./assistant.tr";
@@ -604,6 +605,7 @@ export const tr: Strings = {
   agentSetup: agentSetupTr,
   composer: composerTr,
   timeline: timelineTr,
+  review: reviewTr,
   mission: missionTr,
   update: updateTr,
   assistant: assistantTr,

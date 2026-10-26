@@ -3,15 +3,21 @@
  * Opened from the timeline rail's changed files. Added/untracked files diff against nothing,
  * deleted ones against an empty right side. Reloads on `fs:changed` for the file's folder.
  * Rule 5: the contents stay in this component's memory; nothing is logged or persisted.
+ * D-066: review notes on the working-copy side (`features/review`), sent to an agent.
  */
 import { useEffect, useState } from "react";
-import { DiffEditor } from "@monaco-editor/react";
+import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import { useStrings } from "../../../app/strings";
 import { useResolvedTheme } from "../../../app/theme/resolvedTheme";
 import { fsReadText, gitShowHead, isAppError, onFsChanged } from "../../../lib/ipc";
 import { isSameOrDescendant, parentRel } from "../../workspaces/paths";
 import { languageForRel, monacoThemeFor } from "./TextEditor";
 import type { RendererProps } from "./types";
+import { ReviewZones, SendNotesButton } from "../../review/DiffReview";
+import { linesOf } from "../../review/reviewNotes";
+import { useReviewStore } from "../../review/reviewStore";
+
+type Mounted = { editor: Parameters<DiffOnMount>[0]; monaco: Parameters<DiffOnMount>[1] };
 
 const RELOAD_DEBOUNCE_MS = 300;
 
@@ -42,11 +48,21 @@ export function DiffView({ workspaceId, rel }: RendererProps) {
   const strings = useStrings();
   const theme = useResolvedTheme((s) => s.theme);
   const [state, setState] = useState<DiffState>({ status: "loading" });
+  const [mounted, setMounted] = useState<Mounted | null>(null);
+  // A diff that left "ready" unmounted its editor; the next mount reports the new one.
+  useEffect(() => {
+    if (state.status !== "ready") setMounted(null);
+  }, [state.status]);
 
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = () => void loadDiff(workspaceId, rel).then((next) => alive && setState(next));
+    const load = () =>
+      void loadDiff(workspaceId, rel).then((next) => {
+        if (!alive) return;
+        if (next.status === "ready") useReviewStore.getState().reanchorFile(workspaceId, rel, linesOf(next.modified));
+        setState(next);
+      });
     load();
     const unlisten = onFsChanged(({ workspaceId: ws, dirs }) => {
       if (ws !== workspaceId || !dirs.some((d) => isSameOrDescendant(parentRel(rel), d))) return;
@@ -74,6 +90,7 @@ export function DiffView({ workspaceId, rel }: RendererProps) {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-label text-muted">
         <span className="truncate font-mono text-text-2">{rel}</span>
         <span className="shrink-0">{strings.timeline.diffHeader}</span>
+        {state.status === "ready" && <SendNotesButton workspaceId={workspaceId} />}
       </div>
       <div className="min-h-0 flex-1">
         {state.status === "loading" ? (
@@ -90,8 +107,12 @@ export function DiffView({ workspaceId, rel }: RendererProps) {
             originalModelPath={`diff-head:${workspaceId}/${rel}`}
             modifiedModelPath={`diff-work:${workspaceId}/${rel}`}
             options={{ readOnly: true, originalEditable: false, renderSideBySide: true, automaticLayout: true }}
+            onMount={(editor, monaco) => setMounted({ editor, monaco })}
           />
         ) : null}
+        {state.status === "ready" && mounted && (
+          <ReviewZones editor={mounted.editor.getModifiedEditor()} monaco={mounted.monaco} workspaceId={workspaceId} rel={rel} />
+        )}
       </div>
     </div>
   );

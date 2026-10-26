@@ -574,6 +574,17 @@ Click a changed file to open a **diff tab** in the viewer, `<name> (diff)`: `HEA
 the left, your working copy on the right, read-only. Binary files and `HEAD` versions
 larger than 2 MB show a notice instead. Diff tabs are not restored after a restart.
 
+**Review notes:** in a diff tab, hover a line of the working copy and click the **+** in
+the margin (or select lines and press **C**, or right-click → **Add review note**), write
+what the agent should change and press Enter. Notes stay under their lines and follow them
+when the file changes; a note whose lines are gone is marked **Lines changed**. **Resolve**
+folds a note away, **Reopen** brings it back. **Send N notes to…** in the diff header lists
+the agents running in the workspace's terminals and puts every open note of the workspace
+(all files) into that agent's message field as one prompt with the file, lines and code;
+you read it and send it. Notes that are still open go along again the next time. The
+changed-files list shows each file's open notes. Notes are kept in memory only and are gone
+after a restart.
+
 The activity and plan come from the agent's hooks and live in the background
 service's memory only: they keep the last 200 tool calls per session, are dropped
 10 minutes after the session ends, and are lost when the background service restarts.

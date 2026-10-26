@@ -11,6 +11,7 @@ import { formatKeybinding } from "../../lib/keys";
 import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
+import { reviewEn } from "./review.en";
 import { missionEn } from "./mission.en";
 import { updateEn } from "./update.en";
 import { assistantEn } from "./assistant.en";
@@ -623,6 +624,7 @@ export const en = {
   /** M4: per-pane composer and split pane (`composer.en.ts`). */ composer: composerEn,
   /** M4: workspace timeline rail and diff tab (`timeline.en.ts`). */
   timeline: timelineEn,
+  review: reviewEn,
   /** M4: Mission control page (`mission.en.ts`). */
   mission: missionEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */
