@@ -136,7 +136,8 @@ Verified in the Claude Code docs (hooks, statusline, model-config): `Stop`/`Suba
 
 ## Integration
 - [x] All checks (dotnet test 1057, cargo test 637+83 + clippy, npm test 935, e2e 84), DECISIONS D-060, manual tests G-1…G-11 in `docs/manual-tests.md`
-- [ ] Version 0.3.2; user tests on the second machine
+- [x] Version 0.3.2: 50e7e9c + 26c048d, tag v0.3.2, CI + Release green, DRAFT release with notes (covers the unpublished 0.3.1 too)
+- [ ] User tests G-1…G-11 (and F-1…F-15; `tasks/manual-test-run.md` §5–6) on the second machine with the 0.3.2 draft installer → "yayınla" → publish 0.3.2, delete the 0.3.1 draft
 
 # 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059)
 

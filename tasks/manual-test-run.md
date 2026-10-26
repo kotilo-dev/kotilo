@@ -1,4 +1,4 @@
-# Manuel test turu (planlandı: 2026-10-12, güncellendi: 2026-10-13)
+# Manuel test turu (planlandı: 2026-10-12, güncellendi: 2026-10-15)
 
 Bekleyen bütün manuel testler tek listede. Adımlar ve beklenen sonuçlar `docs/manual-tests.md` içinde, buradaki numaralarla. Her maddeyi `[x]` (geçti) veya `[!]` (sorun; kısa not) ile işaretle; notları bana yapıştırman yeterli.
 
@@ -95,3 +95,21 @@ Yeni sürüm gerekir (0.3.1 veya `tauri dev`). Hazırlık: `notepad $PROFILE` �
 - [ ] **F-13** Karttan izin ver → sağ üstte küçük "Allowed once…" notu ~2 sn görünür, alttaki ajan satırları okunur kalır
 - [ ] **F-14** İkinci bir workspace ekle; adının üzerine gel → normal ok imleci ve **Geç** düğmesi; Geç, çift tık ve sağ tık → **Etkinleştir** üçü de etkin workspace'i değiştirir
 - [ ] **F-15** Bir satır kopyala; Claude'un prompt'una ve düz bir PowerShell'e sağ tıkla, Claude'da Shift+sağ tık da dene → her biri metni **bir kez** yapıştırır; metin seçip sağ tıklamak kopyalar
+
+## 6. 0.3.2 düzeltmeleri – kalan süreçler, izin kartı, arka plan işi, context (~40 dk)
+
+**Kurulum:** taslak sürümden `Kotilo_0.3.2_x64-setup.exe` (ARM cihazda `arm64`). 5. bölüm de bu kurulumla yapılır. Adımlar `docs/manual-tests.md` → "Performance and second-machine fixes (0.3.2, D-060)". CPU ölçümü için Görev Yöneticisi → Ayrıntılar sekmesi.
+
+- [ ] **G-1** Claude'a arka planda sonsuz çalışan bir betik başlattır, `/exit` ile Claude'dan çık, sekmeyi açık bırak → birkaç saniyede "Agent exited – 1 process still running" şeridi; **Stop** süreci bitirir, şerit kaybolur
+- [ ] **G-2** Aynısı, Stop yerine sekmeyi kapat → betik süreci birkaç saniyede Görev Yöneticisi'nden gider
+- [ ] **G-3** Auto mode açıkken yalnızca "1. Yes / 2. No" soran bir izin → pane kırmızı olur (hook gelmese de); kartta **Allow once / Deny / Answer in terminal**, "Always" yok
+- [ ] **G-4** 3 seçenekli normal Bash izni → ikinci düğme Claude'un kendi "don't ask again …" metni; basınca terminalde 2. seçenek seçilir
+- [ ] **G-5** Arka plan alt ajanı çalışırken ("Waiting for 1 background agent") → durum sarı kalır, "Background: …" yazar; iş bitince mavi + tamamlandı bildirimi
+- [ ] **G-6** ~150k token'lık Opus/Sonnet 5 oturumu → üstteki Context çubuğu Claude'un `/context` değeriyle aynı (~%15, %75 değil)
+- [ ] **G-7** Yoğun bir ajan turundan sonra Kotilo'yu 5 dk boşta ve arka planda bırak → kotilo, kotilo-hub ve WebView2 ~%0 CPU
+- [ ] **G-8** Zaman akışında Activity / Changed files ayırıcısını sürükle, uygulamayı yeniden başlat → iki bölüm ayrı kayar, oran korunur
+- [ ] **G-9** Ajan listesinde ve pane'de her durum (çalışıyor, izin, soru, bitti, boşta) kendi renginde kendi ikonunu gösterir; çalışıyor ikonu döner
+- [ ] **G-10** Sixel resim (ör. `img2sixel`) terminalde görünür; logda "WebAssembly … Content Security Policy" hatası yok
+- [ ] **G-11** Ayarlar → Hakkında → tanılama zip'i → içinde `hub-logs/` var; app logunda tekrar eden "taskbar: overlay icon not set" satırları yok
+
+Sorun yoksa "yayınla" → 0.3.2 yayınlanır (0.3.0 kullanıcılarına otomatik güncelleme), 0.3.1 taslağı silinir.
