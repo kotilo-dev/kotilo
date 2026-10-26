@@ -1,7 +1,7 @@
 //! `settings_*` commands (Faz 6 spec §1.2): thin wrappers around [`SettingsStore`] that
 //! additionally emit `settings:changed` after a successful write.
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppResult;
 use crate::gitignore_tree::GitignoreTreeCache;
@@ -41,6 +41,13 @@ pub fn settings_set(
         // Faz 7 §9.1: "Verbose logging" takes effect immediately, no restart — this is
         // the live global level ceiling, applied at startup too (see `lib.rs::run`).
         crate::logging::apply_verbose_logging(saved.diagnostics.verbose_logging);
+    }
+    let blur = |s: &Settings| s.appearance.acrylic && s.appearance.is_translucent();
+    if blur(&before) != blur(&saved) {
+        // D-065: the acrylic backdrop behind a translucent window, live.
+        if let Some(window) = app.get_webview_window("main") {
+            crate::platform::window_backdrop::apply(&window, blur(&saved));
+        }
     }
     let _ = app.emit(EVENT_SETTINGS_CHANGED, &saved);
     Ok(saved)

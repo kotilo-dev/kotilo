@@ -13,12 +13,17 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { platformFeatures } from "../../lib/platform";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
-import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, Select } from "./controls";
+import { applyWindowOpacity } from "../../app/theme/applyTheme";
+import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, RangeSlider, Select } from "./controls";
 import { EditableList } from "./EditableList";
 import { TerminalSchemePicker, ThemePicker, WtSchemeImport } from "./ThemeSettings";
 
+/** D-065: the range of Settings → Appearance → Background opacity (the backend clamps the same). */
+const MIN_WINDOW_OPACITY = 30;
+
 export function AppearanceSection() {
   const s = useStrings();
+  const features = platformFeatures();
   const theme = useSettingsStore((st) => st.settings.theme);
   const appearance = useSettingsStore((st) => st.settings.appearance);
   const update = useSettingsStore((st) => st.update);
@@ -56,6 +61,27 @@ export function AppearanceSection() {
             />
           )}
         </Field>
+        <Field label={s.settings.appearance.windowOpacity} hint={s.settings.appearance.windowOpacityHint}>
+          {({ id }) => (
+            <RangeSlider
+              id={id}
+              value={appearance?.windowOpacity ?? 100}
+              min={MIN_WINDOW_OPACITY}
+              max={100}
+              format={(v) => `${v}%`}
+              onPreview={(v) => applyWindowOpacity(v)}
+              onCommit={(v) => update({ appearance: { windowOpacity: v } })}
+            />
+          )}
+        </Field>
+        {features.windowAcrylic && (
+          <Checkbox
+            checked={appearance?.acrylic ?? false}
+            onChange={(v) => update({ appearance: { acrylic: v } })}
+            label={s.settings.appearance.acrylic}
+            hint={s.settings.appearance.acrylicHint}
+          />
+        )}
       </div>
       {theme !== "light" && (
         <ThemePicker

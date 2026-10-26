@@ -18,6 +18,22 @@ export function applyAppTheme(theme: ThemeDef, root: HTMLElement = document.docu
   root.dataset.colorTheme = theme.id;
 }
 
+/** D-065: the window background is translucent (Settings → Appearance → Background opacity). */
+export function isWindowTranslucent(settings: { appearance?: Partial<Settings["appearance"]> }): boolean {
+  return (settings.appearance?.windowOpacity ?? 100) < 100;
+}
+
+/** D-065: the window background's opacity (`body` in `index.css`); text stays opaque. */
+export function applyWindowOpacity(percent: number | undefined, root: HTMLElement = document.documentElement): void {
+  if (percent === undefined || percent >= 100) {
+    root.style.removeProperty("--window-opacity");
+    delete root.dataset.translucent;
+  } else {
+    root.style.setProperty("--window-opacity", `${Math.max(0, percent)}%`);
+    root.dataset.translucent = "";
+  }
+}
+
 /** Resolves the theme from the settings, applies it and publishes it in `useResolvedTheme`. */
 export function applyAppearance(
   settings: Pick<Settings, "theme"> & { appearance?: Partial<Settings["appearance"]> },
@@ -26,6 +42,7 @@ export function applyAppearance(
 ): ThemeDef {
   const theme = resolveAppTheme(settings, prefersDark);
   applyAppTheme(theme, root);
+  applyWindowOpacity(settings.appearance?.windowOpacity, root);
   const current = useResolvedTheme.getState();
   if (current.theme !== theme.kind || current.id !== theme.id) useResolvedTheme.setState({ theme: theme.kind, id: theme.id });
   return theme;

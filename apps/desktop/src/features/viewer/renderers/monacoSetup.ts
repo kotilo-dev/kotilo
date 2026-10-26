@@ -18,6 +18,8 @@ import "monaco-editor/language/html/monaco.contribution";
 import { PALETTES } from "../../../app/theme/palette";
 import { themeTokensById } from "../../../app/theme/derive";
 import { useResolvedTheme } from "../../../app/theme/resolvedTheme";
+import { isWindowTranslucent } from "../../../app/theme/applyTheme";
+import { useSettingsStore } from "../../../stores/settingsStore";
 import { monacoThemeFor } from "./textEditorSupport";
 
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
@@ -53,11 +55,12 @@ self.MonacoEnvironment = {
 /**
  * Faz 6 §2/§10.8: dark/light editor themes on the `--terminal-bg` token of the active colour
  * theme (D-057: Kotilo values from `palette.ts`, other themes from their derived tokens);
- * redefined when the app theme changes so open editors follow it.
+ * redefined when the app theme changes so open editors follow it. D-065: in a translucent
+ * window the editor, like the terminal, lets the window background through.
  */
 function defineEditorThemes(): void {
   const { theme, id } = useResolvedTheme.getState();
-  const derived = themeTokensById(id)?.["--terminal-bg"];
+  const derived = isWindowTranslucent(useSettingsStore.getState().settings) ? "#00000000" : themeTokensById(id)?.["--terminal-bg"];
   monaco.editor.defineTheme("agenthub-dark", {
     base: "vs-dark",
     inherit: true,
@@ -81,6 +84,11 @@ useResolvedTheme.subscribe((state, prev) => {
   if (state.id === prev.id) return;
   defineEditorThemes();
   monaco.editor.setTheme(monacoThemeFor(state.theme));
+});
+useSettingsStore.subscribe((state, prev) => {
+  if (isWindowTranslucent(state.settings) === isWindowTranslucent(prev.settings)) return;
+  defineEditorThemes();
+  monaco.editor.setTheme(monacoThemeFor(useResolvedTheme.getState().theme));
 });
 
 export { monaco };

@@ -31,7 +31,7 @@ export type DeepPartial<T> = T extends (infer U)[]
 export const DEFAULT_SETTINGS: Settings = {
   v: 1,
   theme: "dark",
-  appearance: { darkTheme: "kotilo-dark", lightTheme: "kotilo-light" },
+  appearance: { darkTheme: "kotilo-dark", lightTheme: "kotilo-light", windowOpacity: 100, acrylic: false },
   editor: { fontFamily: "Cascadia Code, Consolas, monospace", fontSize: 13 },
   terminal: {
     fontFamily: '"Geist Mono", "Cascadia Code", Consolas, monospace',

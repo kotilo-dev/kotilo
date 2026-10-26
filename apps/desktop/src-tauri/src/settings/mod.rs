@@ -174,6 +174,10 @@ fn default_light_theme() -> String {
     "kotilo-light".to_string()
 }
 
+fn default_window_opacity() -> u32 {
+    MAX_WINDOW_OPACITY
+}
+
 /// D-057: the colour theme used in dark and in light mode (`theme` picks the mode). Ids come
 /// from the UI's built-in catalogue; an unknown id falls back to Kotilo there.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -183,6 +187,13 @@ pub struct AppearanceSettings {
     pub dark_theme: String,
     #[serde(default = "default_light_theme")]
     pub light_theme: String,
+    /// D-065: the window background's opacity in percent (Windows Terminal's "Background
+    /// opacity"); text stays opaque. 100 = solid.
+    #[serde(default = "default_window_opacity")]
+    pub window_opacity: u32,
+    /// D-065: blur what shows through a translucent window (Windows acrylic).
+    #[serde(default)]
+    pub acrylic: bool,
 }
 
 impl Default for AppearanceSettings {
@@ -190,7 +201,16 @@ impl Default for AppearanceSettings {
         Self {
             dark_theme: default_dark_theme(),
             light_theme: default_light_theme(),
+            window_opacity: default_window_opacity(),
+            acrylic: false,
         }
+    }
+}
+
+impl AppearanceSettings {
+    /// Whether anything behind the window shows through (then the window effect applies).
+    pub fn is_translucent(&self) -> bool {
+        self.window_opacity < MAX_WINDOW_OPACITY
     }
 }
 
@@ -438,6 +458,8 @@ const MAX_ID_CHARS: usize = 64;
 const MAX_SCHEME_NAME_CHARS: usize = 64;
 const MAX_IMPORTED_SCHEMES: usize = 50;
 const MIN_AWAY_SUMMARY_MINUTES: u32 = 1;
+const MIN_WINDOW_OPACITY: u32 = 30;
+const MAX_WINDOW_OPACITY: u32 = 100;
 const MAX_AWAY_SUMMARY_MINUTES: u32 = 240;
 
 /// A theme id: `[a-z0-9-]{1,64}`.
@@ -557,6 +579,10 @@ pub fn validate_and_normalize(mut settings: Settings) -> AppResult<Settings> {
     if !is_theme_id(&settings.appearance.light_theme) {
         settings.appearance.light_theme = default_light_theme();
     }
+    settings.appearance.window_opacity = settings
+        .appearance
+        .window_opacity
+        .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
     settings.agents.away_summary_minutes = settings
         .agents
         .away_summary_minutes
@@ -861,6 +887,9 @@ mod tests {
         let back = serde_json::to_value(&s).unwrap();
         assert_eq!(back["appearance"]["darkTheme"], "kotilo-dark");
         assert_eq!(back["appearance"]["lightTheme"], "kotilo-light");
+        assert_eq!(back["appearance"]["windowOpacity"], 100);
+        assert_eq!(back["appearance"]["acrylic"], false);
+        assert!(!s.appearance.is_translucent());
         assert_eq!(back["agents"]["awaySummary"], true);
         assert_eq!(back["agents"]["awaySummaryMinutes"], 10);
         assert_eq!(back["terminal"]["colorScheme"], "app");
@@ -882,6 +911,21 @@ mod tests {
         let out = validate_and_normalize(s).unwrap();
         assert_eq!(out.appearance.dark_theme, "kotilo-dark");
         assert_eq!(out.appearance.light_theme, "kotilo-light");
+    }
+
+    #[test]
+    fn validate_clamps_window_opacity() {
+        let mut s = Settings::default();
+        s.appearance.window_opacity = 5;
+        let out = validate_and_normalize(s).unwrap();
+        assert_eq!(out.appearance.window_opacity, MIN_WINDOW_OPACITY);
+        assert!(out.appearance.is_translucent());
+
+        let mut s = Settings::default();
+        s.appearance.window_opacity = 250;
+        let out = validate_and_normalize(s).unwrap();
+        assert_eq!(out.appearance.window_opacity, MAX_WINDOW_OPACITY);
+        assert!(!out.appearance.is_translucent());
     }
 
     #[test]

@@ -217,6 +217,64 @@ export function Checkbox({ checked, onChange, label, hint }: { checked: boolean;
   );
 }
 
+/**
+ * Slider with its value beside it. Moves show at once through `onPreview` (if given); the value
+ * is committed after a pause, like `DebouncedText`.
+ */
+export function RangeSlider({
+  value,
+  min,
+  max,
+  step = 1,
+  onCommit,
+  onPreview,
+  format = String,
+  id,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onCommit: (v: number) => void;
+  onPreview?: (v: number) => void;
+  format?: (v: number) => string;
+  id?: string;
+}) {
+  const [local, setLocal] = useState(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (!timerRef.current) setLocal(value);
+  }, [value]);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  function change(v: number) {
+    setLocal(v);
+    onPreview?.(v);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = undefined;
+      onCommit(v);
+    }, DEBOUNCE_MS);
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={local}
+        aria-valuetext={format(local)}
+        onChange={(e) => change(Number(e.target.value))}
+        className="w-56 accent-accent"
+      />
+      <span className="num w-12 text-ui text-text-2">{format(local)}</span>
+    </div>
+  );
+}
+
 /** Thin progress bar (§7.9 look) with a numeric label for screen readers. */
 export function ProgressBar({ value, label }: { value: number; label: string }) {
   const pct = Math.max(0, Math.min(100, value));

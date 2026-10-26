@@ -15,6 +15,7 @@ import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { useSettingsStore } from "../../stores/settingsStore";
 import type { TerminalColors } from "../../app/theme/catalogue";
 import { resolveTerminalColors } from "../../app/theme/terminalScheme";
+import { isWindowTranslucent } from "../../app/theme/applyTheme";
 
 /** Store + registry'nin ihtiyaç duyduğu asgari yüzey — gerçek `Terminal` bunu karşılar. */
 export interface TermLike {
@@ -58,10 +59,11 @@ export function setWindowsPtyBuildNumber(buildNumber: number): void {
  * (`resolveTerminalColors`). Kotilo themes carry today's tokens (`palette.ts`, kept in sync with
  * `index.css` by `palette.test.ts`).
  */
-export function xtermThemeFor(colors: TerminalColors): NonNullable<ITerminalOptions["theme"]> {
+export function xtermThemeFor(colors: TerminalColors, translucent = false): NonNullable<ITerminalOptions["theme"]> {
   return {
     ...colors.ansi,
-    background: colors.background,
+    // D-065: in a translucent window the cells let the window background through.
+    background: translucent ? "#00000000" : colors.background,
     foreground: colors.foreground,
     cursor: colors.cursor,
     cursorAccent: colors.background,
@@ -74,6 +76,16 @@ export function xtermThemeFor(colors: TerminalColors): NonNullable<ITerminalOpti
 export function currentTerminalColors(): TerminalColors {
   const { terminal } = useSettingsStore.getState().settings;
   return resolveTerminalColors(terminal.colorScheme, terminal.importedSchemes, useResolvedTheme.getState().id);
+}
+
+/** D-065: the window background is translucent (Settings → Appearance → Background opacity). */
+export function windowTranslucent(): boolean {
+  return isWindowTranslucent(useSettingsStore.getState().settings);
+}
+
+/** What the terminal's box shows around the cells: its scheme background, or nothing when translucent. */
+export function terminalBoxBackground(colors: TerminalColors): string {
+  return windowTranslucent() ? "transparent" : colors.background;
 }
 
 const SCROLLBACK = 10000;
@@ -111,7 +123,10 @@ function defaultCreateTerminal(): TermLike {
     cursorBlink: true,
     cursorStyle: "bar",
     allowProposedApi: true,
-    theme: xtermThemeFor(currentTerminalColors()),
+    theme: xtermThemeFor(currentTerminalColors(), windowTranslucent()),
+    // D-065: needed before `open()` for a translucent background; set always so the setting
+    // applies live to open terminals.
+    allowTransparency: true,
     windowsPty: windowsPtyBuildNumber ? { backend: "conpty", buildNumber: windowsPtyBuildNumber } : undefined,
   });
 }
@@ -140,7 +155,7 @@ export function getOrCreateEntry(tabId: string): TermEntry {
   host.style.width = "100%";
   host.style.height = "100%";
   // D-057: FitAddon leaves a strip of less than one cell; it shows the terminal background.
-  host.style.background = currentTerminalColors().background;
+  host.style.background = terminalBoxBackground(currentTerminalColors());
 
   const entry: TermEntry = {
     tabId,

@@ -372,7 +372,9 @@ body,
 }
 
 body {
-  background: var(--bg);
+  /* D-065: a translucent window (Settings → Appearance) shows the desktop through the window
+     background only; panels and text keep their own colours. */
+  background: color-mix(in srgb, var(--bg) var(--window-opacity, 100%), transparent);
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 13px;
@@ -388,6 +390,11 @@ html[data-view="dictation-overlay"] body {
 
 * {
   box-sizing: border-box;
+}
+
+/* D-065: xterm's stylesheet paints its viewport black under the cells. */
+:root[data-translucent] .xterm .xterm-viewport {
+  background-color: transparent;
 }
 
 /* §9 Visible focus ring. */

@@ -33,6 +33,7 @@ const offWindows = {
   awaySummary: false,
   bundledConpty: false,
   windowsTerminalSchemes: false,
+  windowAcrylic: false,
 };
 const restoredTerminals = {
   "ws-demo": { tabs: [{ title: "claude", titleEdited: false, profileId: "pwsh", cwdRel: "", agentCommand: "claude" }], activeIndex: 0 },

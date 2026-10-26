@@ -30,7 +30,7 @@ import { useViewerStore } from "../../stores/viewerStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
-import { currentTerminalColors, effectiveTerminalFont, getOrCreateEntry, xtermThemeFor } from "./terminalRegistry";
+import { currentTerminalColors, effectiveTerminalFont, getOrCreateEntry, terminalBoxBackground, windowTranslucent, xtermThemeFor } from "./terminalRegistry";
 import { routeKey } from "./keyRouting";
 import { isMac, isModPressed } from "../../lib/keys";
 import { extractLinkCandidates } from "./linkCandidates";
@@ -339,10 +339,11 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
       term.options.fontFamily = effectiveTerminalFont(s.terminal.fontFamily);
       term.options.fontSize = s.terminal.fontSize;
       const colors = currentTerminalColors();
-      term.options.theme = xtermThemeFor(colors);
+      term.options.theme = xtermThemeFor(colors, windowTranslucent());
       // D-057: the host (and its box) show the terminal background, not `--bg`, around the cells.
-      entry.host.style.background = colors.background;
-      if (containerRef.current) containerRef.current.style.background = colors.background;
+      const box = terminalBoxBackground(colors);
+      entry.host.style.background = box;
+      if (containerRef.current) containerRef.current.style.background = box;
       if (entry.opened) {
         entry.fit?.fit();
         if (tab.paneId) void ptyResize(tab.paneId, term.cols, term.rows);
@@ -356,7 +357,8 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
         s.terminal.fontFamily !== prev.terminal.fontFamily ||
         s.terminal.fontSize !== prev.terminal.fontSize ||
         s.terminal.colorScheme !== prev.terminal.colorScheme ||
-        s.terminal.importedSchemes !== prev.terminal.importedSchemes
+        s.terminal.importedSchemes !== prev.terminal.importedSchemes ||
+        s.appearance?.windowOpacity !== prev.appearance?.windowOpacity
       ) {
         apply(s);
       }

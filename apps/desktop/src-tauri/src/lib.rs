@@ -282,6 +282,8 @@ pub fn run() {
             // D-055: before any terminal exists – picks the bundled or the system ConPTY.
             platform::conpty::select(settings_store.get().terminal.bundled_conpty);
 
+            let appearance = settings_store.get().appearance;
+
             app.manage(state_store);
             app.manage(workspace_store);
             app.manage(settings_store);
@@ -293,6 +295,8 @@ pub fn run() {
                 if let Err(err) = platform::webview::disable_browser_accelerator_keys(&window) {
                     log::warn!("WebView2 browser accelerator keys could not be disabled: {err}");
                 }
+                // D-065: the page paints the translucent background itself (`main.tsx`).
+                platform::window_backdrop::apply(&window, appearance.acrylic && appearance.is_translucent());
             }
 
             // M1: the hub background service (ingest, adapters, usage). Hooks still reach

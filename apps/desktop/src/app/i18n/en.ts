@@ -973,6 +973,10 @@ export const en = {
       editorFontSize: "Editor font size",
       darkTheme: "Dark theme",
       lightTheme: "Light theme",
+      windowOpacity: "Background opacity",
+      windowOpacityHint: "Below 100% the desktop shows through the window background; text stays solid.",
+      acrylic: "Blur the background (acrylic)",
+      acrylicHint: "Blurs what shows through when the background is not fully opaque.",
       get themeSystemHint() {
         return perOs(
           "System mode switches between your dark and light theme with Windows.",

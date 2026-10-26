@@ -14,6 +14,7 @@ const ALL: PlatformFeatures = {
   awaySummary: true,
   bundledConpty: true,
   windowsTerminalSchemes: true,
+  windowAcrylic: true,
 };
 
 let current: { platform: string; features: PlatformFeatures } = { platform: "windows", features: ALL };

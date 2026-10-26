@@ -832,7 +832,7 @@ command palette. The section list is on the left.
 
 | Section | Settings |
 |---|---|
-| Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe) |
+| Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe), Background opacity (30–100 %: below 100 % the desktop shows through the window background and terminals while text stays solid, like Windows Terminal), Blur the background (acrylic, Windows only) |
 | Editor | Editor font family and size (8–32) for Monaco |
 | Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal… |
 | Files | Hidden patterns (name-only globs; a pattern with `/`, `\` or a leading `!` is rejected), respect `.gitignore`, copy the path after saving a clipboard image |

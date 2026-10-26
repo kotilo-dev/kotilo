@@ -944,6 +944,10 @@ export const tr: Strings = {
       editorFontSize: "Düzenleyici yazı boyutu",
       darkTheme: "Koyu tema",
       lightTheme: "Açık tema",
+      windowOpacity: "Arka plan opaklığı",
+      windowOpacityHint: "%100'ün altında masaüstü pencere arka planından görünür; yazılar net kalır.",
+      acrylic: "Arka planı bulanıklaştır (akrilik)",
+      acrylicHint: "Arka plan tam opak değilken arkada görünenleri bulanıklaştırır.",
       get themeSystemHint() {
         return perOs(
           "Sistem modunda Windows ile birlikte koyu ve açık temanız arasında geçilir.",

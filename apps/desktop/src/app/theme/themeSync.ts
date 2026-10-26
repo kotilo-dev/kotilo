@@ -16,7 +16,7 @@ export function installThemeSync(root: HTMLElement = document.documentElement): 
   const unsubscribe = useSettingsStore.subscribe((state, prev) => {
     const s = state.settings;
     const p = prev.settings;
-    if (s.theme !== p.theme || s.appearance?.darkTheme !== p.appearance?.darkTheme || s.appearance?.lightTheme !== p.appearance?.lightTheme) apply();
+    if (s.theme !== p.theme || s.appearance?.darkTheme !== p.appearance?.darkTheme || s.appearance?.lightTheme !== p.appearance?.lightTheme || s.appearance?.windowOpacity !== p.appearance?.windowOpacity) apply();
   });
   media?.addEventListener("change", apply);
   return () => {

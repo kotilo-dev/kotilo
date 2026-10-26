@@ -107,3 +107,55 @@ test("theme switch applies live, and the terminal follows a separate / imported 
   await expect(page.getByLabel("Color scheme")).toHaveValue("app");
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+// D-065: Settings → Appearance → Background opacity. A gradient behind the page stands in for
+// the desktop; below 100% it shows through the window background and the open terminal.
+test("background opacity: translucent window and terminal", async ({ page }) => {
+  const errors = await openApp(page, "theme=dark", "kotilo-dark");
+  await page.addStyleTag({ content: "html { background: linear-gradient(135deg, #d9480f, #2b8a3e 50%, #1864ab) !important; }" });
+  await page.keyboard.press("Alt+1");
+  await page.getByRole("button", { name: "New terminal" }).first().click();
+  await page.waitForTimeout(800);
+  await writeSample(page);
+
+  await openSettings(page, "Appearance");
+  await expect(page.getByRole("checkbox", { name: "Blur the background (acrylic)" })).toBeVisible();
+  await page.getByLabel("Background opacity").fill("70");
+  await expect(page.locator("html")).toHaveAttribute("data-translucent", "");
+  await expect(page.getByText("70%", { exact: true })).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: "test-results/screens/theme-opacity-settings.png" });
+
+  await page.keyboard.press("Alt+1");
+  await page.waitForTimeout(500);
+  const terminal = await page.evaluate(async () => {
+    const registry = await import("/src/features/terminal/terminalRegistry.ts");
+    const entry = registry.allEntries()[0];
+    return { host: entry?.host.style.background, theme: entry?.term.options.theme?.background };
+  });
+  expect(terminal).toEqual({ host: "transparent", theme: "#00000000" });
+  await page.screenshot({ path: "test-results/screens/theme-opacity-workspace.png" });
+
+  // The editor (Monaco, also Markdown's Edit mode) lets the window background through as well.
+  await page.evaluate(async () => {
+    const { useWorkspaceStore } = await import("/src/stores/workspaceStore.ts");
+    const { useViewerStore } = await import("/src/stores/viewerStore.ts");
+    useViewerStore.getState().openFile(useWorkspaceStore.getState().activeId!, "src/approval/approval.ts", { pinned: true });
+  });
+  await expect(page.locator(".monaco-editor").first()).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(await page.locator(".monaco-editor .monaco-editor-background").first().evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  await page.screenshot({ path: "test-results/screens/theme-opacity-editor.png" });
+
+  // Back to 100%: solid again, the terminal shows its own background.
+  await openSettings(page, "Appearance");
+  await page.getByLabel("Background opacity").fill("100");
+  await page.waitForTimeout(600);
+  await expect(page.locator("html")).not.toHaveAttribute("data-translucent", "");
+  const hostBg = await page.evaluate(async () => {
+    const registry = await import("/src/features/terminal/terminalRegistry.ts");
+    return registry.allEntries()[0]?.host.style.background;
+  });
+  expect(hostBg).toBe("rgb(14, 16, 20)");
+  expect(errors, errors.join("\n")).toEqual([]);
+});

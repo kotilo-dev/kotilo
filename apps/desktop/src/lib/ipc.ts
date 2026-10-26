@@ -545,6 +545,8 @@ export interface PlatformFeatures {
   awaySummary: boolean;
   bundledConpty: boolean;
   windowsTerminalSchemes: boolean;
+  /** D-065: blurring what shows through a translucent window. */
+  windowAcrylic: boolean;
 }
 
 /** ConPTY'ye özel yeniden akış/imleç sezgileri için Windows build numarası + About bölümü verisi. */
@@ -813,7 +815,8 @@ export interface Settings {
   /** Mode: which of `appearance.darkTheme` / `appearance.lightTheme` applies. */
   theme: ThemeName;
   /** D-057: colour theme ids (built-in catalogue in `app/theme`); unknown ids fall back to Kotilo. */
-  appearance: { darkTheme: string; lightTheme: string };
+  /** D-065: `windowOpacity` is the background's opacity in percent (30–100, text stays opaque). */
+  appearance: { darkTheme: string; lightTheme: string; windowOpacity: number; acrylic: boolean };
   editor: { fontFamily: string; fontSize: number };
   terminal: {
     fontFamily: string;

@@ -16,6 +16,7 @@ pub mod mascot;
 pub mod processes;
 pub mod taskbar;
 pub mod webview;
+pub mod window_backdrop;
 pub mod wt_settings;
 #[cfg(windows)]
 pub(crate) mod overlay_window;
@@ -81,6 +82,8 @@ pub struct Features {
     pub bundled_conpty: bool,
     /// Importing Windows Terminal colour schemes.
     pub windows_terminal_schemes: bool,
+    /// D-065: blurring what shows through a translucent window (acrylic).
+    pub window_acrylic: bool,
 }
 
 pub fn features() -> Features {
@@ -92,6 +95,7 @@ pub fn features() -> Features {
         away_summary: windows,
         bundled_conpty: windows,
         windows_terminal_schemes: windows,
+        window_acrylic: windows,
     }
 }
 
