@@ -13,6 +13,7 @@ export type IconName =
   | "reports"
   | "projects"
   | "tasks"
+  | "sessions"
   | "dictation"
   | "settings";
 
@@ -51,6 +52,13 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M7 16v-5" />
       <path d="M12 16V6" />
       <path d="M17 16v-8" />
+    </>
+  ),
+  // D-067: a list with a resume arrow.
+  sessions: (
+    <>
+      <path d="M4 6h10M4 12h7M4 18h10" />
+      <path d="M16 9l4 3-4 3z" />
     </>
   ),
   reports: (

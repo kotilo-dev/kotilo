@@ -58,6 +58,8 @@ function hubRoute(method: string, path: string): unknown {
   switch (p) {
     case "/v1/sessions":
       return fx.sessions;
+    case "/v1/sessions/history":
+      return fx.sessionHistory;
     case "/v1/usage/current":
       return fx.usageCurrent;
     case "/v1/usage/daily":

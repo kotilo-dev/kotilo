@@ -5,7 +5,7 @@
   "displayName": "Gemini CLI",
   "avatar": { "letter": "G", "bg": "#1e2433", "ink": "#8ab4f8" },
   "detect": { "executables": ["gemini.cmd", "gemini"], "nodeScripts": ["@google/gemini-cli"] },
-  "launch": { "command": "gemini", "args": [] },
+  "launch": { "command": "gemini", "args": [], "resumeArgs": ["--resume", "{sessionId}"] },
   "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 3, "gapMs": 400, "waitMs": 3000 }],
   "permissionKeys": { "allowOnce": "1", "deny": "Esc" },
   "hooks": {

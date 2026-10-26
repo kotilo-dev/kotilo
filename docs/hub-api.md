@@ -65,6 +65,7 @@ Fields:
 | `GET /v1/sessions/{agent}/{id}/activity` | `ActivityDto` `{ entries, plan }` (memory only, see below); `404` for a session the hub does not track |
 | `POST /v1/sessions/{agent}/{id}/seen` | `204`: the user looked at the session's finished work; `404 notFound` for a session the hub does not track |
 | `POST /v1/sessions/seen` | `204`: marks the finished work of every tracked session as seen |
+| `GET /v1/sessions/history[?days=1..90][&limit=1..1000]` | `SessionHistoryDto[]` (D-067), newest activity first; defaults `days=90`, `limit=500`; `400` outside the ranges. Persisted sessions active in the window, live ones as the tracker sees them: `{ sessionId, agent, projectRoot, projectName, model, state, live, paneId, startedAt, lastEventAt, endedAt, tokens, costUsd }`. `startedAt` is the first recorded transition (else `lastEventAt`); `costUsd` is `null` when some usage has no price. Metadata only, no transcript content. |
 
 `pendingPermission` is set only while `state` is `WaitingPermission`. It holds `{ tool, command, path, risk, since }`. `risk` is one of `deletesFiles`, `writesDatabase`, `network`, `installsPackages`, `gitPush` or `other`, and is `null` when there is no command (file edits).
 

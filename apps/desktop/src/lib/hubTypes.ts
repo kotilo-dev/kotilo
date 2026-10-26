@@ -692,7 +692,7 @@ export interface AdapterDefinition {
   displayName: string;
   avatar: { letter: string; bg: string; ink: string };
   detect: { executables?: string[]; nodeScripts?: string[] };
-  launch: { command: string; args?: string[] };
+  launch: { command: string; args?: string[]; resumeArgs?: string[] };
   gracefulClose?: { keys: string; repeat?: number; gapMs?: number; waitMs?: number }[];
   permissionKeys?: { allowOnce?: string; alwaysAllow?: string; deny?: string };
   hooks?: { shell: "cmd" | "cmdUnquoted" | "powershell" | "any"; events: string[] };
@@ -754,3 +754,22 @@ export type StreamMessage =
   | { type: "tasks"; data: TaskCounts }
   | { type: "activity"; data: ActivityFrame }
   | { type: "notification"; data: NotificationDto };
+
+/** D-067: `GET /v1/sessions/history` row – session metadata only, never transcript content. */
+export interface SessionHistoryRow {
+  sessionId: string;
+  agent: string;
+  projectRoot: string;
+  projectName: string;
+  model: string | null;
+  state: string;
+  /** The hub still tracks the session as running. */
+  live: boolean;
+  paneId: string | null;
+  startedAt: string;
+  lastEventAt: string;
+  endedAt: string | null;
+  tokens: number;
+  /** Null when some usage has no known price. */
+  costUsd: number | null;
+}

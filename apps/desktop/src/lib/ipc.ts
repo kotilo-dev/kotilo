@@ -695,7 +695,8 @@ export interface AdapterDefinition {
   displayName: string;
   avatar: { letter: string; bg: string; ink: string } | null;
   detect: { executables: string[]; nodeScripts: string[] };
-  launch: { command: string; args: string[] } | null;
+  /** D-067: `resumeArgs` resume a session (`{sessionId}` is replaced); absent = no resume. */
+  launch: { command: string; args: string[]; resumeArgs?: string[] } | null;
   gracefulClose: { keys: string; repeat?: number; gapMs?: number; waitMs?: number }[];
   permissionKeys: { allowOnce?: string; alwaysAllow?: string; deny?: string } | null;
   hooks?: { shell?: string; events?: string[] };

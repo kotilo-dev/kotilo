@@ -102,8 +102,9 @@ focused):
 | `Alt+5` | Reports | Daily summary, waits, cost reports with export |
 | `Alt+6` | Projects | Todo-file progress, git state, display names and customers |
 | `Alt+7` | Tasks | Your own notes and to-dos |
-| `Alt+8` | Dictation | Speech models and dictation history |
-| `Alt+9` | Settings | All settings (at the bottom of the rail) |
+| `Alt+8` | Sessions | Past and running agent sessions; resume one — see [Sessions](#sessions) |
+| `Alt+9` | Dictation | Speech models and dictation history |
+| `Ctrl+,` | Settings | All settings (at the bottom of the rail) |
 
 `Ctrl+1` … `Ctrl+9` stay reserved for switching workspaces.
 
@@ -664,6 +665,27 @@ Personal notes and to-dos, separate from project todo files. Type in **Quick add
 and press Enter; the first line is the title, the rest is detail. Tasks can have a
 due date and time, a priority and a project. Filter by open, completed or all, and
 search text or project. Overdue and today's tasks are marked.
+
+## Sessions
+
+Every agent session the background service has seen in the last 7, 30 or 90 days, newest
+first: the agent, the model, the project folder, when it was last active, tokens, estimated
+cost and how long it ran. Search matches the project, folder, model, agent and session ID;
+**This workspace** keeps the sessions whose folder is in the active workspace; group by
+project, agent or not at all.
+
+**Resume** opens a new terminal tab in the session's folder and runs the agent's own resume
+command, for example `claude --resume <id>`, `codex resume <id>`, `gemini --resume <id>`,
+`copilot --resume <id>`, `cursor-agent --resume <id>`, `droid --resume <id>`,
+`qwen --resume <id>` or `opencode --session <id>`; the button's tooltip shows the exact
+command. If the folder is not in a workspace yet, it is added as one. A session that is still
+running shows its state instead: **Go to** jumps to it when it runs in one of Kotilo's
+terminals; a session running in another terminal cannot be resumed until it ends. **…**
+copies the resume command, the session ID or the folder. The list holds metadata only (no
+prompts or answers). The folder is the project root Kotilo resolved for the session (the git
+root); an agent that keeps its sessions per subfolder may not find a session started deeper
+inside the project. Custom agents can offer Resume with `launch.resumeArgs` in their
+`adapter.json`.
 
 ## Dictation
 

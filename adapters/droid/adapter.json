@@ -5,7 +5,7 @@
   "displayName": "Factory Droid",
   "avatar": { "letter": "D", "bg": "#2b2620", "ink": "#f2b56b" },
   "detect": { "executables": ["droid.exe", "droid"], "nodeScripts": ["node_modules/droid/"] },
-  "launch": { "command": "droid", "args": [] },
+  "launch": { "command": "droid", "args": [], "resumeArgs": ["--resume", "{sessionId}"] },
   "gracefulClose": [
     { "keys": "Ctrl+C", "waitMs": 500 },
     { "keys": "Ctrl+C", "repeat": 2, "gapMs": 200, "waitMs": 3000 }

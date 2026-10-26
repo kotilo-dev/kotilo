@@ -5,7 +5,7 @@
   "displayName": "Cursor CLI",
   "avatar": { "letter": "U", "bg": "#21252b", "ink": "#d3dae3" },
   "detect": { "executables": ["cursor-agent.exe", "cursor-agent"], "nodeScripts": ["/cursor-agent/"] },
-  "launch": { "command": "cursor-agent", "args": [] },
+  "launch": { "command": "cursor-agent", "args": [], "resumeArgs": ["--resume", "{sessionId}"] },
   "gracefulClose": [{ "keys": "Ctrl+D", "repeat": 2, "gapMs": 200, "waitMs": 3000 }],
   "permissionKeys": { "allowOnce": "y", "deny": "n" },
   "hooks": {

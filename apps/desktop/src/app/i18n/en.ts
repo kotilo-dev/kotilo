@@ -12,6 +12,7 @@ import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
 import { reviewEn } from "./review.en";
+import { sessionsEn } from "./sessions.en";
 import { missionEn } from "./mission.en";
 import { updateEn } from "./update.en";
 import { assistantEn } from "./assistant.en";
@@ -52,6 +53,7 @@ export const en = {
     mission: "Mission control",
     usage: "Usage",
     reports: "Reports",
+    sessions: "Sessions",
     projects: "Projects",
     tasks: "Tasks",
     dictation: "Dictation",
@@ -625,6 +627,7 @@ export const en = {
   /** M4: workspace timeline rail and diff tab (`timeline.en.ts`). */
   timeline: timelineEn,
   review: reviewEn,
+  sessions: sessionsEn,
   /** M4: Mission control page (`mission.en.ts`). */
   mission: missionEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */

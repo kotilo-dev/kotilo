@@ -26,6 +26,7 @@ Create `%APPDATA%\kotilo\adapters\<id>\adapter.json` (the folder name must be th
 
 - The file is validated against the schema. An invalid file is listed in Settings with its error and ignored; it never stops the app.
 - Built-in ids (`claude-code`, `codex`, …) can't be reused: the built-in adapter wins and the user file is listed with an error.
+- `launch.resumeArgs` (optional, D-067): the arguments that resume one of the agent's sessions, after `launch.command`; `"{sessionId}"` is replaced by the session id, for example `["--resume", "{sessionId}"]`. With it the Sessions page offers **Resume**; without it, it doesn't. Session ids with characters other than letters, digits and `._:-` are not resumed.
 - `usage`: `protocol` when the agent sends `usage` events, `none` when it has no data. (`builtIn` is for agents with a hub reader.)
 - `screenRules` (optional) detect prompts the agent can't report, from the last `lines` (default 6, max 50) visible lines of its terminal. `state` is `waitingPermission`, `waitingInput`, `working` or `done`; `clearOn` is `output` or `input` (absent: the state lasts while the rule matches). Patterns use the common regex subset: no lookaround, no backreferences.
 - `hooks` is for agents with a native hook system (informational; built-in adapters only). A user adapter has no hook installer: the agent (or a wrapper script) calls Kotilo itself.

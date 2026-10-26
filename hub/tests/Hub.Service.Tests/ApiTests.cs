@@ -140,6 +140,31 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
     // ---- sessions ----
 
     [Fact]
+    public async Task Session_history_lists_metadata_with_live_flag_and_rejects_bad_ranges()
+    {
+        var id = "hist-" + Guid.NewGuid().ToString("N");
+        hub.Host.Pipeline.EnqueueHook(HubFixture.CodexEvent(id, "UserPromptSubmit"));
+
+        var row = await WaitForAsync(async () =>
+        {
+            var list = await GetJsonAsync("/v1/sessions/history?days=7");
+            return list.EnumerateArray().FirstOrDefault(s => s.GetProperty("sessionId").GetString() == id);
+        });
+
+        row.GetProperty("agent").GetString().Should().Be("codex");
+        row.GetProperty("projectRoot").GetString().Should().Be(HubFixture.DemoRoot);
+        row.GetProperty("projectName").GetString().Should().Be("demo");
+        row.GetProperty("live").GetBoolean().Should().BeTrue();
+        row.GetProperty("paneId").GetString().Should().Be("pane-9");
+        row.GetProperty("tokens").GetInt64().Should().Be(0);
+        row.TryGetProperty("prompt", out _).Should().BeFalse();
+
+        (await Http.GetAsync("/v1/sessions/history?days=0")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await Http.GetAsync("/v1/sessions/history?limit=0")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await Http.GetAsync("/v1/sessions/history?limit=1001")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Sessions_expose_the_pending_permission_and_transitions()
     {
         var id = "perm-" + Guid.NewGuid().ToString("N");

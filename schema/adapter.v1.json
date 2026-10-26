@@ -33,7 +33,13 @@
       "required": ["command"],
       "properties": {
         "command": { "type": "string", "minLength": 1 },
-        "args": { "type": "array", "items": { "type": "string" } }
+        "args": { "type": "array", "items": { "type": "string" } },
+        "resumeArgs": {
+          "description": "Arguments that resume one of the agent's sessions, after the command; \"{sessionId}\" is replaced by the session id. Absent: the agent cannot be resumed from the session history.",
+          "type": "array",
+          "items": { "type": "string" },
+          "contains": { "type": "string", "pattern": "[{]sessionId[}]" }
+        }
       },
       "additionalProperties": false
     },

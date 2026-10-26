@@ -3,6 +3,7 @@
  * the fixtures break the build when the API shape changes. Only invented demo data.
  */
 import type {
+  SessionHistoryRow,
   AiProvidersResponse,
   BreakdownRow,
   CostReport,
@@ -466,3 +467,11 @@ export function aiProviders(local: boolean): AiProvidersResponse {
     secretStoreAvailable: true,
   };
 }
+
+/** D-067: Sessions page – invented demo sessions (metadata only). */
+export const sessionHistory: SessionHistoryRow[] = [
+  { sessionId: "demo-claude-1", agent: "claude-code", projectRoot: "C:\\src\\orders-service", projectName: "orders-service", model: "claude-sonnet-5", state: "Working", live: true, paneId: "pane-claude", startedAt: iso(42), lastEventAt: iso(0.1), endedAt: null, tokens: 312_000, costUsd: 1.24 },
+  { sessionId: "6f1c2d3e-5b7a-4c1e-9d2f-0a1b2c3d4e5f", agent: "claude-code", projectRoot: "C:\\src\\orders-service", projectName: "orders-service", model: "claude-opus-5", state: "Ended", live: false, paneId: null, startedAt: iso(26 * 60), lastEventAt: iso(24 * 60), endedAt: iso(24 * 60), tokens: 1_840_000, costUsd: 7.9 },
+  { sessionId: "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", agent: "codex", projectRoot: "C:\\src\\gateway", projectName: "gateway", model: "gpt-5.5-codex", state: "Ended", live: false, paneId: null, startedAt: iso(3 * 24 * 60 + 50), lastEventAt: iso(3 * 24 * 60), endedAt: iso(3 * 24 * 60), tokens: 640_000, costUsd: 2.15 },
+  { sessionId: "ses_01JDEMO7Q2K8", agent: "opencode", projectRoot: "C:\\src\\docs-site", projectName: "docs-site", model: "qwen3-coder", state: "Ended", live: false, paneId: null, startedAt: iso(6 * 24 * 60 + 30), lastEventAt: iso(6 * 24 * 60), endedAt: iso(6 * 24 * 60), tokens: 210_000, costUsd: null },
+];

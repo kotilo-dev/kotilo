@@ -24,12 +24,13 @@ function RailButton({ def, index }: { def: RouteDef; index: number }) {
   const navigate = useRouteStore((st) => st.navigate);
   const badge = useTaskBadge(def.id === "tasks");
   const label = badge ? `${s.nav[def.label]} (${badge.text})` : s.nav[def.label];
+  const shortcut = routeShortcut(index);
   return (
     <button
       type="button"
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      title={`${label} (${formatKeybinding(routeShortcut(index))})`}
+      title={shortcut ? `${label} (${formatKeybinding(shortcut)})` : label}
       data-route={def.id}
       onClick={() => navigate(def.id)}
       className={

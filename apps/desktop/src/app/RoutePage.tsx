@@ -6,6 +6,7 @@ import { UsagePage } from "../features/usage/UsagePage";
 import { ReportsPage } from "../features/reports/ReportsPage";
 import { ProjectsPage } from "../features/projects/ProjectsPage";
 import { TasksPage } from "../features/tasks/TasksPage";
+import { SessionsPage } from "../features/sessions/SessionsPage";
 import { DictationPage } from "../features/dictation/DictationPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 
@@ -16,6 +17,7 @@ const PAGES: Record<Exclude<RouteId, "workspace">, () => JSX.Element> = {
   reports: ReportsPage,
   projects: ProjectsPage,
   tasks: TasksPage,
+  sessions: SessionsPage,
   dictation: DictationPage,
   settings: SettingsPage,
 };

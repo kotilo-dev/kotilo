@@ -18,10 +18,28 @@ public sealed record BreakdownRowDto(string Key, string Name, TotalsDto Totals);
 
 public sealed record TransitionDto(string From, string To, DateTimeOffset At, string? Detail);
 
+/// <summary>One row of the session history page (D-067): metadata only, never transcript content (rule 5).</summary>
+public sealed record SessionHistoryDto(
+    string SessionId,
+    string Agent,
+    string ProjectRoot,
+    string ProjectName,
+    string? Model,
+    string State,
+    bool Live,
+    string? PaneId,
+    DateTimeOffset StartedAt,
+    DateTimeOffset LastEventAt,
+    DateTimeOffset? EndedAt,
+    long Tokens,
+    decimal? CostUsd);
+
 /// <summary>Sessions, usage and plan limits (docs/hub-api.md §Sessions, §Usage, §Limits).</summary>
 internal static class UsageEndpoints
 {
     public const int MaxDays = 90;
+
+    public const int MaxHistory = 1000;
 
     private static readonly TimeSpan SeenTimeout = TimeSpan.FromSeconds(5);
 
@@ -63,6 +81,24 @@ internal static class UsageEndpoints
         {
             await host.Pipeline.MarkAllSeenAsync().WaitAsync(SeenTimeout);
             return Results.NoContent();
+        });
+
+        // D-067: the session history page, newest first; live sessions come from the tracker.
+        app.MapGet("/v1/sessions/history", (int? days, int? limit) =>
+        {
+            if (Days(days, MaxDays) is not { } n)
+            {
+                return DaysError();
+            }
+
+            if (limit is < 1 or > MaxHistory)
+            {
+                return ApiJson.BadRequest(
+                    string.Create(CultureInfo.InvariantCulture, $"'limit' must be 1..{MaxHistory}."),
+                    new Dictionary<string, string[]> { ["limit"] = [string.Create(CultureInfo.InvariantCulture, $"1..{MaxHistory}")] });
+            }
+
+            return ApiJson.Ok(SessionHistory(host, DateTimeOffset.UtcNow.AddDays(-n), limit ?? 500));
         });
 
         app.MapGet("/v1/usage/daily", (int? days) =>
@@ -152,6 +188,37 @@ internal static class UsageEndpoints
         }
 
         return dtos;
+    }
+
+    public static IReadOnlyList<SessionHistoryDto> SessionHistory(AppHost host, DateTimeOffset since, int limit)
+    {
+        var live = host.Tracker.Snapshot.ToDictionary(s => (s.Agent, s.SessionId));
+        var rows = host.Repository.LoadHistory(since, limit)
+            .Select(s => live.TryGetValue((s.Agent, s.SessionId), out var current) ? current : s)
+            .ToList();
+        var ids = rows.Select(s => s.SessionId).Distinct().ToList();
+        var totals = host.Usage.Repository.SessionTotals(ids);
+        var firstSeen = host.Repository.FirstSeen(ids);
+        var names = ProjectNames(host);
+        return rows.Select(s =>
+            {
+                totals.TryGetValue(s.SessionId, out var usage);
+                return new SessionHistoryDto(
+                    s.SessionId,
+                    s.Agent,
+                    s.ProjectRoot,
+                    names(s.ProjectRoot),
+                    usage?.LastModel ?? s.Model,
+                    s.State.ToString(),
+                    live.ContainsKey((s.Agent, s.SessionId)) && s.State != SessionState.Ended,
+                    s.PaneId,
+                    firstSeen.TryGetValue(s.SessionId, out var started) && started < s.LastEventAt ? started : s.LastEventAt,
+                    s.LastEventAt,
+                    s.EndedAt,
+                    usage?.Tokens ?? 0,
+                    usage?.CostUsd);
+            })
+            .ToList();
     }
 
     public static IReadOnlyList<LimitDto> Limits(AppHost host) =>

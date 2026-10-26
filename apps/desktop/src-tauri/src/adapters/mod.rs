@@ -41,11 +41,17 @@ pub struct Detect {
     pub node_scripts: Vec<String>,
 }
 
+/// D-067: the placeholder in `launch.resumeArgs`.
+pub const SESSION_ID_PLACEHOLDER: &str = "{sessionId}";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Launch {
     pub command: String,
     #[serde(default)]
     pub args: Vec<String>,
+    /// D-067: arguments that resume a session (`{sessionId}` is replaced); empty = no resume.
+    #[serde(default, rename = "resumeArgs", skip_serializing_if = "Vec::is_empty")]
+    pub resume_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -195,7 +201,11 @@ pub fn validate(def: AdapterDefinition, source: DefinitionSource) -> Result<Load
         return Err("avatar is missing".to_string());
     }
     match &def.launch {
-        Some(l) if !l.command.trim().is_empty() => {}
+        Some(l) if !l.command.trim().is_empty() => {
+            if !l.resume_args.is_empty() && !l.resume_args.iter().any(|a| a.contains(SESSION_ID_PLACEHOLDER)) {
+                return Err(format!("launch.resumeArgs must contain {SESSION_ID_PLACEHOLDER}"));
+            }
+        }
         _ => return Err("launch.command is missing".to_string()),
     }
     let mut close = Vec::with_capacity(def.graceful_close.len());
@@ -383,6 +393,7 @@ pub(crate) mod tests {
             launch: Some(Launch {
                 command: id.to_string(),
                 args: vec![],
+                resume_args: vec![],
             }),
             ..Default::default()
         }
@@ -483,6 +494,30 @@ pub(crate) mod tests {
         assert_eq!(errs, vec!["bad-rule", "broken", "codex", "other"]);
         assert!(defs.errors.iter().all(|e| e.source == DefinitionSource::User));
         assert!(defs.errors[0].message.contains("invalid pattern"));
+    }
+
+    #[test]
+    fn resume_args_need_the_session_id_placeholder() {
+        let mut d = def("x");
+        d.launch.as_mut().unwrap().resume_args = vec!["--resume".into()];
+        assert!(validate(d, DefinitionSource::User).unwrap_err().contains("resumeArgs"));
+        let mut d = def("x");
+        d.launch.as_mut().unwrap().resume_args = vec!["--resume".into(), "{sessionId}".into()];
+        assert!(validate(d, DefinitionSource::User).is_ok());
+    }
+
+    #[test]
+    fn built_in_adapters_resume_with_the_session_id() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../adapters");
+        let defs = Definitions::load(Some(&dir), None);
+        assert!(defs.errors.is_empty(), "{:?}", defs.errors);
+        assert!(defs.items.len() >= 8);
+        for d in &defs.items {
+            let launch = d.def.launch.as_ref().unwrap();
+            assert!(launch.resume_args.iter().any(|a| a == SESSION_ID_PLACEHOLDER), "{}", d.def.id);
+        }
+        let json = serde_json::to_value(defs.items.iter().find(|d| d.def.id == "codex").unwrap().def.launch.as_ref()).unwrap();
+        assert_eq!(json["resumeArgs"], serde_json::json!(["resume", "{sessionId}"]));
     }
 
     #[test]

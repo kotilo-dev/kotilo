@@ -5,7 +5,7 @@
   "displayName": "Claude Code",
   "avatar": { "letter": "C", "bg": "#2a2230", "ink": "#f0a37d" },
   "detect": { "executables": ["claude.exe", "claude"], "nodeScripts": ["@anthropic-ai/claude-code"] },
-  "launch": { "command": "claude", "args": [] },
+  "launch": { "command": "claude", "args": [], "resumeArgs": ["--resume", "{sessionId}"] },
   "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 3, "gapMs": 400, "waitMs": 3000 }],
   "permissionKeys": { "allowOnce": "1", "alwaysAllow": "2", "deny": "Esc" },
   "hooks": {

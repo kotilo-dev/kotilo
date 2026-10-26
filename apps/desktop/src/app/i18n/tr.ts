@@ -12,6 +12,7 @@ import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
 import { timelineTr } from "./timeline.tr";
 import { reviewTr } from "./review.tr";
+import { sessionsTr } from "./sessions.tr";
 import { missionTr } from "./mission.tr";
 import { updateTr } from "./update.tr";
 import { assistantTr } from "./assistant.tr";
@@ -51,6 +52,7 @@ export const tr: Strings = {
     mission: "Görev kontrol",
     usage: "Kullanım",
     reports: "Raporlar",
+    sessions: "Oturumlar",
     projects: "Projeler",
     tasks: "Görevler",
     dictation: "Dikte",
@@ -606,6 +608,7 @@ export const tr: Strings = {
   composer: composerTr,
   timeline: timelineTr,
   review: reviewTr,
+  sessions: sessionsTr,
   mission: missionTr,
   update: updateTr,
   assistant: assistantTr,
