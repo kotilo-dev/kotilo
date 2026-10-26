@@ -37,6 +37,7 @@ import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
 import { countPastedLines, shouldWarnMultilinePaste } from "./pasteWarning";
 import { PasteWarningModal } from "./PasteWarningModal";
+import { ContextMenu, type ContextMenuItem, type ContextMenuState } from "../workspaces/ContextMenu";
 
 const RESIZE_DEBOUNCE_MS = 50;
 const LINK_CACHE_LIMIT = 500;
@@ -110,6 +111,14 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   const strings = useStrings();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  // D-068: a plain click on a link offers its actions (Ctrl/Cmd+click still opens at once).
+  const [linkMenu, setLinkMenu] = useState<ContextMenuState | null>(null);
+  const offerLinkActions = (event: MouseEvent, items: ContextMenuItem[]) => {
+    // A program that tracks the mouse got the click itself; no menu over it.
+    if ((term.modes.mouseTrackingMode ?? "none") !== "none" || term.hasSelection()) return;
+    // Just below the pointer, so the link stays readable.
+    setLinkMenu({ x: event.clientX, y: event.clientY + 10, items });
+  };
   /** Bumped to load WebGL again after a context loss (otherwise the DOM renderer stays until a tab switch). */
   const [webglAttempt, setWebglAttempt] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -194,7 +203,13 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     term.loadAddon(
       new WebLinksAddon(
         (event, uri) => {
-          if (!isModPressed(event)) return;
+          if (!isModPressed(event)) {
+            offerLinkActions(event, [
+              { label: strings.terminal.linkOpenBrowser, onClick: () => void openExternalUrl(uri) },
+              { label: strings.terminal.linkCopy, onClick: () => void clipboardWriteText(uri) },
+            ]);
+            return;
+          }
           void openExternalUrl(uri);
         },
         {
@@ -230,14 +245,23 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
               hover: (event: MouseEvent) => showTooltip(event, strings.terminal.ctrlClickToOpenFile),
               leave: () => hideTooltip(),
               activate: (event: MouseEvent) => {
-                if (!isModPressed(event)) return;
                 // §4.9 fix: read cwdRel from the store at activation time – the link provider is
                 // registered once on open, so its closure holds a stale `tab.cwdRel` (the spawn
                 // cwd may have fallen back).
-                const latestCwdRel =
-                  useTerminalStore.getState().byWorkspace[workspaceId]?.tabs.find((t) => t.id === tab.id)?.cwdRel ??
-                  tab.cwdRel;
-                void resolveAndOpenLink(workspaceId, latestCwdRel, c.text);
+                const open = () => {
+                  const latestCwdRel =
+                    useTerminalStore.getState().byWorkspace[workspaceId]?.tabs.find((t) => t.id === tab.id)?.cwdRel ??
+                    tab.cwdRel;
+                  void resolveAndOpenLink(workspaceId, latestCwdRel, c.text);
+                };
+                if (!isModPressed(event)) {
+                  offerLinkActions(event, [
+                    { label: strings.terminal.fileOpen, onClick: open },
+                    { label: strings.terminal.fileCopyPath, onClick: () => void clipboardWriteText(c.text) },
+                  ]);
+                  return;
+                }
+                open();
               },
             };
           }),
@@ -584,6 +608,15 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
             term.paste(pendingPaste);
             if (dontAskAgain) useSettingsStore.getState().update({ terminal: { warnMultilinePaste: false } });
             setPendingPaste(null);
+            term.focus();
+          }}
+        />
+      )}
+      {linkMenu && (
+        <ContextMenu
+          state={linkMenu}
+          onClose={() => {
+            setLinkMenu(null);
             term.focus();
           }}
         />

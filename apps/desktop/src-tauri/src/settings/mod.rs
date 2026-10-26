@@ -104,6 +104,9 @@ pub struct TerminalSettings {
     pub copy_on_select: bool,
     #[serde(default = "default_true")]
     pub warn_multiline_paste: bool,
+    /// D-068: programs may set the clipboard with OSC 52 (writes only, never reads).
+    #[serde(default = "default_true")]
+    pub osc52_clipboard: bool,
     /// D-055: load Microsoft's bundled ConPTY (`conpty` next to the exe) instead of the one
     /// built into Windows; read once at startup, so a change applies after a restart.
     #[serde(default = "default_true")]
@@ -125,6 +128,7 @@ impl Default for TerminalSettings {
             default_shell: None,
             copy_on_select: false,
             warn_multiline_paste: true,
+            osc52_clipboard: true,
             bundled_conpty: true,
             color_scheme: default_color_scheme(),
             imported_schemes: Vec::new(),
@@ -822,6 +826,7 @@ mod tests {
         assert!(s.terminal.default_shell.is_none());
         assert!(!s.terminal.copy_on_select);
         assert!(s.terminal.warn_multiline_paste);
+        assert!(s.terminal.osc52_clipboard);
         assert!(!s.diagnostics.verbose_logging);
     }
 

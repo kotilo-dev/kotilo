@@ -800,11 +800,25 @@ export const en = {
     searchNext: "Next match",
     closeSearchTooltip: "Close",
     get ctrlClickToOpenFile() {
-      return perOs("Ctrl+click to open", "⌘-click to open", "Ctrl+click to open");
+      return perOs("Ctrl+click to open · click for options", "⌘-click to open · click for options", "Ctrl+click to open · click for options");
     },
     get ctrlClickToOpenLink() {
-      return perOs("Ctrl+click to open in browser", "⌘-click to open in browser", "Ctrl+click to open in browser");
+      return perOs(
+        "Ctrl+click to open in browser · click for options",
+        "⌘-click to open in browser · click for options",
+        "Ctrl+click to open in browser · click for options",
+      );
     },
+    // D-068: terminal extras.
+    resetTerminal: "Reset terminal",
+    resetTerminalDone: "Terminal modes reset.",
+    copyRecentOutput: "Copy recent output",
+    copiedRecentOutput: "Recent output copied.",
+    nothingToCopy: "Nothing to copy.",
+    linkOpenBrowser: "Open in browser",
+    linkCopy: "Copy link",
+    fileOpen: "Open in viewer",
+    fileCopyPath: "Copy path",
   },
 
   workspaces: {
@@ -997,6 +1011,8 @@ export const en = {
       automatic: "Automatic",
       copyOnSelect: "Copy on select",
       warnMultilinePaste: "Warn before pasting multiple lines",
+      osc52Clipboard: "Let programs copy to the clipboard (OSC 52)",
+      osc52ClipboardHint: "Terminal programs such as tmux, vim or an SSH session can put text on the clipboard. They can never read it.",
       fontDetected: (font: string) => `Using ${font} in front of the default font, so prompt icons show. Enter a font of your own to override it.`,
       bundledConpty: "Use the bundled console host (ConPTY)",
       bundledConptyHint: `Needed for images in the terminal (sixel). Turn it off if a terminal misbehaves. Applies after restarting ${APP_NAME}.`,
@@ -1148,6 +1164,8 @@ export const en = {
     nextBlockedAgent: "Go to next blocked agent",
     switchToWorkspace: (n: number) => `Switch to workspace ${n}`,
     terminalNew: "New terminal",
+    terminalReset: "Reset terminal (stuck mouse or keys)",
+    terminalCopyOutput: "Copy recent terminal output",
     workspacesAdd: "Add workspace…",
     newAgent: (cmd: string) => `New ${cmd}`,
     installHooks: "Install Claude Code integration",

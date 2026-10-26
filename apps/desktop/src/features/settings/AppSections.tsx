@@ -148,6 +148,12 @@ export function TerminalSection() {
       </Field>
       <Checkbox checked={terminal.copyOnSelect} onChange={(v) => update({ terminal: { copyOnSelect: v } })} label={s.settings.terminal.copyOnSelect} />
       <Checkbox checked={terminal.warnMultilinePaste} onChange={(v) => update({ terminal: { warnMultilinePaste: v } })} label={s.settings.terminal.warnMultilinePaste} />
+      <Checkbox
+        checked={terminal.osc52Clipboard ?? true}
+        onChange={(v) => update({ terminal: { osc52Clipboard: v } })}
+        label={s.settings.terminal.osc52Clipboard}
+        hint={s.settings.terminal.osc52ClipboardHint}
+      />
       {features.bundledConpty && (
         <Checkbox
           checked={terminal.bundledConpty}

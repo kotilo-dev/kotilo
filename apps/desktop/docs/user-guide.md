@@ -251,7 +251,15 @@ when you switch away.
 - **Clickable links:** `Ctrl`+click a file path printed in the terminal output (e.g.
   `src/foo.ts:42`, including the line number) to open it in the viewer at that line;
   `Ctrl`+click a `https://` URL to open it in your browser. A tooltip on hover tells
-  you which.
+  you which. A plain click on a link offers its actions instead (open, or copy the link
+  or path); not while a program in the terminal uses the mouse itself.
+- **Clipboard from programs (OSC 52):** tmux, vim, an SSH session and other terminal
+  programs can put text on the clipboard; they can never read it. Turn it off with
+  **Let programs copy to the clipboard** in Settings → Terminal.
+- **Tab menu** (right-click a tab, or the command palette for the focused terminal):
+  **Copy recent output** copies the last 1,000 lines; **Reset terminal** turns off mouse
+  reporting, special key modes and the alternate screen a crashed program left on, without
+  restarting the shell.
 - In-terminal search: `Ctrl+Shift+F`.
 - Closing a tab whose process is still running (something other than the shell
   itself) asks for confirmation and lists the running processes.

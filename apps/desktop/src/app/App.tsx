@@ -22,6 +22,7 @@ import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { TerminalPanel } from "../features/terminal/TerminalPanel";
 import { focusTerminal } from "../features/terminal/terminalRegistry";
 import { spawnTerminal } from "../features/terminal/defaultShell";
+import { copyOutputWithToast, currentTerminalTabId, resetWithToast } from "../features/terminal/terminalActions";
 import { ViewerPanel } from "../features/viewer/ViewerPanel";
 import { TimelineRail } from "../features/timeline/TimelineRail";
 import { ToastHost } from "../features/toast/ToastHost";
@@ -259,6 +260,27 @@ export function App() {
         run: () => {
           const workspaceId = useWorkspaceStore.getState().activeId;
           if (workspaceId) spawnTerminal(workspaceId);
+        },
+      }),
+      // D-068: terminal extras on the focused terminal.
+      registerCommand({
+        id: "terminal.resetModes",
+        title: () => strings.commandTitles.terminalReset,
+        category: () => strings.commandCategories.terminal,
+        enabled: () => currentTerminalTabId() !== null,
+        run: () => {
+          const tabId = currentTerminalTabId();
+          if (tabId) resetWithToast(tabId);
+        },
+      }),
+      registerCommand({
+        id: "terminal.copyRecentOutput",
+        title: () => strings.commandTitles.terminalCopyOutput,
+        category: () => strings.commandCategories.terminal,
+        enabled: () => currentTerminalTabId() !== null,
+        run: () => {
+          const tabId = currentTerminalTabId();
+          if (tabId) void copyOutputWithToast(tabId);
         },
       }),
       registerCommand({

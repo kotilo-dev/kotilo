@@ -10,7 +10,8 @@
  */
 import { Terminal, type ITerminalOptions } from "@xterm/xterm";
 import type { WebglAddon } from "@xterm/addon-webgl";
-import { Channel } from "../../lib/ipc";
+import { Channel, clipboardWriteText } from "../../lib/ipc";
+import { parseOsc52, RECENT_OUTPUT_ROWS, recentOutputText, RESET_MODES_SEQUENCE } from "./terminalExtras";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { useSettingsStore } from "../../stores/settingsStore";
 import type { TerminalColors } from "../../app/theme/catalogue";
@@ -170,8 +171,30 @@ export function getOrCreateEntry(tabId: string): TermEntry {
     webglLosses: 0,
     disposables: [],
   };
+  // D-068: OSC 52 clipboard writes (reads are never answered); the setting is read per write.
+  const parser = (term as Partial<Pick<Terminal, "parser">>).parser;
+  const osc52 = parser?.registerOscHandler(52, (data) => {
+    if (useSettingsStore.getState().settings.terminal.osc52Clipboard === false) return true;
+    const text = parseOsc52(data);
+    if (text !== null) void clipboardWriteText(text).catch(() => {});
+    return true;
+  });
+  if (osc52) entry.disposables.push(() => osc52.dispose());
   entries.set(tabId, entry);
   return entry;
+}
+
+/** D-068 "Reset terminal": turns off modes a crashed program left on; the shell keeps running. */
+export function resetTerminalModes(tabId: string): void {
+  entries.get(tabId)?.term.write(RESET_MODES_SEQUENCE);
+}
+
+/** D-068 "Copy recent output": the last rows of the buffer to the clipboard; false when empty. */
+export async function copyRecentOutput(tabId: string): Promise<boolean> {
+  const text = recentOutputText(readBufferTail(tabId, RECENT_OUTPUT_ROWS));
+  if (text === "") return false;
+  await clipboardWriteText(text);
+  return true;
 }
 
 export function getEntry(tabId: string): TermEntry | undefined {

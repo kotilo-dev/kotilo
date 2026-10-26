@@ -15,6 +15,14 @@ import * as timelineFx from "./timelineFixtures";
 import * as assistantFx from "./assistantFixtures";
 import * as themeFx from "./themeFixtures";
 
+declare global {
+  interface Window {
+    /** D-068: every `clipboard_write_text` in order. */
+    __e2eClipboard: string[];
+  }
+}
+window.__e2eClipboard = [];
+
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "light" ? "light" : "dark";
 const language = params.get("lang") === "tr" ? "tr" : "en";
@@ -158,6 +166,9 @@ mockIPC(
         return composerFx.quickOpen(String(args.query ?? ""));
       case "clipboard_read_text":
         return "hello";
+      case "clipboard_write_text":
+        window.__e2eClipboard.push(String(args.text));
+        return null;
       case "clipboard_save_image":
         return `${String(args.dirRel)}/screenshot-20261008-101500.png`;
       case "pty_write":

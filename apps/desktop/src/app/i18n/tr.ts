@@ -776,15 +776,24 @@ export const tr: Strings = {
     searchNext: "Sonraki eşleşme",
     closeSearchTooltip: "Kapat",
     get ctrlClickToOpenFile() {
-      return perOs("Açmak için Ctrl+tıklayın", "Açmak için ⌘ ile tıklayın", "Açmak için Ctrl+tıklayın");
+      return perOs("Açmak için Ctrl+tıklayın · seçenekler için tıklayın", "Açmak için ⌘ ile tıklayın · seçenekler için tıklayın", "Açmak için Ctrl+tıklayın · seçenekler için tıklayın");
     },
     get ctrlClickToOpenLink() {
       return perOs(
-        "Tarayıcıda açmak için Ctrl+tıklayın",
-        "Tarayıcıda açmak için ⌘ ile tıklayın",
-        "Tarayıcıda açmak için Ctrl+tıklayın",
+        "Tarayıcıda açmak için Ctrl+tıklayın · seçenekler için tıklayın",
+        "Tarayıcıda açmak için ⌘ ile tıklayın · seçenekler için tıklayın",
+        "Tarayıcıda açmak için Ctrl+tıklayın · seçenekler için tıklayın",
       );
     },
+    resetTerminal: "Terminali sıfırla",
+    resetTerminalDone: "Terminal modları sıfırlandı.",
+    copyRecentOutput: "Son çıktıyı kopyala",
+    copiedRecentOutput: "Son çıktı kopyalandı.",
+    nothingToCopy: "Kopyalanacak bir şey yok.",
+    linkOpenBrowser: "Tarayıcıda aç",
+    linkCopy: "Bağlantıyı kopyala",
+    fileOpen: "Görüntüleyicide aç",
+    fileCopyPath: "Yolu kopyala",
   },
 
   workspaces: {
@@ -968,6 +977,8 @@ export const tr: Strings = {
       automatic: "Otomatik",
       copyOnSelect: "Seçince kopyala",
       warnMultilinePaste: "Çok satırlı yapıştırmadan önce uyar",
+      osc52Clipboard: "Programların panoya kopyalamasına izin ver (OSC 52)",
+      osc52ClipboardHint: "tmux, vim ya da bir SSH oturumu gibi terminal programları panoya metin koyabilir. Panoyu asla okuyamazlar.",
       fontDetected: (font: string) => `Komut satırı simgeleri görünsün diye varsayılan yazı tipinin önünde ${font} kullanılıyor. Kendi yazı tipinizi girerek değiştirebilirsiniz.`,
       bundledConpty: "Paketle gelen konsol katmanını (ConPTY) kullan",
       bundledConptyHint: `Terminalde resim göstermek (sixel) için gerekli. Bir terminal sorun çıkarırsa kapatın. ${APP_NAME} yeniden başlatılınca uygulanır.`,
@@ -1108,6 +1119,8 @@ export const tr: Strings = {
     nextBlockedAgent: "Sıradaki bekleyen ajana git",
     switchToWorkspace: (n: number) => `${n}. çalışma alanına geç`,
     terminalNew: "Yeni terminal",
+    terminalReset: "Terminali sıfırla (takılı fare ya da tuşlar)",
+    terminalCopyOutput: "Son terminal çıktısını kopyala",
     workspacesAdd: "Çalışma alanı ekle…",
     newAgent: (cmd: string) => `Yeni ${cmd}`,
     installHooks: "Claude Code entegrasyonunu kur",

@@ -6,5 +6,6 @@ declare global {
     __e2e: { pushHubSnapshot: () => Promise<void>; emit: (type: string, data: unknown) => Promise<void> };
     __e2ePtyWrites: string[];
     __e2eLeftoverStops: string[];
+    __e2eClipboard: string[];
   }
 }

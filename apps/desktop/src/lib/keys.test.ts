@@ -82,7 +82,7 @@ describe("OS-dependent copy", () => {
     expect(en.contextMenu.revealInExplorer).toBe("Reveal in Explorer");
     expect(en.settings.appearance.languageSystem).toBe("Same as Windows");
     expect(en.viewer.pdf.searchTooltip).toBe("Find (Ctrl+F)");
-    expect(en.terminal.ctrlClickToOpenLink).toBe("Ctrl+click to open in browser");
+    expect(en.terminal.ctrlClickToOpenLink).toBe("Ctrl+click to open in browser · click for options");
   });
 
   it("names Finder, macOS and Cmd on macOS (en + tr)", () => {
@@ -91,7 +91,7 @@ describe("OS-dependent copy", () => {
     expect(en.contextMenu.openInExplorer).toBe("Open in Finder");
     expect(en.settings.appearance.languageSystem).toBe("Same as macOS");
     expect(en.viewer.pdf.searchTooltip).toBe("Find (⌘F)");
-    expect(en.terminal.ctrlClickToOpenFile).toBe("⌘-click to open");
+    expect(en.terminal.ctrlClickToOpenFile).toBe("⌘-click to open · click for options");
     expect(tr.contextMenu.revealInExplorer).toBe("Finder'da göster");
     expect(tr.viewer.pdf.searchTooltip).toBe("Bul (⌘F)");
     for (const dict of [en, tr]) {

@@ -23,6 +23,7 @@ import { InlineInput } from "../workspaces/InlineInput";
 import { spawnTerminal } from "./defaultShell";
 import { splitBeside, splitTabToRight } from "./splitLayout";
 import { focusTerminal } from "./terminalRegistry";
+import { copyOutputWithToast, resetWithToast } from "./terminalActions";
 import { AgentPane } from "../workspace/AgentPane";
 
 // faz4-spec §4.21 / LOW #8c: `windowsPty.buildNumber` is now read in `terminalStore.init()`,
@@ -259,6 +260,11 @@ export function TerminalPanel() {
     if (ws?.splitTabId) {
       items.push({ label: strings.composer.split.closeSplit, onClick: () => useTerminalStore.getState().closeSplit(workspaceId, "left") });
     }
+    const running = ws?.tabs.find((t) => t.id === tabId)?.status === "running";
+    items.push(
+      { label: strings.terminal.copyRecentOutput, onClick: () => void copyOutputWithToast(tabId), separatorBefore: true },
+      { label: strings.terminal.resetTerminal, onClick: () => resetWithToast(tabId), disabled: !running },
+    );
     items.push({ label: strings.terminal.close, onClick: () => void requestClose(workspaceId, tabId), separatorBefore: true });
     return items;
   }

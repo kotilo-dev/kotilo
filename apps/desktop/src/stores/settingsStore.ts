@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
     defaultShell: null,
     copyOnSelect: false,
     warnMultilinePaste: true,
+    osc52Clipboard: true,
     bundledConpty: true,
     colorScheme: "app",
     importedSchemes: [],

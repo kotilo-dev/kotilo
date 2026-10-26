@@ -826,6 +826,8 @@ export interface Settings {
     defaultShell: ShellKind | null;
     copyOnSelect: boolean;
     warnMultilinePaste: boolean;
+    /** D-068: programs may set the clipboard with OSC 52 (writes only). */
+    osc52Clipboard: boolean;
     /** D-055: Microsoft's bundled ConPTY (sixel images); read by Rust at startup. */
     bundledConpty: boolean;
     /** D-057: "app" (follow the app theme), a built-in theme id, or "imported:<name>". */
