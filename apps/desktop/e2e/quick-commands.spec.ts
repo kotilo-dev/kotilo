@@ -64,9 +64,10 @@ test("quick commands · add in settings, run a command, hand a prompt to the age
     { id: "a1", paneId: pane.paneId, workspaceId: pane.workspaceId, kind: "claude", state: "idle", sinceMs: Date.now() - 60_000, source: "hook", sessionId: null },
   ]);
   await page.keyboard.press("Control+Shift+P");
-  await page.keyboard.type("Review changes");
-  await expect(page.getByRole("button", { name: "Prompt: Review changes" })).toBeVisible();
-  await page.keyboard.press("Enter");
+  const palette = page.getByPlaceholder(/command/i);
+  await expect(palette).toBeFocused();
+  await palette.fill(">Review changes");
+  await page.getByRole("button", { name: "Prompt: Review changes" }).click();
   const composer = page.getByRole("textbox", { name: /^Message / });
   await expect(composer).toHaveValue("Review the uncommitted changes and list risky spots.");
   await expect(composer).toBeFocused();
