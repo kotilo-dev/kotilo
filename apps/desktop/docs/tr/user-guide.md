@@ -51,7 +51,7 @@ hata vermesini önler: her zaman sessizce çıkar.
 | Dosya | İçerik |
 |---|---|
 | `%APPDATA%\kotilo\state.json` | Çalışma alanı listesi, etkin çalışma alanı, ağaçta açık klasörler, görüntüleyicide açık sekmeler, panel/pencere düzeni, açık terminal sekmeleri, arayüz dili. Kısa bir gecikmeyle, atomik olarak (geçici dosya + yeniden adlandırma) yazılır. |
-| `%APPDATA%\kotilo\settings.json` | Uygulama ayarları ([Ayarlar](#ayarlar) sayfasındaki Görünüm, Editör, Terminal, Dosyalar, Ajanlar, Hakkında) ve mesaj kutusunun kayıtlı istemleri. `state.json`'dan ayrı tutulur; bir ayar yazımı düzeninizi bozamaz, tersi de olmaz. |
+| `%APPDATA%\kotilo\settings.json` | Uygulama ayarları ([Ayarlar](#ayarlar) sayfasındaki Görünüm, Editör, Terminal, Dosyalar, Ajanlar, Hakkında) ve kayıtlı istemleriniz ile hızlı komutlarınız. `state.json`'dan ayrı tutulur; bir ayar yazımı düzeninizi bozamaz, tersi de olmaz. |
 | `%LOCALAPPDATA%\kotilo\logs\kotilo.log` | Masaüstü uygulamasının kendi günlük dosyası; bkz. [Günlükler ve tanılama](#günlükler-ve-tanılama). |
 | `%LOCALAPPDATA%\kotilo\diagnostics\` | **Tanılama topla** ile oluşturulan zip dosyaları. |
 | `%LOCALAPPDATA%\kotilo\hub\` | Arka plan servisinin verileri: `hub.db` (oturumlar, kullanım, görevler, dikte geçmişi), `settings.json` (bildirim, kullanım, proje, görev ve dikte ayarları), `pricing.json`, `logs\` ve `bin\kotilo-hook.exe` (ajanlarınızın hook'larının çağırdığı yardımcı). |
@@ -101,8 +101,9 @@ kısayolu yazar; `Alt+1` … `Alt+9` her yerden (terminal odaktayken bile) çal�
 | `Alt+5` | Raporlar | Günlük özet, beklemeler, dışa aktarılabilir maliyet raporları |
 | `Alt+6` | Projeler | Todo dosyası ilerlemesi, git durumu, görünen adlar ve müşteriler |
 | `Alt+7` | Görevler | Kendi notlarınız ve yapılacaklarınız |
-| `Alt+8` | Dikte | Konuşma modelleri ve dikte geçmişi |
-| `Alt+9` | Ayarlar | Tüm ayarlar (şeridin en altında) |
+| `Alt+8` | Oturumlar | Geçmiş ve çalışan ajan oturumları; birine devam edin, bkz. [Oturumlar](#oturumlar) |
+| `Alt+9` | Dikte | Konuşma modelleri ve dikte geçmişi |
+| `Ctrl+,` | Ayarlar | Tüm ayarlar (şeridin en altında) |
 
 `Ctrl+1` … `Ctrl+9` çalışma alanları arasında geçiş için ayrılmıştır.
 
@@ -252,7 +253,16 @@ başka birine geçtiğinizde arka planda açık kalır.
 - **Tıklanabilir bağlantılar:** terminal çıktısındaki bir dosya yoluna (örn.
   `src/foo.ts:42`, satır numarası dahil) `Ctrl`+tıklayınca görüntüleyicide o satırda
   açılır; bir `https://` adresine `Ctrl`+tıklayınca tarayıcınızda açılır. Fareyle
-  üzerine gelince bir ipucu hangisi olduğunu söyler.
+  üzerine gelince bir ipucu hangisi olduğunu söyler. Bağlantıya düz tıklamak ise
+  seçenekleri gösterir (açmak ya da bağlantıyı veya yolu kopyalamak); terminaldeki program
+  fareyi kendisi kullanırken gösterilmez.
+- **Programlardan panoya (OSC 52):** tmux, vim, bir SSH oturumu ve diğer terminal
+  programları panoya metin koyabilir; panoyu asla okuyamazlar. Ayarlar → Terminal'deki
+  **Programların panoya kopyalamasına izin ver** ile kapatabilirsiniz.
+- **Sekme menüsü** (bir sekmeye sağ tıklayın ya da odaktaki terminal için komut paleti):
+  **Son çıktıyı kopyala** son 1.000 satırı kopyalar; **Terminali sıfırla** çöken bir
+  programın açık bıraktığı fare raporlamasını, özel tuş kiplerini ve alternatif ekranı
+  kabuğu yeniden başlatmadan kapatır.
 - Terminal içi arama: `Ctrl+Shift+F`.
 - Kabuk dışında hâlâ çalışan bir işlemi olan sekmeyi kapatmak onay ister ve çalışan
   işlemleri listeler.
@@ -300,6 +310,34 @@ Bölmek hiçbir terminali kapatmaz ya da çoğaltmaz. Bölme yeniden açılışt
 [Zaman akışı](#zaman-akışı) en son odaklanan yarıyı izler. Dar bir yarıda izin kartı
 bölmenin tamamını kaplamak yerine kayar. Başlık şeridindeki bölme düğmesi yalnızca ajan
 bölmelerinde vardır; düz kabuk sekmeleri sekme menüsüyle ya da sürükleyerek bölünür.
+
+### Hızlı komutlar
+
+Hızlı komutlar sık çalıştırdığınız kabuk komutları ve ajan istemleridir; bir kez kaydedilir,
+tek tıkla başlatılır. Ayarlar → **Hızlı komutlar**'dan yönetin: **Ekle** türü (**Kabuk
+komutu** ya da **Ajan istemi**), bir ad, komut ya da istem metnini ve nerede
+kullanılabileceğini (**Tüm çalışma alanları** ya da tek bir çalışma alanı klasörü) sorar.
+Her satırda **Düzenle** ve **Sil** vardır. Bir ajanın mesaj alanından kaydedilen istemler
+(bkz. [Mesaj kutusu](#mesaj-kutusu)) aynı listedir, burada da görünürler.
+
+Şuradan çalıştırın:
+
+- terminal paneli başlığındaki **şimşek düğmesi**: önce komutlar, sonra istemler, en altta
+  **Hızlı komutları yönet…**;
+- [komut paleti](#komut-paleti-ve-hızlı-açma): komutlar için **Çalıştır: <ad>**, istemler
+  için **İstem: <ad>**. Yalnızca etkin çalışma alanında kullanılabilenler listelenir.
+
+Nereye gider:
+
+- Bir **kabuk komutu**, geçerli terminalde düz bir kabuk çalışıyorsa oraya yazılır ve
+  çalıştırılır (Enter). Geçerli sekmede bir ajan çalışıyorsa ya da sekme kapanmışsa komut
+  yeni bir sekmede başlar; böylece hiçbir zaman ajanın girdisine düşmez. Komut tek satırdır.
+- Bir **ajan istemi**, geçerli sekmedeki ajanın (yoksa çalışma alanında çalışan ilk ajanın)
+  mesaj alanına konur. Hiçbir şey gönderilmez: okur, gerekirse düzenler ve siz gönderirsiniz.
+  Çalışma alanında ajan çalışmıyorken istemler menüde soluk görünür.
+
+Hızlı komutlar kayıtlı istemlerinizle birlikte uygulamanın `settings.json` dosyasında
+durur; tanılama zip'lerinde yalnızca sayıları bulunur.
 
 ## Ajanlar
 
@@ -408,8 +446,9 @@ tuşları yakalamaz.
   kapalıyken de çalışır. Hiçbir şey Windows ya da pano üzerinden yapıştırılmaz.
 - **Kayıtlı istemler:** yer imi düğmesi kayıtlı istemlerinizi açar. **Mesajı istem
   olarak kaydet** o anki metni saklar (ilk satırı başlık olur); bir isteme tıklayınca
-  imlecin olduğu yere eklenir, listeyi süzebilir ya da **×** ile silebilirsiniz.
-  Kayıtlı istemler sizin metninizdir ve uygulamanın `settings.json` dosyasında durur
+  imlecin olduğu yere eklenir, listeyi süzebilir ya da **×** ile silebilirsiniz. Liste bu
+  çalışma alanında kullanılabilen istemleri gösterir; kabuk komutları ve klasöre bağlı
+  kayıtlar [Hızlı komutlar](#hızlı-komutlar)'da yönetilir. Kayıtlı istemler sizin metninizdir ve uygulamanın `settings.json` dosyasında durur
   (bkz. [Veri konumları](#veri-konumları)); Kotilo'ın sakladığı tek istem metni
   budur, o da yalnızca siz kaydettiğiniz için. Tanılama zip'lerinde yalnızca sayıları
   bulunur.
@@ -582,6 +621,17 @@ Değişen bir dosyaya tıklamak görüntüleyicide bir **fark sekmesi** açar,
 2 MB'tan büyük `HEAD` sürümlerinde fark yerine bir not çıkar. Fark sekmeleri yeniden
 açılışta geri gelmez.
 
+**İnceleme notları:** bir fark sekmesinde çalışma kopyasının bir satırının üzerine gelip
+kenardaki **+** işaretine tıklayın (ya da satırları seçip **C**'ye basın veya sağ tık →
+**İnceleme notu ekle**), ajanın neyi değiştirmesi gerektiğini yazıp Enter'a basın. Notlar
+satırlarının altında durur ve dosya değişince onları izler; satırları kalmayan bir not
+**Satırlar değişti** olarak işaretlenir. **Çözüldü** notu katlar, **Yeniden aç** geri
+getirir. Fark başlığındaki **N notu gönder…** çalışma alanının terminallerinde çalışan
+ajanları listeler ve çalışma alanının tüm açık notlarını (bütün dosyalar) dosya, satır ve
+kodla birlikte tek bir istem olarak o ajanın mesaj alanına koyar; okuyup siz gönderirsiniz.
+Hâlâ açık olan notlar bir sonraki sefer yine gider. Değişen dosyalar listesi her dosyanın
+açık notlarını gösterir. Notlar yalnızca bellekte tutulur, yeniden açılışta kaybolur.
+
 Etkinlik ve plan ajanın hook'larından gelir ve yalnızca arka plan servisinin
 belleğinde yaşar: oturum başına son 200 araç çağrısı tutulur, oturum bittikten 10
 dakika sonra silinir ve arka plan servisi yeniden başlarsa kaybolur. Dosya içerikleri
@@ -663,6 +713,27 @@ Proje todo dosyalarından ayrı, kişisel notlar ve yapılacaklar. **Hızlı ekl
 Enter'a basın; ilk satır başlık, gerisi ayrıntıdır. Görevlerin bitiş tarihi ve saati,
 önceliği ve projesi olabilir. Açık, tamamlanan ya da tümüne göre süzün; metinde ya da
 projede arayın. Gecikmiş ve bugünkü görevler işaretlenir.
+
+## Oturumlar
+
+Arka plan servisinin son 7, 30 ya da 90 günde gördüğü her ajan oturumu, en yenisi üstte:
+ajan, model, proje klasörü, en son ne zaman etkin olduğu, token'lar, tahmini maliyet ve ne
+kadar sürdüğü. Arama projede, klasörde, modelde, ajanda ve oturum kimliğinde eşleşir;
+**Bu çalışma alanı** klasörü etkin çalışma alanında olan oturumları bırakır; projeye,
+ajana göre ya da hiç gruplamadan listeleyin.
+
+**Devam et**, oturumun klasöründe yeni bir terminal sekmesi açar ve ajanın kendi devam
+komutunu çalıştırır; örneğin `claude --resume <id>`, `codex resume <id>`,
+`gemini --resume <id>`, `copilot --resume <id>`, `cursor-agent --resume <id>`,
+`droid --resume <id>`, `qwen --resume <id>` ya da `opencode --session <id>`; düğmenin ipucu
+tam komutu gösterir. Klasör henüz bir çalışma alanında değilse çalışma alanı olarak eklenir.
+Hâlâ çalışan bir oturum bunun yerine durumunu gösterir: Kotilo'nun terminallerinden birinde
+çalışıyorsa **Git** ona atlar; başka bir terminalde çalışan bir oturuma o bitene kadar devam
+edilemez. **Kopyala…** devam komutunu, oturum kimliğini ya da klasörü kopyalar. Liste yalnızca
+üst veri tutar (istem ya da yanıt yok). Klasör, Kotilo'nun oturum için bulduğu proje köküdür
+(git kökü); oturumlarını alt klasör başına tutan bir ajan, projenin daha içinde başlatılmış bir
+oturumu bulamayabilir. Özel ajanlar `adapter.json`'daki `launch.resumeArgs` ile Devam et
+sunabilir.
 
 ## Dikte
 
@@ -828,6 +899,7 @@ Windows animasyon efektleri kapalıysa (Ayarlar → Erişilebilirlik → Görsel
   [Kısayollar](keybindings.md).
 - Paletin **Git** kategorisi her ekranı açar; **Yardım** kategorisi bu kılavuzu,
   Kısayollar'ı, Sorun giderme'yi ya da Hakkında'yı açar (**F1** ile aynı içerik).
+- **Çalıştır** ve **İstem** girdileri [hızlı komutlarınızdır](#hızlı-komutlar).
 
 ## Durum çubuğu
 
@@ -840,16 +912,17 @@ yenilenir (odak dışındayken yoklama durur).
 
 ## Ayarlar
 
-`Ctrl+,`, `Alt+9`, gezinme şeridinin altındaki dişli ya da komut paletiyle açılır.
+`Ctrl+,`, gezinme şeridinin altındaki dişli ya da komut paletiyle açılır.
 Bölüm listesi soldadır.
 
 **Uygulama bölümleri — değişiklikler hemen uygulanır:**
 
 | Bölüm | Ayarlar |
 |---|---|
-| Görünüm | Tema (Koyu, Açık, Sistem), Koyu tema ve Açık tema (bkz. [Temalar ve dil](#temalar-ve-dil)), Dil (Windows ile aynı, English, Türkçe) |
+| Görünüm | Tema (Koyu, Açık, Sistem), Koyu tema ve Açık tema (bkz. [Temalar ve dil](#temalar-ve-dil)), Dil (Windows ile aynı, English, Türkçe), Arka plan opaklığı (%30–100: %100'ün altında masaüstü pencere arka planından ve terminallerden görünür, yazılar Windows Terminal'deki gibi net kalır), Arka planı bulanıklaştır (akrilik, yalnızca Windows) |
 | Editör | Monaco için editör yazı tipi ailesi ve boyutu (8–32) |
-| Terminal | Terminal yazı tipi ailesi (varsayılan Geist Mono) ve boyutu (8–32), açık tüm terminallere anında uygulanır; varsayılan kabuk ("Otomatik" sırasıyla pwsh → Windows PowerShell → cmd → Git Bash → WSL seçer); seçince kopyala; çok satırlı yapıştırmadan önce uyar; renk şeması (Uygulamayla aynı, bir tema ya da içe aktarılmış bir şema), Windows Terminal'dan içe aktar… |
+| Terminal | Terminal yazı tipi ailesi (varsayılan Geist Mono) ve boyutu (8–32), açık tüm terminallere anında uygulanır; varsayılan kabuk ("Otomatik" sırasıyla pwsh → Windows PowerShell → cmd → Git Bash → WSL seçer); seçince kopyala; çok satırlı yapıştırmadan önce uyar; renk şeması (Uygulamayla aynı, bir tema ya da içe aktarılmış bir şema), Windows Terminal'dan içe aktar…; programların panoya kopyalamasına izin ver (OSC 52) |
+| Hızlı komutlar | Her çalışma alanı ya da tek klasör için kayıtlı kabuk komutları ve ajan istemleri (bkz. [Hızlı komutlar](#hızlı-komutlar)) |
 | Dosyalar | Gizlenen desenler (yalnızca ada bakan glob'lar; `/`, `\` içeren ya da `!` ile başlayan desen reddedilir), .gitignore'a uy, panodaki görsel kaydedilince yolu kopyala |
 | Ajanlar | "Yeni ajan ▶" için ajan komutları, ajan bildirimlerini aç/kapat, Döndüğümde özet göster (varsayılan açık) ve süresi (varsayılan 10 dakika), [Ajan entegrasyonları](#ajan-entegrasyonları), [özel ajanlar](#özel-ajanlar) |
 | Hakkında ve tanılama | Sürüm ve derleme, lisans (Apache-2.0), proje bağlantıları (kaynak kod, sorunlar, tartışmalar – derlemede bir depo varsa), iletişim, **Güncellemeleri denetle**, **Açılışta güncellemeleri denetle** (varsayılan açık: açılıştan birkaç saniye sonra bir kez denetler; bulunan güncelleme **Yükle ve yeniden başlat** / **Sonra** seçenekli bir bildirim gösterir), aranabilir açık kaynak lisansları listesi, **Tanılama topla**, **Sürüm bilgisini kopyala**, **Yardımı aç**, **Ayrıntılı günlük** (günlük düzeyini `info`'dan `debug`'a çevirir; ara sıra olan bir sorunu yeniden oluşturmadan önce açın), **Günlük klasörünü aç** |

@@ -213,3 +213,24 @@ For an outside tester on a real Mac. Preparation: macOS 14 or later; Claude Code
 | MAC-21 | Right-click a file in the workspace tree | The menu says "Reveal in Finder" / "Open in Finder" and they work |
 | MAC-22 | Notifications: let an agent finish while Kotilo is in the background | A macOS notification appears (allow notifications when asked) |
 | MAC-23 | Tray icon (with "Keep running in the tray" on) in light and dark menu bar | Visible in both (a full-colour icon is expected for now) |
+
+## Review loop, sessions, terminal extras, quick commands (0.4.0, D-065…D-069)
+
+Preparation: a 0.4.0 build; Claude Code and Codex installed with Kotilo's hooks; a git workspace with a few uncommitted changes; a shell tab and a Claude tab open.
+
+| # | Steps | Expected |
+|---|---|---|
+| R-1 | Settings → Appearance → Background opacity 70 %, then Blur the background on and off | The desktop shows through the window and terminals while text stays sharp; blur changes at once; 100 % is solid again |
+| R-2 | With 70 % opacity open a file, a diff and a Markdown file in edit mode | Editors show the translucent background, no black blocks; text is readable |
+| R-3 | Open a changed file's diff, add notes on one line and on a selection (+, C, right-click), edit one, resolve one | Cards sit under their lines, keyboard reachable; the timeline row shows the open note count |
+| R-4 | **Send N notes to…** → the Claude pane | The pane opens and its message field holds one prompt with file:lines, the code and the notes; nothing is sent until you press Enter; Claude can act on it |
+| R-5 | Let the agent change the noted lines, reopen the diff | Notes follow moved lines; a note whose lines are gone says "Lines changed" |
+| R-6 | Sessions (Alt+8): search, This workspace / All, group by agent, 30 days | Past Claude and Codex sessions are listed with model, tokens and cost; no prompt text anywhere |
+| R-7 | **Resume** an ended Claude session and an ended Codex session | A new tab in the session's folder runs `claude --resume <id>` / `codex resume <id>` and the agent shows the old conversation |
+| R-8 | In the shell tab run `tmux` (WSL/Git Bash) or `vim`, copy a selection with the program's own copy (OSC 52) | The text is in the Windows clipboard; with the setting off it is not |
+| R-9 | Start a TUI (e.g. `htop` in WSL), kill it from another terminal, then tab menu → **Reset terminal** | Mouse clicks and arrow keys behave normally again without restarting the shell |
+| R-10 | Tab menu → **Copy recent output**; plain click on a URL and on a `src/foo.ts:12` path | The output is in the clipboard; the click shows Open / Copy; Ctrl+click still opens at once |
+| R-11 | Settings → Quick commands: add a shell command (all workspaces) and a prompt limited to this workspace | Both are listed; the prompt also appears in the Claude pane's saved prompts, not in another workspace |
+| R-12 | Lightning button → the shell command, with the shell tab active | The command is typed and runs in that shell |
+| R-13 | Same with the Claude tab active | The command starts in a new tab; nothing is typed into Claude |
+| R-14 | Ctrl+Shift+P → "Prompt: <name>" | The prompt lands in Claude's message field, not sent |

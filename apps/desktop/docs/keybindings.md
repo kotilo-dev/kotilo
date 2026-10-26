@@ -30,12 +30,12 @@ contrast, are **global** and always open, even with a terminal focused.
 | `Ctrl+Shift+U` | Toggle the Viewer column |
 | `` Ctrl+` `` | Focus the active workspace's terminal (creates one if none exists) |
 | `Ctrl+1` … `Ctrl+9` | Switch to the Nth workspace |
-| `Alt+1` … `Alt+9` | Go to Workspace, Overview, Mission control, Usage, Reports, Projects, Tasks, Dictation, Settings (nav rail order) — global, works from a terminal too |
+| `Alt+1` … `Alt+9` | Go to Workspace, Overview, Mission control, Usage, Reports, Projects, Tasks, Sessions, Dictation (nav rail order) — global, works from a terminal too |
 | `Ctrl+Shift+A` | Jump to the next blocked agent (after the currently focused pane, wrapping around) |
 | `Ctrl+Tab` | Next viewer tab (active workspace) |
 | `Ctrl+Shift+Tab` | Previous viewer tab (active workspace) |
 | `Ctrl+Shift+P` | Open the command palette |
-| `Ctrl+,` | Go to the Settings screen (same as `Alt+9`) |
+| `Ctrl+,` | Go to the Settings screen |
 | `F1` | Open Help (on the last-viewed doc) — global, works from a terminal too; WebView2 has no default F1 binding of its own |
 
 ## System-wide (dictation)

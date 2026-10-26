@@ -29,6 +29,12 @@ Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Koti
 - [x] Run from the terminal tab bar and the command palette: commands go to the active terminal, prompts to the agent's composer
 - [x] Tests, e2e, user guide, D-069
 
+## Release 0.4.0
+- [x] Turkish user guide and keybindings brought up to date (D-065…D-069)
+- [x] Manual checks R-1…R-14 in `docs/manual-tests.md`
+- [ ] Version 0.4.0, tag, CI + Release, draft release with notes (covers 0.3.5…0.4.0)
+- [ ] User checks R-1…R-14 on the desktop; publish
+
 # U-3 – macOS beta (planned 2026-10-23)
 
 Goal: a macOS beta with the same core as Linux (terminals, agent status, permission card, hub, usage, tasks, themes, updates); Windows-only extras (dictation, mascot, global hotkeys, away summary, ConPTY, WT schemes) stay off via `app_info.features`. Builds run on GitHub's macOS runners; there is no Mac here, so every behaviour check is done by an outside tester (checklist below). Signing/notarization once the user's Apple Developer account exists; until then ad-hoc signed test builds.

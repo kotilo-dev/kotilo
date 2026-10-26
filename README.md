@@ -43,12 +43,14 @@ Kotilo does not replace or wrap the agents. It does not include them, does not t
 
 ## Features
 
-- **Terminals:** tabs and split panes with real shells, agent CLIs and your own commands; clickable `file:line` links, file tree and viewer, diffs.
+- **Terminals:** tabs and split panes with real shells, agent CLIs and your own commands; clickable `file:line` links, file tree and viewer, diffs; quick commands (saved shell commands and agent prompts, global or per project); OSC 52 clipboard for tmux/vim/SSH.
 - **Live agent status:** working / waiting for permission / waiting for input / done / error, per session, including sessions started outside Kotilo.
 - **Permission handling:** a card with the tool, the command or file and a risk label; allow once, always allow or deny with one click, or answer in the terminal.
 - **Mission control and timeline:** every running agent on one screen, with a timeline of what each session did.
+- **Review loop:** leave notes on lines of a diff and hand them to an agent as one prompt.
+- **Session history:** every past agent session with model, tokens and cost; resume one in a new tab with the agent's own resume command.
 - **Finished work you have not looked at** stays marked as done, with a count on the Kotilo taskbar icon, and one "while you were away" summary when you come back to the computer.
-- **Themes:** Kotilo, Catppuccin, Tokyo Night, Rosé Pine, Dracula, Nord, One, Gruvbox, Solarized, GitHub, Kanagawa and Everforest for the whole app; terminals follow the theme or use their own colour scheme, including schemes imported from Windows Terminal. Images (sixel) and Nerd Font icons in terminals.
+- **Themes:** Kotilo, Catppuccin, Tokyo Night, Rosé Pine, Dracula, Nord, One, Gruvbox, Solarized, GitHub, Kanagawa and Everforest for the whole app; terminals follow the theme or use their own colour scheme, including schemes imported from Windows Terminal. A translucent window background (optionally blurred) like Windows Terminal. Images (sixel) and Nerd Font icons in terminals.
 - **Mascot:** an optional robot snail on the taskbar that shows the combined state of your agents and takes you to the one that needs you.
 - **Composer:** write longer prompts with file mentions and saved prompts, then send them to an agent's terminal.
 - **Usage, cost and limits:** tokens and estimated cost by day, project, model and agent; 5-hour blocks; plan limits where the agent reports them; CSV/Excel export.

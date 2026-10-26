@@ -30,12 +30,12 @@ odaktayken bile her zaman açılır.
 | `Ctrl+Shift+U` | Görüntüleyici sütununu aç/kapat |
 | `` Ctrl+` `` | Etkin çalışma alanının terminaline odaklan (yoksa bir tane açar) |
 | `Ctrl+1` … `Ctrl+9` | N'inci çalışma alanına geç |
-| `Alt+1` … `Alt+9` | Çalışma alanı, Genel bakış, Görev kontrol, Kullanım, Raporlar, Projeler, Görevler, Dikte, Ayarlar ekranına git (gezinme şeridi sırası); geneldir, terminalden de çalışır |
+| `Alt+1` … `Alt+9` | Çalışma alanı, Genel bakış, Görev kontrol, Kullanım, Raporlar, Projeler, Görevler, Oturumlar, Dikte ekranına git (gezinme şeridi sırası); geneldir, terminalden de çalışır |
 | `Ctrl+Shift+A` | Sıradaki bekleyen ajana git (odaktaki panelden sonrakine, başa dönerek) |
 | `Ctrl+Tab` | Sonraki görüntüleyici sekmesi (etkin çalışma alanı) |
 | `Ctrl+Shift+Tab` | Önceki görüntüleyici sekmesi (etkin çalışma alanı) |
 | `Ctrl+Shift+P` | Komut paletini aç |
-| `Ctrl+,` | Ayarlar ekranına git (`Alt+9` ile aynı) |
+| `Ctrl+,` | Ayarlar ekranına git |
 | `F1` | Yardımı aç (en son bakılan belgede); geneldir, terminalden de çalışır; WebView2'nin kendi F1 kısayolu yoktur |
 
 ## Sistem genelinde (dikte)

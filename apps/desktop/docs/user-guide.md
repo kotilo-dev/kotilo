@@ -898,7 +898,7 @@ unfocused).
 
 ## Settings
 
-Open with `Ctrl+,`, `Alt+9`, the gear at the bottom of the navigation rail, or the
+Open with `Ctrl+,`, the gear at the bottom of the navigation rail, or the
 command palette. The section list is on the left.
 
 **App sections — changes apply immediately:**
@@ -907,7 +907,7 @@ command palette. The section list is on the left.
 |---|---|
 | Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe), Background opacity (30–100 %: below 100 % the desktop shows through the window background and terminals while text stays solid, like Windows Terminal), Blur the background (acrylic, Windows only) |
 | Editor | Editor font family and size (8–32) for Monaco |
-| Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal… |
+| Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal…; let programs copy to the clipboard (OSC 52) |
 | Quick commands | Saved shell commands and agent prompts, for every workspace or one folder (see [Quick commands](#quick-commands)) |
 | Files | Hidden patterns (name-only globs; a pattern with `/`, `\` or a leading `!` is rejected), respect `.gitignore`, copy the path after saving a clipboard image |
 | Agents | Agent commands for "New agent ▶", agent notifications on/off, Summary when I'm back (on by default) and its minutes (default 10), [Agent integrations](#agent-integrations), [custom agents](#custom-agents) |
