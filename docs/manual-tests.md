@@ -181,6 +181,25 @@ Preparation: a 0.3.2 build; Claude Code installed; Task Manager → Details sort
 
 For an outside tester on a real Mac. Preparation: macOS 14 or later; Claude Code installed the usual way (e.g. `npm i -g @anthropic-ai/claude-code` or Homebrew), ideally a second agent (Codex or Gemini) too; the `.dmg` for the Mac's chip (`aarch64` = Apple Silicon, `x64` = Intel). Please note the macOS version, chip and login shell (`echo $SHELL`). Logs: `~/Library/Application Support/kotilo/logs` (app) and `~/Library/Application Support/kotilo/hub/logs` (hub); Settings → About → diagnostics zip collects both.
 
+**Which file:**  → About This Mac shows the processor.
+
+| About This Mac shows | Download |
+|---|---|
+| **Chip: Apple M1 / M2 / M3 / M4** | `Kotilo_<version>_aarch64.dmg` |
+| **Processor: Intel …** | `Kotilo_<version>_x64.dmg` |
+
+The `.app.tar.gz` and `.sig` files are for automatic updates and are not needed. Files are on GitHub → kotilo-dev/kotilo → Releases (a draft release is visible to maintainers only; send the tester the `.dmg` directly in that case).
+
+**First start:** the app is not signed or notarized by Apple yet, so macOS blocks it the first time.
+
+1. Open the `.dmg` and drag Kotilo into **Applications**.
+2. Try to open Kotilo; when the warning appears, click **Done**.
+3. System Settings → **Privacy & Security**, scroll down, click **Open Anyway** next to Kotilo and confirm.
+4. If macOS says "Kotilo is damaged", run this in Terminal and open it again:
+   ```
+   xattr -dr com.apple.quarantine /Applications/Kotilo.app
+   ```
+
 **Smoke test (about 15 minutes; decides whether a public preview goes out):** MAC-1 to MAC-6.
 
 | # | Steps | Expected |
