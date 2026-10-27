@@ -8,7 +8,7 @@ Kotilo is Finnish for a snail shell ("koti" means home). It is a portable shell 
 
 ## What it is
 
-Kotilo is a desktop workspace for Windows and Linux for people who run several AI coding agents side by side. Each agent runs in a real terminal, unmodified, signed in with your own account. Kotilo listens to the hooks or plugins the agents already provide and shows, for every session, whether it is working, waiting for your permission, waiting for input, done or failed. When an agent asks for permission, you can answer from a card or a notification without hunting for the right window.
+Kotilo is a desktop workspace for Windows, Linux and macOS (preview) for people who run several AI coding agents side by side. Each agent runs in a real terminal, unmodified, signed in with your own account. Kotilo listens to the hooks or plugins the agents already provide and shows, for every session, whether it is working, waiting for your permission, waiting for input, done or failed. When an agent asks for permission, you can answer from a card or a notification without hunting for the right window.
 
 Kotilo does not replace or wrap the agents. It does not include them, does not talk to their services on your behalf and never touches their login or token files.
 
@@ -56,7 +56,7 @@ Kotilo does not replace or wrap the agents. It does not include them, does not t
 - **Usage, cost and limits:** tokens and estimated cost by day, project, model and agent; 5-hour blocks; plan limits where the agent reports them; CSV/Excel export.
 - **Tasks and reports:** a personal task list, daily summaries, wait-time and cost reports.
 - **Dictation:** push-to-talk speech-to-text with Whisper, running locally on your machine.
-- **AI providers:** the app's own AI features (assistant, summaries, dictation cleanup) use either your installed agent CLI, headless, or any OpenAI-compatible endpoint (for example Ollama or LM Studio). API keys are stored in Windows Credential Manager (not yet on Linux).
+- **AI providers:** the app's own AI features (assistant, summaries, dictation cleanup) use either your installed agent CLI, headless, or any OpenAI-compatible endpoint (for example Ollama or LM Studio). API keys are stored in Windows Credential Manager (not yet on Linux or macOS).
 - **Custom agents:** add any other agent CLI with an `adapter.json` file, and let it report its state through the Agent Integration Protocol.
 - **Auto-updates** from GitHub Releases (can be turned off).
 - English and Turkish user interface.
