@@ -19,9 +19,12 @@ declare global {
   interface Window {
     /** D-068: every `clipboard_write_text` in order. */
     __e2eClipboard: string[];
+    /** Every `open_external_url` in order. */
+    __e2eOpenedUrls: string[];
   }
 }
 window.__e2eClipboard = [];
+window.__e2eOpenedUrls = [];
 
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "light" ? "light" : "dark";
@@ -168,6 +171,9 @@ mockIPC(
         return "hello";
       case "clipboard_write_text":
         window.__e2eClipboard.push(String(args.text));
+        return null;
+      case "open_external_url":
+        window.__e2eOpenedUrls.push(String(args.url));
         return null;
       case "clipboard_save_image":
         return `${String(args.dirRel)}/screenshot-20261008-101500.png`;

@@ -79,3 +79,30 @@ test("a plain click on a link offers its actions", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.__e2eClipboard.at(-1))).toBe("https://example.com/docs");
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("Ctrl+click on an OSC 8 link opens it once through the opener, without a confirm", async ({ page }) => {
+  const errors = await openShell(page);
+  page.on("dialog", (d) => {
+    errors.push(`dialog: ${d.message()}`);
+    void d.dismiss();
+  });
+  await writeToTerminal(page, "\x1b[2J\x1b[HSee \x1b]8;;https://example.com/docs\x07the docs page\x1b]8;;\x07 for details\r\n");
+  const box = (await page.locator(".xterm-screen").boundingBox())!;
+  const cell = await page.evaluate(async () => {
+    const registry = await import("/src/features/terminal/terminalRegistry.ts");
+    const term = registry.allEntries()[0]!.term as unknown as { _core: { _renderService: { dimensions: { css: { cell: { width: number; height: number } } } } } };
+    return term._core._renderService.dimensions.css.cell;
+  });
+  // Column 8 of row 1 is inside the link text.
+  const x = box.x + cell.width * 8.5;
+  const y = box.y + cell.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.waitForTimeout(300);
+  await page.keyboard.down("Control");
+  await page.mouse.click(x, y);
+  await page.keyboard.up("Control");
+  await expect.poll(() => page.evaluate(() => window.__e2eOpenedUrls.length)).toBe(1);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__e2eOpenedUrls)).toEqual(["https://example.com/docs"]);
+  expect(errors, errors.join("\n")).toEqual([]);
+});

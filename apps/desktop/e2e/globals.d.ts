@@ -7,5 +7,6 @@ declare global {
     __e2ePtyWrites: string[];
     __e2eLeftoverStops: string[];
     __e2eClipboard: string[];
+    __e2eOpenedUrls: string[];
   }
 }

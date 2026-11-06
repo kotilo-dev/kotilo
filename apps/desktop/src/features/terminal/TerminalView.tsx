@@ -200,24 +200,25 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
 
     // §4.6: web links also open only on Ctrl+click (Cmd+click on macOS, where Ctrl+click is a
     // right click) – the handler checks the modifier itself.
-    term.loadAddon(
-      new WebLinksAddon(
-        (event, uri) => {
-          if (!isModPressed(event)) {
-            offerLinkActions(event, [
-              { label: strings.terminal.linkOpenBrowser, onClick: () => void openExternalUrl(uri) },
-              { label: strings.terminal.linkCopy, onClick: () => void clipboardWriteText(uri) },
-            ]);
-            return;
-          }
-          void openExternalUrl(uri);
-        },
-        {
-          hover: (event) => showTooltip(event, strings.terminal.ctrlClickToOpenLink),
-          leave: () => hideTooltip(),
-        },
-      ),
-    );
+    const activateWebLink = (event: MouseEvent, uri: string) => {
+      if (!isModPressed(event)) {
+        offerLinkActions(event, [
+          { label: strings.terminal.linkOpenBrowser, onClick: () => void openExternalUrl(uri) },
+          { label: strings.terminal.linkCopy, onClick: () => void clipboardWriteText(uri) },
+        ]);
+        return;
+      }
+      void openExternalUrl(uri);
+    };
+    const webLinkHover = {
+      hover: (event: MouseEvent) => showTooltip(event, strings.terminal.ctrlClickToOpenLink),
+      leave: () => hideTooltip(),
+    };
+    term.loadAddon(new WebLinksAddon(activateWebLink, webLinkHover));
+    // OSC 8 hyperlinks (agent CLIs print their links this way) take the same path; xterm's own
+    // default asks with `window.confirm` and then opens a webview window via `window.open`.
+    // `openExternalUrl` accepts http(s) only, so other schemes stay inert.
+    term.options.linkHandler = { activate: activateWebLink, ...webLinkHover };
 
     installLinkCacheInvalidation();
     const linkProviderDisposable = term.registerLinkProvider({

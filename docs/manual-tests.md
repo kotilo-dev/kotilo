@@ -253,3 +253,14 @@ Preparation: a 0.4.0 build; Claude Code and Codex installed with Kotilo's hooks;
 | R-12 | Lightning button → the shell command, with the shell tab active | The command is typed and runs in that shell |
 | R-13 | Same with the Claude tab active | The command starts in a new tab; nothing is typed into Claude |
 | R-14 | Ctrl+Shift+P → "Prompt: <name>" | The prompt lands in Claude's message field, not sent |
+
+## Claude Code auto mode and background work (D-070, D-071)
+
+Preparation: a build from these changes (stop the dev app, `dotnet build hub/AgentHub.sln`, then `npm --prefix apps/desktop run tauri dev`; `tauri dev` alone keeps the old hub); a Claude tab in auto mode. For S-3, add `"permissions": {"ask": ["Bash(echo kotilo-test*)"]}` to a test project's `.claude/settings.local.json` and remove it afterwards.
+
+| # | Steps | Expected |
+|---|---|---|
+| S-1 | Ask Claude to run a command that takes a few minutes in the foreground (e.g. a test suite) | The pane and the Agents panel show working throughout; "Needs permission" never appears |
+| S-2 | Ask Claude to start a shell of at least 12 minutes in the background, and let the turn end | "Background: …" shows; it stays after 60 seconds and after 10 minutes, with no completed toast. When the shell ends Claude wakes by itself and the toast comes when that turn ends |
+| S-3 | Ask Claude to run `echo kotilo-test`, then leave the keyboard alone | After about six seconds "Needs permission" and the permission card show the command; allowing it from the card returns to working. **If the card never appears, this blocks the release** |
+| S-4 | On an OSC 8 link in a terminal: Ctrl+click, then plain click and **Open** | The link opens once each time, not twice |
