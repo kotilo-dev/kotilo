@@ -1,3 +1,40 @@
+# 0.5 – Kotilo Deck companion client (planned 2026-11-06)
+
+Input: request from the kotilo-deck project (second-screen dashboard, WebSocket server on `127.0.0.1:47831`). Protocol: `docs/companion-protocol.md`, copied verbatim from kotilo-deck v1.0.1 (d0a12c7); it wins over this plan. Agreed with the deck side on 2026-11-06: mutual HMAC handshake (token never on the socket, never the legacy hello), `decision: "unknown"`, opaque ids, waits that keys cannot answer stay out of `approvals[]`. Design: D-072. Order: A → B → C → D → E.
+
+## A – Protocol and connection (Rust `companion` module)
+- [x] `docs/companion-protocol.md` verbatim copy
+- [x] Protocol types in one module; serde round-trip tests for every example in the protocol; unknown types/fields ignored, bad frames never fatal
+- [x] Token file `~/.kotilo/companion.token`: read + trim + validate; create when missing (32 random bytes → 64 hex, temp file + rename, `0600` on Unix); never overwrite a valid token; tests (missing, valid, invalid)
+- [x] Mutual handshake: `hello{nonce}` → check `Ps` in constant time (close 1000 on a bad/missing proof, never send `Pc`) → `hello.auth` → `hello.ok`; protocol test vector as a unit test; 5 s handshake timeout
+- [x] Connection loop on its own thread: loopback only; backoff 1, 2, 4 … 30 s, reset after `hello.ok`; `4401` → re-read token + "update Kotilo Deck to 1.0.1+" hint; `4409` normal backoff; refused connection logged at debug; pings answered; latest snapshots kept and sent after `hello.ok`
+- [x] Logs carry only message types, ids and close codes (never token, detail, task text)
+- [x] Setting `companion.enabled` (default on): off closes the socket and stops reconnecting
+- [x] Integration test against a fake server on a random port: handshake, snapshot after `hello.ok`, `approval.respond` → event, reconnect after a drop, bad server proof → no `hello.auth`
+
+## B – Desktop → Deck (webview)
+- [x] Pending-permission derivation moved out of `AgentPane` into one pure function used by the card and the companion (same request key, same keys, question tools and keyless agents excluded)
+- [x] `agents.state` from hub sessions + desktop tracker (id, repo, name, status idle/working/waiting, task, since); approvals with summary/detail cut at 500 chars; debounced 250 ms
+- [x] `agent.approval.requested` on a new approval; `agent.approval.resolved` with `by: desktop` (card), `by: agent` + `unknown` (answered in the terminal) or `expired` (session ended while waiting); always followed by `agents.state`
+- [x] `usage.today` (tokens, cost; no `budgetUsd`), at most every 5 s
+- [x] Unit tests for snapshot building and resolve detection
+
+## C – Deck → Desktop
+- [x] `approval.respond` → the card's own answer function (same keys via `pane_send_keys`), card shows the result; already gone → `resolved` with the real outcome
+- [x] `pomodoro.state` kept; status-bar chip counting down from `endsAt` (paused: `remaining`), hidden when idle or not connected
+- [x] `todo.added` and unknown types ignored
+
+## D – `kotilo://open`
+- [x] `tauri-plugin-single-instance` (deep-link feature) + `tauri-plugin-deep-link`; scheme registered by the installer (NSIS `HKCU\Software\Classes\kotilo`, Linux `.desktop` `x-scheme-handler/kotilo`); a second launch or the link focuses the main window
+- [x] Licences in `THIRD_PARTY_NOTICES`
+
+## E – Settings, docs, close-out
+- [x] Settings → "Connect to Kotilo Deck" toggle + status line (connected with version / not running / update needed), en + tr
+- [x] e2e (mocked IPC) + screenshot of settings and the pomodoro chip
+- [x] `docs/manual-tests.md` K-1…K-8 with the real deck; user guide section (en + tr)
+- [x] D-072; cargo test + clippy, npm test + build, e2e (full run: 6 known-flaky `screens.spec` theme waits failed late in the run, pass alone)
+- [ ] Manual K-1…K-8 with the real deck on Windows (user), then Linux VM
+
 # 0.4.0 – Review loop, session history, terminal extras, quick commands (planned 2026-10-26)
 
 Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Kotilo's rules; left out: account switching and cookie/API-key usage reads (rule 3), the native chat UI (wraps the agent, rule 5), telemetry. Worktree-per-task is a separate later phase. Order: A → B → C → D.

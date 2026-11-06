@@ -593,6 +593,27 @@ bir ajan `İzin bekliyor` ya da `Bitti` durumuna geçince bildirim gösterir. Bi
 tıklamak panele götürmez (Windows bildirimleri burada bunu desteklemiyor); bunun
 yerine `Ctrl+Shift+A`'yı kullanın.
 
+### Kotilo Deck
+
+[Kotilo Deck](https://github.com/kotilo-dev/kotilo-deck) ayrı bir ikinci ekran pano
+uygulamasıdır. Aynı bilgisayarda çalışıyorsa Kotilo ona kendiliğinden, hiçbir ayar
+gerektirmeden bağlanır: Deck'teki Agent Status bileşeni ajanlarınızı, sizi bekleyen izin
+isteklerini ve bugünkü token ile maliyeti gösterir; onaylamayı ya da reddetmeyi Deck'ten
+yapabilirsiniz. Deck'teki karar izin kartıyla tam olarak aynı yoldan geçer: ajanın kendi
+"bir kez izin ver" ya da "reddet" tuşunu o terminale gönderir ve kart sonucu gösterir.
+Kartın yalnızca terminalde cevaplanabilen istekleri (sorular, tuşları doğrulanmamış
+ajanlar) Deck'te düğmesiz, bekliyor olarak görünür. Başka terminallerdeki ajanlar yalnızca
+durumlarını gösterir.
+
+- **Pomodoro:** Deck'te bir sayaç çalışırken durum çubuğu evresini ve kalan süreyi gösterir.
+- **Open Kotilo desktop:** Deck'teki bu düğme `kotilo://open` bağlantısını açar ve bu pencereyi
+  öne getirir.
+- **Gizlilik:** Bağlantı bu bilgisayarın dışına çıkmaz (`127.0.0.1`). İki uygulama da
+  `~/.kotilo/companion.token` içindeki anahtarı göndermeden bildiğini kanıtlar; böylece başka
+  bir program kendini Deck gibi gösteremez. Kotilo, Kotilo Deck 1.0.1 ya da üstünü gerektirir.
+- **Ayarlar → Ajanlar → Kotilo Deck'e bağlan** (varsayılan açık) bunu kapatır ve bağlantı
+  durumunu gösterir. Deck yoksa hiçbir şey değişmez ve hata olarak bildirilmez.
+
 ## Zaman akışı
 
 Çalışma alanı ekranının sağ kenarındaki Zaman akışı şeridi, odaktaki terminaldeki

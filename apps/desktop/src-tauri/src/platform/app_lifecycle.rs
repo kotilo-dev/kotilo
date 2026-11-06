@@ -44,6 +44,29 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
     let _ = (app, event);
 }
 
+/// D-072: one running app. A second launch, and `kotilo://open` from Kotilo Deck, bring the
+/// running app's window up instead of starting a second app and hub. Must be the first plugin.
+/// Release builds only, so `tauri dev` still starts next to an installed Kotilo.
+pub fn single_instance<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    #[cfg(not(debug_assertions))]
+    {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
+    }
+    #[cfg(debug_assertions)]
+    {
+        builder
+    }
+}
+
+/// D-072: `kotilo://…` opened while the app runs (macOS delivers it here; Windows and Linux
+/// through the single-instance hand-over) shows the main window. The installer registers the
+/// scheme (`plugins.deep-link` in tauri.conf.json).
+pub fn handle_deep_links<R: Runtime>(app: &AppHandle<R>) {
+    use tauri_plugin_deep_link::DeepLinkExt;
+    let handle = app.clone();
+    app.deep_link().on_open_url(move |_event| show_main_window(&handle));
+}
+
 /// Shows, restores and focuses the main window.
 pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window(MAIN) {

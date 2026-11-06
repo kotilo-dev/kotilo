@@ -307,6 +307,20 @@ impl Default for ClipboardSettings {
     }
 }
 
+/// D-072: the Kotilo Deck companion connection ("Connect to Kotilo Deck"), on by default.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanionSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl Default for CompanionSettings {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
 /// Faz 7 spec §6/§9.1: `verboseLogging` toggles the live log level ceiling between
 /// `Info` (default) and `Debug` (`log::set_max_level`, applied both at startup and on
 /// every `settings_set` — see `logging::apply_verbose_logging`). Missing from an old
@@ -377,6 +391,8 @@ pub struct Settings {
     pub diagnostics: DiagnosticsSettings,
     #[serde(default)]
     pub composer: ComposerSettings,
+    #[serde(default)]
+    pub companion: CompanionSettings,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -394,6 +410,7 @@ impl Default for Settings {
             clipboard: ClipboardSettings::default(),
             diagnostics: DiagnosticsSettings::default(),
             composer: ComposerSettings::default(),
+            companion: CompanionSettings::default(),
             extra: serde_json::Map::new(),
         }
     }
@@ -853,6 +870,7 @@ mod tests {
         assert!(!s.terminal.copy_on_select);
         assert!(s.terminal.warn_multiline_paste);
         assert!(s.terminal.osc52_clipboard);
+        assert!(s.companion.enabled);
         assert!(!s.diagnostics.verbose_logging);
     }
 

@@ -10,16 +10,17 @@ import { useStrings } from "../../app/i18n";
 import { agentDisplayName } from "../../app/ui";
 import { useAppActive } from "../../app/ui/useAppActive";
 import { useNow } from "../../app/ui/useNow";
-import { gitHead, paneSendKeys } from "../../lib/ipc";
+import { gitHead } from "../../lib/ipc";
 import { useRouteStore } from "../../stores/routeStore";
-import type { PendingPermission } from "../../lib/hubTypes";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
 import { useAgentStore } from "../../stores/agentStore";
 import { useHubStore } from "../../stores/hubStore";
 import type { TerminalTab } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { formatElapsed } from "../agents/agentLogic";
-import { hasScreenPermissionRule, isQuestionTool, permissionKeysOf } from "../agents/permissionKeys";
+import { pendingPermissionOf } from "../agents/pendingPermission";
+import { hasScreenPermissionRule, permissionKeysOf } from "../agents/permissionKeys";
+import { answerPermission, usePermissionAnswerStore, type PermissionAnswer } from "../../stores/permissionAnswerStore";
 import { parsePromptOptions, screenPermissionKeys, type PromptOption } from "../agents/promptOptions";
 import { focusTerminal, readBufferTail } from "../terminal/terminalRegistry";
 import { TerminalView } from "../terminal/TerminalView";
@@ -28,6 +29,13 @@ import { AgentHeaderStrip, type HeaderLimit } from "./AgentHeaderStrip";
 import { matchSession, paneVisualState, statusFamily, type PaneVisualState } from "./paneSession";
 import { LeftoverStrip } from "./LeftoverStrip";
 import { PermissionCard, PermissionResult, type PermissionDecision } from "./PermissionCard";
+
+/** The newest answer sent to `paneId` (by the card or Kotilo Deck). */
+function latestAnswerFor(answers: Record<string, PermissionAnswer>, paneId: string): PermissionAnswer | null {
+  let latest: PermissionAnswer | null = null;
+  for (const a of Object.values(answers)) if (a.paneId === paneId && (!latest || a.at > latest.at)) latest = a;
+  return latest;
+}
 
 const RESULT_VISIBLE_MS = 2500;
 const BRANCH_POLL_MS = 15000;
@@ -151,12 +159,15 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
   const branch = useBranch(workspaceId, visible && hasAgent && onWorkspace && appActive);
 
   const [dismissed, setDismissed] = useState<string | null>(null);
-  const [result, setResult] = useState<{ decision: PermissionDecision; keyName: string; at: number } | null>(null);
+  // The card's and Kotilo Deck's answers (D-072) both land here; shown for a moment.
+  const lastAnswer = usePermissionAnswerStore((st) => (paneId ? latestAnswerFor(st.answers, paneId) : null));
+  const [result, setResult] = useState<PermissionAnswer | null>(null);
   useEffect(() => {
-    if (!result) return;
+    if (!lastAnswer || Date.now() - lastAnswer.at > RESULT_VISIBLE_MS) return;
+    setResult(lastAnswer);
     const timer = setTimeout(() => setResult(null), RESULT_VISIBLE_MS);
     return () => clearTimeout(timer);
-  }, [result]);
+  }, [lastAnswer]);
 
   const agentKey = adapterId ?? agent?.kind ?? "other";
   const agentName = adapterId ? agentDisplayName(adapterId, definitions) : agent ? s.agents.kindLabel[agent.kind] : "";
@@ -174,28 +185,20 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
         .reduce<HeaderLimit | null>((best, l) => (best && best.usedPercent >= l.usedPercent ? best : { window: l.window, usedPercent: l.usedPercent }), null)
     : null;
 
-  // The hub's request (tool, command, risk), else a prompt the desktop found on the screen
-  // (Cursor), which has no details: the card then only names the agent.
-  const hubPermission =
-    session?.state === "WaitingPermission" && !isQuestionTool(session.pendingPermission?.tool) ? session.pendingPermission : null;
-  // Never for a question (the hub's WaitingInput, or the desktop's own question flag when the
-  // hub is down): allow/deny keys would pick or cancel one of its answers.
-  const screenBlocked =
-    !hubPermission && screenPermission && agent?.state === "blocked" && !agent.questionPending && session?.state !== "WaitingInput";
-  const permission: PendingPermission | null =
-    hubPermission ?? (screenBlocked && agent ? { tool: null, command: null, path: null, risk: null, since: new Date(agent.sinceMs).toISOString() } : null);
-  const requestKey = hubPermission && session
-    ? `${session.agent}:${session.sessionId}:${hubPermission.since}`
-    : permission && agent
-      ? `${adapterId}:${agent.paneId}:${agent.sinceMs}`
-      : null;
+  const pending = pendingPermissionOf(session, agent, definition);
+  const permission = pending?.permission ?? null;
+  const requestKey = pending?.requestKey ?? null;
   const screenOptions = useScreenOptions(tab.id, hasAgent && permission ? requestKey : null);
-  const showCard = hasAgent && permission !== null && requestKey !== dismissed && !(result && result.at >= Date.parse(permission.since));
+  const showCard =
+    hasAgent &&
+    permission !== null &&
+    requestKey !== dismissed &&
+    lastAnswer?.requestKey !== requestKey &&
+    !(result && result.at >= Date.parse(permission.since));
 
   function decide(decision: PermissionDecision, keyName: string) {
-    if (!paneId) return;
-    void paneSendKeys(paneId, keyName).catch(() => {});
-    setResult({ decision, keyName, at: Date.now() });
+    if (!paneId || !requestKey) return;
+    answerPermission(paneId, requestKey, decision, keyName, "desktop");
     setDismissed(requestKey);
     focusTerminal(tab.id);
   }

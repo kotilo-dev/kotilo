@@ -22,6 +22,7 @@ import { CodeBlock, CustomAgentWizard, userAdapterPath } from "./CustomAgentWiza
 import { protocolExample } from "./customAgent";
 import { EditableList } from "./EditableList";
 import { asAppError, useHubResource } from "./hubData";
+import { CompanionSettings } from "../companion/CompanionSettings";
 
 type WizardState = { editing: UserAdapterDefinition | null } | null;
 
@@ -275,6 +276,7 @@ export function AgentsSection() {
         />
       </div>
       <Checkbox checked={agents.notifications} onChange={(v) => update({ agents: { notifications: v } })} label={s.settings.agents.notifications} />
+      <CompanionSettings />
       {platformFeatures().awaySummary && (
       <div className="flex max-w-lg flex-col gap-3">
         <Checkbox

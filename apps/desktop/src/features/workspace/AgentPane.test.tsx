@@ -38,6 +38,7 @@ import { useHubStore } from "../../stores/hubStore";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
 import { builtinDefinitions } from "../../test/builtinDefinitions";
 import { AgentPane, frameStyle } from "./AgentPane";
+import { answerPermission, usePermissionAnswerStore } from "../../stores/permissionAnswerStore";
 
 function tab(partial: Partial<TerminalTab> = {}): TerminalTab {
   return { id: "t1", title: "codex", paneId: "p1", status: "running", ...partial } as TerminalTab;
@@ -69,6 +70,7 @@ beforeEach(() => {
   agentStore.store.setState({ agents: [] });
   useHubStore.setState({ sessions: [], limits: [], connected: true });
   useDefinitionsStore.setState({ loaded: true, definitions: builtinDefinitions() });
+  usePermissionAnswerStore.setState({ answers: {} });
 });
 
 describe("AgentPane", () => {
@@ -126,6 +128,17 @@ describe("AgentPane", () => {
     render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
     fireEvent.click(screen.getByRole("button", { name: /^Allow once/ }));
     expect(ipc.paneSendKeys).toHaveBeenCalledWith("p1", "1");
+  });
+
+  it("a Kotilo Deck answer goes through the same path: keys to the pane, card replaced by the result (D-072)", () => {
+    const session = waiting({ agent: "claude-code" });
+    useHubStore.setState({ sessions: [session] });
+    render(<AgentPane workspaceId="ws1" tab={tab({ title: "claude" })} visible />);
+    expect(screen.getByRole("button", { name: /^Allow once/ })).toBeTruthy();
+    const key = `claude-code:${session.sessionId}:${session.pendingPermission!.since}`;
+    act(() => answerPermission("p1", key, "allow", "1", "deck"));
+    expect(ipc.paneSendKeys).toHaveBeenCalledWith("p1", "1");
+    expect(screen.queryByRole("button", { name: /^Allow once/ })).toBeNull();
   });
 
   it("handles Enter and Esc only while focus is inside the card", () => {

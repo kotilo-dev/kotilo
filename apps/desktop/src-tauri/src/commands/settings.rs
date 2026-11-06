@@ -49,6 +49,11 @@ pub fn settings_set(
             crate::platform::window_backdrop::apply(&window, blur(&saved));
         }
     }
+    if before.companion != saved.companion {
+        if let Some(companion) = app.try_state::<crate::companion::Companion>() {
+            companion.set_enabled(saved.companion.enabled);
+        }
+    }
     let _ = app.emit(EVENT_SETTINGS_CHANGED, &saved);
     Ok(saved)
 }

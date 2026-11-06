@@ -21,10 +21,13 @@ declare global {
     __e2eClipboard: string[];
     /** Every `open_external_url` in order. */
     __e2eOpenedUrls: string[];
+    /** D-072: what the webview hands the Kotilo Deck client, and keys sent to panes. */
+    __e2eCompanion: { agents: unknown[]; usage: unknown[]; sent: unknown[]; keys: { paneId: string; keys: string }[] };
   }
 }
 window.__e2eClipboard = [];
 window.__e2eOpenedUrls = [];
+window.__e2eCompanion = { agents: [], usage: [], sent: [], keys: [] };
 
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "light" ? "light" : "dark";
@@ -33,6 +36,8 @@ const colorTheme = params.get("colorTheme");
 const appearance = colorTheme ? { darkTheme: colorTheme, lightTheme: colorTheme } : DEFAULT_SETTINGS.appearance;
 // `ai=local`: Settings → AI with every feature on the local endpoint ("Fully local").
 const aiLocal = params.get("ai") === "local";
+// `deck=connected`: the Kotilo Deck client reports a connected deck 1.0.1 (D-072).
+const deckConnected = params.get("deck") === "connected";
 // `restore=agent`: the workspace comes back with a restored (not yet started) Claude tab.
 const restoreAgent = params.get("restore") === "agent";
 /** U-3: `?platform=macos` (or `linux`) makes `app_info` report that OS with the extras off. */
@@ -262,6 +267,20 @@ mockIPC(
         return null;
       case "hub_status":
         return { state: "running", pid: 4242 };
+      case "companion_status":
+        return deckConnected ? { state: "connected", serverVersion: "1.0.1" } : { state: "notRunning" };
+      case "companion_set_agents":
+        window.__e2eCompanion.agents.push(args.state);
+        return null;
+      case "companion_set_usage":
+        window.__e2eCompanion.usage.push(args.usage);
+        return null;
+      case "companion_send":
+        window.__e2eCompanion.sent.push(args.event);
+        return null;
+      case "pane_send_keys":
+        window.__e2eCompanion.keys.push({ paneId: String(args.paneId), keys: String(args.keys) });
+        return null;
       case "hub_request":
         return hubRoute(String(args.method ?? "GET"), String(args.path ?? ""));
       case "plugin:notification|is_permission_granted":
@@ -287,14 +306,18 @@ async function pushHubSnapshot(): Promise<void> {
 
 declare global {
   interface Window {
-    __e2e: { emit: (type: string, data: unknown) => Promise<void>; pushHubSnapshot: () => Promise<void> };
+    __e2e: { emit: (type: string, data: unknown) => Promise<void>; pushHubSnapshot: () => Promise<void>; deck: (type: string, payload: unknown) => Promise<void> };
     /** Pane ids `pty_stop_leftovers` was called with. */
     __e2eLeftoverStops: string[];
   }
 }
 
 window.__e2eLeftoverStops = [];
-window.__e2e = { emit: (type, data) => emit("hub:event", { type, data }), pushHubSnapshot };
+window.__e2e = {
+  emit: (type, data) => emit("hub:event", { type, data }),
+  pushHubSnapshot,
+  deck: (type, payload) => emit("companion:message", { type, payload }),
+};
 // The app registers its listeners after an async bootstrap; resend a few times so the first
 // snapshot is never lost (the spec also pushes once the page is ready).
 for (const delay of [500, 1500, 3000]) window.setTimeout(() => void pushHubSnapshot(), delay);

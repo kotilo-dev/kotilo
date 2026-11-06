@@ -53,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   composer: { savedPrompts: [], attachmentsHintShown: false },
   updates: { checkOnStart: true },
   window: { closeToTray: false },
+  companion: { enabled: true },
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

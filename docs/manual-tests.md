@@ -264,3 +264,18 @@ Preparation: a build from these changes (stop the dev app, `dotnet build hub/Age
 | S-2 | Ask Claude to start a shell of at least 12 minutes in the background, and let the turn end | "Background: …" shows; it stays after 60 seconds and after 10 minutes, with no completed toast. When the shell ends Claude wakes by itself and the toast comes when that turn ends |
 | S-3 | Ask Claude to run `echo kotilo-test`, then leave the keyboard alone | After about six seconds "Needs permission" and the permission card show the command; allowing it from the card returns to working. **If the card never appears, this blocks the release** |
 | S-4 | On an OSC 8 link in a terminal: Ctrl+click, then plain click and **Open** | The link opens once each time, not twice |
+
+## Kotilo Deck companion (0.5, D-072)
+
+Preparation: an installer build from these changes (`./scripts/release.ps1 -Arch x64`; the scheme and single-instance only work in release builds), Kotilo Deck 1.0.1 or later from https://github.com/kotilo-dev/kotilo-deck/releases, its Agent Status widget on a workspace. Log: `%LOCALAPPDATA%\kotilo\logs\kotilo.log` (lines start with `deck:`).
+
+| # | Steps | Expected |
+|---|---|---|
+| K-1 | Start Kotilo with the deck already running | Within about 2 s the widget shows the open agents with their state; Settings → Agents shows "Connected to Kotilo Deck 1.0.1" (or the installed version) |
+| K-2 | Start a Claude tab and ask for a command that needs permission | The deck shows the request (command text) with Approve/Deny; tapping Approve on the deck runs it in Kotilo and the card shows "Allowed once" |
+| K-3 | Ask again and answer with the card in Kotilo | The request disappears from the deck at once |
+| K-4 | Quit the deck, wait a minute, start it again | Kotilo reconnects within 30 s; the log has `deck:` lines only at info/debug, no warnings or errors |
+| K-5 | Start a pomodoro on the deck, pause it, resume it | The status bar shows "Focus" and a countdown, "(paused)" while paused; the chip disappears when the deck quits |
+| K-6 | Click "Open Kotilo desktop" on the deck while Kotilo is minimized or in the tray | The Kotilo window comes to the front; no second Kotilo starts |
+| K-7 | Turn off Settings → Agents → Connect to Kotilo Deck | The deck shows the desktop as disconnected; turning it on reconnects within a few seconds |
+| K-8 | Close the deck and use Kotilo for a while | No dialogs, no errors; `~/.kotilo/companion.token` exists (created by whichever app started first) |

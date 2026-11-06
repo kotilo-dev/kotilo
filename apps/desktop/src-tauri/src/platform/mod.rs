@@ -12,6 +12,7 @@ pub mod hotkeys;
 pub mod idle;
 pub mod login_path;
 pub mod mascot;
+pub mod private_file;
 #[cfg(not(windows))]
 pub mod processes;
 pub mod taskbar;

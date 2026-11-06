@@ -4,6 +4,7 @@ pub mod assistant;
 pub mod agents;
 pub mod brand;
 pub mod commands;
+pub mod companion;
 pub mod diagnostics;
 pub mod dictation;
 pub mod error;
@@ -92,7 +93,7 @@ pub fn run() {
     // "the user (or the crash-loop recovery screen) reloaded".
     let main_first_load_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let builder = platform::app_lifecycle::configure(tauri::Builder::default());
+    let builder = platform::app_lifecycle::single_instance(platform::app_lifecycle::configure(tauri::Builder::default()));
     builder
         // Faz 7 §9.1: registered first — its own `.setup()` runs, and attaches the
         // global logger, before the app-level `.setup()` below (where every store now
@@ -114,6 +115,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         // M5: self-update. Only the app's own `update_*` commands use it (no JS permissions).
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // D-072: `kotilo://open` (Kotilo Deck); handled in Rust, no JS permissions.
+        .plugin(tauri_plugin_deep_link::init())
         .manage(commands::update::PendingUpdate::default())
         .manage(pty::PtyRegistry::default())
         .manage(WatcherRegistry::default())
@@ -252,6 +255,10 @@ pub fn run() {
             commands::fs::fs_resolve_link,
             commands::settings::settings_get,
             commands::settings::settings_set,
+            companion::companion_status,
+            companion::companion_set_agents,
+            companion::companion_set_usage,
+            companion::companion_send,
             commands::git::git_head,
             commands::git::git_changes,
             commands::git::git_show_head,
@@ -283,6 +290,10 @@ pub fn run() {
             platform::conpty::select(settings_store.get().terminal.bundled_conpty);
 
             let appearance = settings_store.get().appearance;
+            // D-072: Kotilo Deck companion client (loopback only; idle when the deck is absent).
+            let companion_home = platform::home_dir(&|k| std::env::var(k).ok()).map(std::path::PathBuf::from);
+            platform::app_lifecycle::handle_deep_links(app.handle());
+            app.manage(companion::Companion::start(app.handle(), settings_store.get().companion.enabled, companion_home));
 
             app.manage(state_store);
             app.manage(workspace_store);

@@ -10,6 +10,7 @@ import { countsByState } from "../features/agents/agentLogic";
 import { gitHead, type GitHead } from "../lib/ipc";
 import { PaneStatusDot } from "../features/workspace/PaneStatus";
 import { visualStateForAgent } from "../features/workspace/paneSession";
+import { PomodoroChip } from "../features/companion/PomodoroChip";
 
 const GIT_HEAD_POLL_MS = 5000;
 
@@ -128,6 +129,7 @@ export function StatusBar() {
             {strings.viewer.encoding[doc.encoding]} · {strings.viewer.eol[doc.eol]}
           </span>
         )}
+        <PomodoroChip />
         <AgentSummary />
         <button
           type="button"

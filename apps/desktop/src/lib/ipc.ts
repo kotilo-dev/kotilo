@@ -7,6 +7,7 @@
 import { Channel, invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { logWarn } from "./logging";
+import type { DeckAgentsState, DeckApproval, Resolution } from "../features/companion/companionSnapshot";
 
 declare global {
   interface Window {
@@ -754,6 +755,56 @@ export async function paneSendKeys(paneId: string, keys: string): Promise<void> 
   await invoke<void>("pane_send_keys", { paneId, keys });
 }
 
+// ---------------------------------------------------------------------------
+// D-072: Kotilo Deck companion (`docs/companion-protocol.md`)
+
+export type CompanionStatus =
+  | { state: "off" }
+  | { state: "notRunning" }
+  | { state: "connected"; serverVersion: string }
+  | { state: "rejected" }
+  | { state: "untrusted" }
+  | { state: "tokenError" };
+
+export type PomodoroPhase = "idle" | "focus" | "short-break" | "long-break";
+
+export interface PomodoroState {
+  phase: PomodoroPhase | string;
+  running: boolean;
+  endsAt: number | null;
+  remaining: number;
+  duration: number;
+  session: number;
+  sessionsPerCycle: number;
+}
+
+export type CompanionMessage =
+  | { type: "approval.respond"; payload: { id: string; decision: "approve" | "deny" } }
+  | { type: "pomodoro.state"; payload: PomodoroState };
+
+export type CompanionEvent =
+  | { type: "agent.approval.requested"; payload: DeckApproval }
+  | { type: "agent.approval.resolved"; payload: Resolution };
+
+export const COMPANION_STATUS_EVENT = "companion:status";
+export const COMPANION_MESSAGE_EVENT = "companion:message";
+
+export async function companionStatus(): Promise<CompanionStatus | null> {
+  return invoke<CompanionStatus | null>("companion_status");
+}
+
+export async function companionSetAgents(state: DeckAgentsState): Promise<void> {
+  await invoke<void>("companion_set_agents", { state });
+}
+
+export async function companionSetUsage(usage: { tokens: number; costUsd: number }): Promise<void> {
+  await invoke<void>("companion_set_usage", { usage });
+}
+
+export async function companionSend(event: CompanionEvent): Promise<void> {
+  await invoke<void>("companion_send", { event });
+}
+
 /** M1: the hub owns agent hook integration; `hubAvailable=false` means its background service is not reachable. */
 export interface HooksStatus {
   hubAvailable: boolean;
@@ -858,6 +909,8 @@ export interface Settings {
   updates?: { checkOnStart: boolean };
   /** D-058: frontend-only like `updates`; missing means off. */
   window?: { closeToTray: boolean };
+  /** D-072: "Connect to Kotilo Deck"; missing means on. */
+  companion?: { enabled: boolean };
 }
 
 export interface SavedPrompt {

@@ -588,6 +588,27 @@ when an agent becomes `blocked` or `done` while the window isn't focused. Clicki
 toast doesn't jump to the pane (Windows notifications don't support that here) — use
 `Ctrl+Shift+A` instead.
 
+### Kotilo Deck
+
+[Kotilo Deck](https://github.com/kotilo-dev/kotilo-deck) is a separate second-screen
+dashboard app. When it runs on the same computer, Kotilo connects to it by itself, with
+nothing to set up: the deck's Agent Status widget shows your agents, the permission
+requests that wait for you and today's tokens and cost, and you can approve or deny from
+the deck. A deck decision goes through exactly the same path as the permission card: it
+sends the agent's own "allow once" or "deny" key to that terminal, and the card shows the
+result. Requests the card can only answer in the terminal (questions, agents without
+verified keys) show on the deck as waiting, without buttons. Agents in other terminals
+show their state only.
+
+- **Pomodoro:** while a deck timer runs, the status bar shows its phase and countdown.
+- **Open Kotilo desktop:** the deck's button opens `kotilo://open`, which brings this window
+  to the front.
+- **Privacy:** the connection stays on this computer (`127.0.0.1`). Both apps prove they know
+  the key in `~/.kotilo/companion.token` without sending it, so no other program can pose as
+  the deck. Kotilo needs Kotilo Deck 1.0.1 or later.
+- **Settings → Agents → Connect to Kotilo Deck** (on by default) turns it off and shows the
+  connection state. Without the deck nothing changes and nothing is reported as an error.
+
 ## Timeline
 
 The Timeline rail on the right edge of the Workspace screen shows what the agent in the

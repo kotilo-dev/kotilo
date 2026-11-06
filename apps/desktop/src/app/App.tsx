@@ -44,6 +44,7 @@ import { nextBlockedTarget, sortAgents } from "../features/agents/agentLogic";
 import { navigateToAgent } from "../features/agents/navigate";
 import { installLaunchCommands } from "../features/agents/launch";
 import { installUnseenWork } from "../features/agents/unseenWork";
+import { installCompanion } from "../features/companion/companionBridge";
 import { useDefinitionsStore } from "../stores/definitionsStore";
 import { installLeftoverListener } from "../stores/leftoverStore";
 
@@ -128,6 +129,8 @@ export function App() {
   useAssistantBridge();
   // D-056: taskbar badge, "while you were away" toast, hub seen state of own panes.
   useEffect(() => installUnseenWork(), []);
+  // D-072: Kotilo Deck companion (snapshots, deck approvals, pomodoro).
+  useEffect(() => installCompanion(), []);
 
   // D18 (second half): WebView2 accelerator keys are disabled in Rust (src-tauri/src/lib.rs);
   // the right-click context menu is blocked here in the frontend.

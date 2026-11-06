@@ -684,6 +684,26 @@ export const en = {
     noActiveWorkspace: "No active workspace",
   },
 
+  /** D-072: Kotilo Deck companion (settings block and status-bar pomodoro chip). */
+  companion: {
+    title: "Kotilo Deck",
+    enabled: "Connect to Kotilo Deck",
+    hint: "Shows your agents, permission requests and today's usage on Kotilo Deck, the second-screen app, and lets you approve or deny from there. Local connection on this computer only.",
+    status: {
+      off: "Off",
+      notRunning: "Kotilo Deck is not running",
+      connected: (version: string) => `Connected to Kotilo Deck ${version}`,
+      rejected: "Kotilo Deck refused the connection. Update Kotilo Deck to 1.0.1 or later.",
+      untrusted: "A program on Kotilo Deck's port could not prove it is Kotilo Deck. Not connected.",
+      tokenError: "The connection key (~/.kotilo/companion.token) could not be read.",
+    },
+    pomodoro: {
+      phase: { focus: "Focus", "short-break": "Short break", "long-break": "Long break" } as Record<string, string>,
+      paused: "paused",
+      label: (phase: string, time: string) => `Kotilo Deck pomodoro: ${phase}, ${time} left`,
+    },
+  },
+
   viewer: {
     selectedFile: (workspaceName: string, rel: string) => `${workspaceName} — ${rel || "/"}`,
     noWorkspace: "No active workspace",

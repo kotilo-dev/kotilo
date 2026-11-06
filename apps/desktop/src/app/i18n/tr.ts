@@ -660,6 +660,25 @@ export const tr: Strings = {
     noActiveWorkspace: "Etkin çalışma alanı yok",
   },
 
+  companion: {
+    title: "Kotilo Deck",
+    enabled: "Kotilo Deck'e bağlan",
+    hint: "Ajanlarını, izin isteklerini ve bugünkü kullanımı ikinci ekran uygulaması Kotilo Deck'te gösterir; onaylamayı ya da reddetmeyi oradan da yapabilirsin. Yalnızca bu bilgisayar içinde yerel bağlantı.",
+    status: {
+      off: "Kapalı",
+      notRunning: "Kotilo Deck çalışmıyor",
+      connected: (version: string) => `Kotilo Deck ${version} ile bağlı`,
+      rejected: "Kotilo Deck bağlantıyı reddetti. Kotilo Deck'i 1.0.1 ya da üstüne güncelle.",
+      untrusted: "Kotilo Deck'in portundaki program Kotilo Deck olduğunu kanıtlayamadı. Bağlanılmadı.",
+      tokenError: "Bağlantı anahtarı (~/.kotilo/companion.token) okunamadı.",
+    },
+    pomodoro: {
+      phase: { focus: "Odak", "short-break": "Kısa mola", "long-break": "Uzun mola" } as Record<string, string>,
+      paused: "duraklatıldı",
+      label: (phase: string, time: string) => `Kotilo Deck pomodoro: ${phase}, ${time} kaldı`,
+    },
+  },
+
   viewer: {
     selectedFile: (workspaceName: string, rel: string) => `${workspaceName} — ${rel || "/"}`,
     noWorkspace: "Etkin çalışma alanı yok",

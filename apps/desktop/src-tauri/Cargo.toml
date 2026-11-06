@@ -44,6 +44,11 @@ trash = "5.2.9"
 ureq = { version = "2", default-features = false, features = ["json"] }
 # M2: WebSocket client for the hub's /v1/stream (plain loopback, no TLS).
 tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
+# D-072: Kotilo Deck companion – mutual HMAC-SHA256 handshake, nonces and the shared token.
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+getrandom = "0.3"
 arboard = "3.6.1"
 png = "0.18.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
@@ -72,6 +77,11 @@ nucleo-matcher = "0.3.1"
 # its own `update_*` commands (commands/update.rs); the NSIS installer relaunches the app, so the
 # process plugin is not needed.
 tauri-plugin-updater = "2.13"
+# D-072: `kotilo://open` (Kotilo Deck's "Open Kotilo desktop"). The installer registers the scheme
+# from `plugins.deep-link` in tauri.conf.json; single-instance hands a second launch (and the link)
+# to the running app instead of starting a second app and hub.
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # D18: disabling WebView2's built-in browser accelerator keys (Ctrl+P, Ctrl+F, F5, ...)
 # requires reaching into the raw ICoreWebView2Settings3 COM interface via
 # WebviewWindow::with_webview — there is no declarative tauri.conf.json flag for it in
