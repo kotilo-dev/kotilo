@@ -124,6 +124,9 @@ pub struct Agent {
     /// finished turn is still waiting for; non-empty keeps the record Working. Metadata
     /// only, never persisted.
     pub background_tasks: Vec<String>,
+    /// `background_tasks` includes a shell, which `idle_prompt` does not wait for (D-071).
+    #[serde(skip)]
+    pub background_shell: bool,
     /// The record is `Blocked` on a question (Claude Code's `AskUserQuestion`/`ExitPlanMode`
     /// shown through its permission dialog): answered in the terminal, never with the
     /// permission card's allow/deny keys. Mirrors the hub's WaitingInput for these tools.
@@ -181,6 +184,14 @@ pub fn background_task_labels(payload: &serde_json::Value) -> Option<Vec<String>
             })
             .collect(),
     )
+}
+
+/// `background_tasks` lists a `shell` task (D-071).
+fn has_background_shell(payload: &serde_json::Value) -> bool {
+    payload
+        .get("background_tasks")
+        .and_then(|v| v.as_array())
+        .is_some_and(|tasks| tasks.iter().any(|t| t.get("type").and_then(|v| v.as_str()) == Some("shell")))
 }
 
 /// The hook-driven half of the state machine (spec §1.4 table, with every Faz 5 §4
@@ -270,6 +281,7 @@ pub fn apply_agent_hook(
             source: Source::Hook,
             session_id: None,
             background_tasks: Vec::new(),
+            background_shell: false,
             question_pending: false,
         },
     };
@@ -308,7 +320,12 @@ pub fn apply_agent_hook(
             new_state = AgentState::Working;
         }
         "PermissionRequest" => {
-            new_state = AgentState::Blocked;
+            // D-070: in auto mode the classifier usually approves without a dialog; a real
+            // dialog follows with a permission_prompt Notification. Questions always show one.
+            let auto_mode = payload.get("permission_mode").and_then(|v| v.as_str()) == Some("auto");
+            if !auto_mode || is_question_tool(tool_name) {
+                new_state = AgentState::Blocked;
+            }
             if tool_name.is_some() {
                 next.question_pending = is_question_tool(tool_name);
             }
@@ -320,8 +337,8 @@ pub fn apply_agent_hook(
                 .unwrap_or("");
             if BLOCKED_NOTIFICATION_TYPES.contains(&notification_type) {
                 new_state = AgentState::Blocked;
-            } else if notification_type == "idle_prompt" && waiting_on_background {
-                // 0.3.2: idle at the prompt = no background work left.
+            } else if notification_type == "idle_prompt" && waiting_on_background && !next.background_shell {
+                // 0.3.2: idle at the prompt = no background agent left (shells: D-071).
                 new_state = finished;
             }
             // Anything else (including `idle_prompt` otherwise) is ignored.
@@ -332,6 +349,7 @@ pub fn apply_agent_hook(
                 Some(labels) => {
                     new_state = AgentState::Working;
                     next.background_tasks = labels;
+                    next.background_shell = has_background_shell(payload);
                 }
                 None => new_state = finished,
             }
@@ -341,7 +359,10 @@ pub fn apply_agent_hook(
             // tasks left, only the labels follow.
             match background_task_labels(payload) {
                 Some(labels) if labels.is_empty() => new_state = finished,
-                Some(labels) => next.background_tasks = labels,
+                Some(labels) => {
+                    next.background_tasks = labels;
+                    next.background_shell = has_background_shell(payload);
+                }
                 None => {}
             }
         }
@@ -1087,6 +1108,7 @@ impl AgentTracker {
                             source: Source::Heuristic,
                             session_id: None,
                             background_tasks: Vec::new(),
+                            background_shell: false,
                             question_pending: false,
                         }),
                     );
@@ -1363,6 +1385,7 @@ mod tests {
             source,
             session_id: None,
             background_tasks: Vec::new(),
+            background_shell: false,
             question_pending: false,
         }
     }
@@ -1513,6 +1536,46 @@ mod tests {
             );
             assert_eq!(upsert(out).state, AgentState::Blocked, "notification_type={nt}");
         }
+    }
+
+    fn hook(prev: &Agent, event: &str, payload: serde_json::Value) -> Agent {
+        upsert(apply_hook(Some(prev), "p1", "w1", event, &payload, 20, false))
+    }
+
+    #[test]
+    fn auto_mode_permission_request_waits_for_the_real_dialog() {
+        let prev = hook_agent(AgentState::Working, 10);
+        let request = json!({"permission_mode": "auto", "tool_name": "Bash"});
+        let a = hook(&prev, "PermissionRequest", request);
+        assert_eq!(a.state, AgentState::Working);
+
+        let b = hook(&a, "Notification", json!({"notification_type": "permission_prompt"}));
+        assert_eq!(b.state, AgentState::Blocked);
+    }
+
+    #[test]
+    fn auto_mode_question_and_other_modes_block_on_the_request() {
+        let prev = hook_agent(AgentState::Working, 10);
+        for payload in [
+            json!({"permission_mode": "auto", "tool_name": "AskUserQuestion"}),
+            json!({"permission_mode": "default", "tool_name": "Bash"}),
+            json!({"tool_name": "Bash"}),
+        ] {
+            assert_eq!(hook(&prev, "PermissionRequest", payload).state, AgentState::Blocked);
+        }
+    }
+
+    #[test]
+    fn idle_prompt_finishes_background_agents_but_not_a_shell() {
+        let prev = hook_agent(AgentState::Working, 10);
+        let idle = json!({"notification_type": "idle_prompt"});
+
+        let shell = hook(&prev, "Stop", json!({"background_tasks": [{"type": "shell", "description": "NF-1"}]}));
+        let a = hook(&shell, "Notification", idle.clone());
+        assert_eq!((a.state, a.background_tasks.len()), (AgentState::Working, 1));
+
+        let agent = hook(&prev, "Stop", json!({"background_tasks": [{"type": "subagent", "agent_type": "x"}]}));
+        assert_eq!(hook(&agent, "Notification", idle).state, AgentState::Done);
     }
 
     #[test]

@@ -9,6 +9,8 @@ public static class SessionStateMachine
 
     public const string InactiveReason = "inactive";
 
+    private const string AutoPermissionMode = "auto";
+
     /// <summary>Applies a hook event. Returns the updated session and, if the state changed, the transition.</summary>
     /// <param name="zone">Local zone for reset times in error messages without one; defaults to the machine's.</param>
     public static (SessionInfo Session, SessionStateChanged? Change) Apply(SessionInfo? current, HookEvent e, TimeZoneInfo? zone = null)
@@ -68,13 +70,13 @@ public static class SessionStateMachine
             case HookEventKind.PreToolUse:
                 target = SessionState.Working;
                 detail = e.ToolName;
-                s = s with { CurrentTool = e.ToolName, TurnStartedAt = s.TurnStartedAt ?? at };
+                s = s with { CurrentTool = e.ToolName, TurnStartedAt = s.TurnStartedAt ?? at, PendingPermission = null };
                 break;
 
             case HookEventKind.PostToolUse:
             case HookEventKind.PostToolUseFailure:
                 target = SessionState.Working;
-                s = s with { CurrentTool = null, TurnStartedAt = s.TurnStartedAt ?? at };
+                s = s with { CurrentTool = null, TurnStartedAt = s.TurnStartedAt ?? at, PendingPermission = null };
                 break;
 
             case HookEventKind.Working:
@@ -110,8 +112,19 @@ public static class SessionStateMachine
                     break;
                 }
 
-                target = SessionState.WaitingPermission;
                 s = s with { CurrentTool = requested, PendingPermission = PendingFrom(e, requested, at) };
+                if (e.PermissionMode != AutoPermissionMode)
+                {
+                    target = SessionState.WaitingPermission;
+                }
+
+                // Auto mode: the classifier usually approves without a dialog and no event says so; the tool just runs.
+                // A real dialog follows with a permission_prompt Notification, which finds the prompt kept here (D-070).
+                break;
+
+            case HookEventKind.Notification when s.BackgroundShell && s.BackgroundTasks.Count > 0
+                && string.Equals(e.NotificationType, "idle_prompt", StringComparison.OrdinalIgnoreCase):
+                // idle_prompt does not wait for shells. Claude Code wakes the session when the shell ends (D-071).
                 break;
 
             case HookEventKind.Notification when s.BackgroundTasks.Count > 0
@@ -153,7 +166,7 @@ public static class SessionStateMachine
                 // Paused, not done: Claude Code wakes the session again when the background work finishes. No completed
                 // transition, so no toast and nothing unseen yet.
                 target = SessionState.Working;
-                s = s with { CurrentTool = null, TurnStartedAt = s.TurnStartedAt ?? at, BackgroundTasks = background };
+                s = s with { CurrentTool = null, TurnStartedAt = s.TurnStartedAt ?? at, BackgroundTasks = background, BackgroundShell = e.BackgroundShell };
                 break;
 
             case HookEventKind.Stop:
@@ -182,7 +195,7 @@ public static class SessionStateMachine
                 {
                     if (remaining.Count > 0)
                     {
-                        s = s with { BackgroundTasks = remaining };
+                        s = s with { BackgroundTasks = remaining, BackgroundShell = e.BackgroundShell };
                     }
                     else
                     {
@@ -245,7 +258,8 @@ public static class SessionStateMachine
             return Transition(ended, SessionState.Ended, now, InactiveReason, TransitionTrigger.StaleTimer, null);
         }
 
-        if (s.State == SessionState.Working && now - s.LastEventAt > options.StaleAfter)
+        // Background work is silent by nature: a long shell is not a hung session (D-071).
+        if (s.State == SessionState.Working && s.BackgroundTasks.Count == 0 && now - s.LastEventAt > options.StaleAfter)
         {
             var lastWrite = env.GetTranscriptLastWrite(s.TranscriptPath);
             if (lastWrite is null || now - lastWrite.Value > options.StaleAfter)

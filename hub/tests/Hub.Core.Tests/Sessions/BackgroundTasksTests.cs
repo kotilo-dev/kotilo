@@ -142,6 +142,65 @@ public sealed class BackgroundTasksTests
         s.LastCompletedAt.Should().Be(T0.AddMinutes(9));
     }
 
+    private static HookEvent ShellStop(DateTimeOffset at) => Stop(at, "NF-1 benchmark") with { BackgroundShell = true };
+
+    private static HookEvent IdlePrompt(DateTimeOffset at) =>
+        Hook(HookEventKind.Notification, at, message: "Claude is waiting for your input", notificationType: "idle_prompt");
+
+    [Fact]
+    public void Stop_payload_reports_a_background_shell()
+    {
+        ParseFixture("hooks/stop_background.json").BackgroundShell.Should().BeTrue();
+        ParseFixture("hooks/subagent_stop_no_background.json").BackgroundShell.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Idle_prompt_does_not_finish_a_running_shell()
+    {
+        var (s, changes) = Run(Hook(HookEventKind.UserPromptSubmit, T0), ShellStop(T0.AddMinutes(1)), IdlePrompt(T0.AddMinutes(2)));
+
+        s.State.Should().Be(SessionState.Working);
+        s.BackgroundTasks.Should().Equal("NF-1 benchmark");
+        s.LastCompletedAt.Should().BeNull();
+        changes.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void The_wake_up_turn_after_a_shell_finishes_the_session()
+    {
+        var (s, _) = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            ShellStop(T0.AddMinutes(1)),
+            IdlePrompt(T0.AddMinutes(2)),
+            Hook(HookEventKind.PreToolUse, T0.AddMinutes(30), tool: "Read"),
+            Stop(T0.AddMinutes(31)));
+
+        s.State.Should().Be(SessionState.Idle);
+        s.LastCompletedAt.Should().Be(T0.AddMinutes(31));
+    }
+
+    [Fact]
+    public void Subagent_left_after_the_shell_ended_finishes_on_idle_prompt()
+    {
+        var (s, _) = Run(
+            Hook(HookEventKind.UserPromptSubmit, T0),
+            ShellStop(T0.AddMinutes(1)),
+            Hook(HookEventKind.SubagentStop, T0.AddMinutes(2)) with { BackgroundTasks = ["backend-expert"], BackgroundShell = false },
+            IdlePrompt(T0.AddMinutes(3)));
+
+        s.State.Should().Be(SessionState.Idle);
+    }
+
+    [Fact]
+    public void Background_work_never_goes_stale()
+    {
+        var (s, _) = Run(Hook(HookEventKind.UserPromptSubmit, T0), ShellStop(T0.AddMinutes(1)));
+
+        var (_, change) = SessionStateMachine.Evaluate(s, T0.AddHours(2), new FakeEnvironment(), new SessionOptions());
+
+        change.Should().BeNull();
+    }
+
     [Fact]
     public void New_prompt_clears_the_labels()
     {

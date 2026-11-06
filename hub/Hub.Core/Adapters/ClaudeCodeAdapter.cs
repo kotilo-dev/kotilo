@@ -23,12 +23,20 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
         {
             Message = AdapterMapping.Truncate(JsonFields.GetString(p, "message")),
             NotificationType = JsonFields.GetString(p, "notification_type"),
+            PermissionMode = JsonFields.GetString(p, "permission_mode"),
             Reason = JsonFields.GetString(p, "reason"),
             ErrorType = JsonFields.GetString(p, "error"),
             ErrorDetails = AdapterMapping.Truncate(JsonFields.GetString(p, "error_details")),
             BackgroundTasks = e.Kind is HookEventKind.Stop or HookEventKind.SubagentStop ? BackgroundTasks(p) : null,
+            BackgroundShell = HasBackgroundShell(p),
         };
     }
+
+    private static bool HasBackgroundShell(JsonElement payload) =>
+        payload.ValueKind == JsonValueKind.Object
+        && payload.TryGetProperty("background_tasks", out var v)
+        && v.ValueKind == JsonValueKind.Array
+        && v.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.Object && JsonFields.GetString(x, "type") == "shell");
 
     public const int MaxBackgroundTasks = 10;
 

@@ -36,6 +36,9 @@ public sealed record HookEvent(
 
     public string? NotificationType { get; init; }
 
+    /// <summary>Claude Code <c>permission_mode</c> (default, plan, acceptEdits, auto, dontAsk, bypassPermissions).</summary>
+    public string? PermissionMode { get; init; }
+
     /// <summary>SessionStart source: startup / resume / clear / compact / fork.</summary>
     public string? Source { get; init; }
 
@@ -88,6 +91,9 @@ public sealed record HookEvent(
     /// payload has no such array. Non-empty: the turn paused while background work runs. In memory only.
     /// </summary>
     public IReadOnlyList<string>? BackgroundTasks { get; init; }
+
+    /// <summary><see cref="BackgroundTasks"/> includes a <c>shell</c> task: <c>idle_prompt</c> says nothing about those.</summary>
+    public bool BackgroundShell { get; init; }
 
     /// <summary>A TodoWrite plan (<c>tool_input.todos</c>, texts clipped by agenthub-hook). In memory only.</summary>
     public IReadOnlyList<TodoItem>? Todos { get; init; }

@@ -80,6 +80,69 @@ public class PermissionPromptTests
         s.PendingPermission.Should().Be(new PermissionPrompt("Bash", null, null, null, T0.AddSeconds(2)));
     }
 
+    private const string AutoBash = """{"permission_mode":"auto","tool_name":"Bash","tool_input":{"command":"gradlew test"}}""";
+
+    private static SessionInfo Running(string permissionRequest)
+    {
+        var (s, _) = SessionStateMachine.Apply(null, Claude("UserPromptSubmit", "{}", T0));
+        (s, _) = SessionStateMachine.Apply(s, Claude("PreToolUse", AutoBash, T0.AddSeconds(1)));
+        return SessionStateMachine.Apply(s, Claude("PermissionRequest", permissionRequest, T0.AddSeconds(2))).Session;
+    }
+
+    [Fact]
+    public void Auto_mode_request_keeps_working_while_the_classifier_lets_the_tool_run()
+    {
+        var s = Running(AutoBash);
+
+        s.State.Should().Be(SessionState.Working);
+        s.CurrentTool.Should().Be("Bash");
+
+        (s, var change) = SessionStateMachine.Apply(s, Claude("PostToolUse", AutoBash, T0.AddMinutes(45)));
+
+        change.Should().BeNull();
+        s.State.Should().Be(SessionState.Working);
+        s.PendingPermission.Should().BeNull();
+    }
+
+    [Fact]
+    public void Auto_mode_real_dialog_waits_on_the_notification_and_shows_the_kept_command()
+    {
+        var s = Running(AutoBash);
+
+        (s, var change) = SessionStateMachine.Apply(s, Claude("Notification", """{"notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}""", T0.AddSeconds(8)));
+
+        change!.To.Should().Be(SessionState.WaitingPermission);
+        s.PendingPermission.Should().Be(new PermissionPrompt("Bash", "gradlew test", null, PermissionRisk.Other, T0.AddSeconds(2)));
+    }
+
+    [Fact]
+    public void Auto_mode_prompt_a_denial_left_behind_does_not_reach_the_next_tool()
+    {
+        var s = Running(AutoBash);
+
+        (s, _) = SessionStateMachine.Apply(s, Claude("PreToolUse", """{"tool_name":"WebFetch"}""", T0.AddSeconds(3)));
+        (s, _) = SessionStateMachine.Apply(s, Claude("Notification", """{"notification_type":"permission_prompt","message":"Claude needs your permission to use WebFetch"}""", T0.AddSeconds(9)));
+
+        s.PendingPermission.Should().Be(new PermissionPrompt("WebFetch", null, null, null, T0.AddSeconds(9)));
+    }
+
+    [Theory]
+    [InlineData("default", SessionState.WaitingPermission)]
+    [InlineData("acceptEdits", SessionState.WaitingPermission)]
+    [InlineData("plan", SessionState.WaitingPermission)]
+    public void Other_modes_wait_on_the_request_itself(string mode, SessionState expected)
+    {
+        Running($$"""{"permission_mode":"{{mode}}","tool_name":"Bash"}""").State.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("AskUserQuestion")]
+    [InlineData("ExitPlanMode")]
+    public void Auto_mode_question_tools_still_wait_for_input(string tool)
+    {
+        Running($$"""{"permission_mode":"auto","tool_name":"{{tool}}"}""").State.Should().Be(SessionState.WaitingInput);
+    }
+
     [Fact]
     public void A_stop_clears_the_prompt()
     {

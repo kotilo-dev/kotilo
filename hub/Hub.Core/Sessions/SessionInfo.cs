@@ -50,6 +50,9 @@ public sealed record SessionInfo(
     /// </summary>
     public IReadOnlyList<string> BackgroundTasks { get; init; } = [];
 
+    /// <summary><see cref="BackgroundTasks"/> includes a shell, which <c>idle_prompt</c> does not wait for (D-071). In memory only.</summary>
+    public bool BackgroundShell { get; init; }
+
     /// <summary>Set while <see cref="State"/> is <see cref="SessionState.Error"/>.</summary>
     public SessionError? Error { get; init; }
 
