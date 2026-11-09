@@ -59,6 +59,24 @@ export function workspaceForFolder(
   return best ? { workspaceId: best.workspaceId, cwdRel: best.cwdRel } : null;
 }
 
+/**
+ * 0.6: where a resumed session's terminal opens. Agents keep sessions per folder, so a session
+ * that ran in a git worktree resumes there (`worktree`, when a workspace holds it and the folder
+ * still exists); otherwise in its project folder as before. Null when no workspace holds either.
+ */
+export async function resumeTarget(
+  workspaces: readonly Pick<Workspace, "id" | "path">[],
+  row: Pick<SessionHistoryRow, "projectRoot" | "worktree">,
+  caseInsensitive: boolean,
+  exists: (workspaceId: string, rel: string) => Promise<boolean>,
+): Promise<{ workspaceId: string; cwdRel: string } | null> {
+  if (row.worktree) {
+    const inWorktree = workspaceForFolder(workspaces, row.worktree, caseInsensitive);
+    if (inWorktree && (await exists(inWorktree.workspaceId, inWorktree.cwdRel).catch(() => false))) return inWorktree;
+  }
+  return workspaceForFolder(workspaces, row.projectRoot, caseInsensitive);
+}
+
 /** Case-insensitive match on project, folder, model, agent (id or name) and session id. */
 export function filterSessions(rows: readonly SessionHistoryRow[], query: string, agentName: (id: string) => string): SessionHistoryRow[] {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);

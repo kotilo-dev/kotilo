@@ -33,6 +33,8 @@ public static class SessionStateMachine
             Model = e.Model ?? s.Model,
             ParentPid = AgentProcessResolver.Resolve(e) ?? s.ParentPid,
             PaneId = e.PaneId ?? s.PaneId,
+            Worktree = e.Worktree ?? s.Worktree,
+            WorktreeBranch = e.Worktree is not null ? e.WorktreeBranch : s.WorktreeBranch,
         };
 
         if (e.ContextPercent is { } reported)
@@ -363,6 +365,8 @@ public static class SessionStateMachine
         {
             Agent = e.Agent,
             PaneId = e.PaneId,
+            Worktree = e.Worktree,
+            WorktreeBranch = e.WorktreeBranch,
         };
     }
 }

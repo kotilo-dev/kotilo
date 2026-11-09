@@ -33,6 +33,26 @@ public class SessionStateMachineTests
     }
 
     [Fact]
+    public void Worktree_session_keeps_the_main_project_and_tracks_the_worktree_branch()
+    {
+        const string wt = @"C:\src\alpha\.kotilo\worktrees\fix";
+        var s = Run(
+            Hook(HookEventKind.SessionStart, T0) with { Worktree = wt, WorktreeBranch = "kotilo/fix" },
+            Hook(HookEventKind.UserPromptSubmit, T0.AddSeconds(1)) with { Worktree = wt, WorktreeBranch = "kotilo/fix-2" });
+
+        s.ProjectRoot.Should().Be(@"C:\src\alpha");
+        s.ProjectName.Should().Be("alpha");
+        s.Worktree.Should().Be(wt);
+        s.WorktreeBranch.Should().Be("kotilo/fix-2", "the agent may switch branches inside its worktree");
+
+        var later = SessionStateMachine.Apply(s, Hook(HookEventKind.Stop, T0.AddSeconds(2), cwd: null)).Session;
+        later.Worktree.Should().Be(wt, "an event without a worktree does not clear it");
+        later.WorktreeBranch.Should().Be("kotilo/fix-2");
+
+        Run(Hook(HookEventKind.SessionStart, T0)).Worktree.Should().BeNull();
+    }
+
+    [Fact]
     public void UserPromptSubmit_goes_to_working_and_starts_turn()
     {
         var s = Run(Hook(HookEventKind.SessionStart, T0), Hook(HookEventKind.UserPromptSubmit, T0.AddSeconds(5)));

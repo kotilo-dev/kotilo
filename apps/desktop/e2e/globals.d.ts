@@ -14,5 +14,13 @@ declare global {
     __e2eClipboard: string[];
     __e2eOpenedUrls: string[];
     __e2eCompanion: { agents: unknown[]; usage: unknown[]; sent: unknown[]; keys: { paneId: string; keys: string }[] };
+    /** 0.6: worktree commands the mocked IPC saw (src/e2e/worktreeFixtures.ts). */
+    __e2eWorktree: {
+      created: string[];
+      merges: { name: string; squash: boolean; message: string | null }[];
+      removes: { name: string; force: boolean; deleteBranch: boolean; forceBranch: boolean }[];
+      showHead: { path: string; rev: string | null }[];
+      spawns: { cwdRel: string; agentCommand: string | null }[];
+    };
   }
 }

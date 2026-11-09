@@ -8,7 +8,7 @@ import { useStrings } from "../../app/i18n";
 import { AgentAvatar, agentDisplayName } from "../../app/ui";
 import { formatCost, formatDuration, formatTokenCount } from "../../app/ui/format";
 import { StatusPill } from "../../app/ui/StatusPill";
-import { clipboardWriteText, type Agent } from "../../lib/ipc";
+import { clipboardWriteText, fsExists, type Agent } from "../../lib/ipc";
 import type { SessionHistoryRow, SessionState } from "../../lib/hubTypes";
 import { platformId } from "../../lib/platform";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
@@ -22,7 +22,7 @@ import { Button, EmptyState, Notice, Page, PageHeader, SectionLabel, Segmented, 
 import { useHubResource } from "../settings/hubData";
 import { formatRelative } from "../tasks/taskLogic";
 import { ContextMenu, type ContextMenuState } from "../workspaces/ContextMenu";
-import { filterSessions, groupSessions, resumeCommand, workspaceForFolder, type SessionGrouping } from "./sessionHistory";
+import { filterSessions, groupSessions, resumeCommand, resumeTarget, workspaceForFolder, type SessionGrouping } from "./sessionHistory";
 
 type Scope = "workspace" | "all";
 type Days = "7" | "30" | "90";
@@ -157,11 +157,13 @@ function SessionRow({ row, agentName, showProject }: { row: SessionHistoryRow; a
 
   const resume = async () => {
     if (!command) return;
-    let target = workspaceForFolder(useWorkspaceStore.getState().workspaces, row.projectRoot, caseInsensitivePaths());
+    // 0.6: a worktree session resumes in its worktree (agents store sessions per folder).
+    const findTarget = () => resumeTarget(useWorkspaceStore.getState().workspaces, row, caseInsensitivePaths(), fsExists);
+    let target = await findTarget();
     if (!target) {
       // Not in any workspace yet: open the session's folder as one.
       await useWorkspaceStore.getState().addWorkspace(row.projectRoot);
-      target = await waitForWorkspace(row.projectRoot);
+      if (await waitForWorkspace(row.projectRoot)) target = await findTarget();
     }
     if (!target) {
       useToastStore.getState().show(t.folderMissing(row.projectRoot));

@@ -17,6 +17,7 @@ import { applyWindowOpacity } from "../../app/theme/applyTheme";
 import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, RangeSlider, Select } from "./controls";
 import { EditableList } from "./EditableList";
 import { TerminalSchemePicker, ThemePicker, WtSchemeImport } from "./ThemeSettings";
+import { DEFAULT_BRANCH_PREFIX } from "../worktrees/worktreeLogic";
 
 /** D-065: the range of Settings → Appearance → Background opacity (the backend clamps the same). */
 const MIN_WINDOW_OPACITY = 30;
@@ -124,6 +125,8 @@ export function TerminalSection() {
   const terminal = useSettingsStore((st) => st.settings.terminal);
   const update = useSettingsStore((st) => st.update);
   const profiles = useTerminalStore((st) => st.profiles);
+  const worktreePrefix = useSettingsStore((st) => st.settings.worktrees?.branchPrefix ?? DEFAULT_BRANCH_PREFIX);
+  const lastError = useSettingsStore((st) => st.lastError);
   const detected = getTerminalFontSuggestion();
   const usesDetected = detected !== null && effectiveTerminalFont(terminal.fontFamily) !== terminal.fontFamily;
   const features = platformFeatures();
@@ -164,6 +167,19 @@ export function TerminalSection() {
       )}
       <TerminalSchemePicker />
       {features.windowsTerminalSchemes && <WtSchemeImport />}
+      <Field
+        label={s.worktrees.settings.branchPrefix}
+        hint={s.worktrees.settings.branchPrefixHint}
+        error={lastError?.code === "invalid_argument" && /prefix/i.test(lastError.message) ? lastError.message : null}
+      >
+        {({ id }) => (
+          <DebouncedText
+            id={id}
+            value={worktreePrefix}
+            onCommit={(v) => update({ worktrees: { branchPrefix: v.trim() } })}
+          />
+        )}
+      </Field>
     </div>
   );
 }

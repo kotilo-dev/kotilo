@@ -4,7 +4,8 @@
 //! `.git` itself (to find the actual git dir, for a worktree/submodule) and that dir's
 //! `HEAD` — never anything else under `.git` (no refs, no packed-refs, no config).
 //!
-//! M4 adds `git_changes` / `git_show_head`, which run the git CLI (`crate::gitcli`).
+//! M4 adds `git_changes` / `git_show_head`, which run the git CLI (`crate::gitcli`); 0.6 adds
+//! the `worktree_*` commands (`crate::gitcli::worktree`).
 
 use std::path::{Path, PathBuf};
 
@@ -12,7 +13,8 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
-use crate::gitcli;
+use crate::gitcli::{self, worktree};
+use crate::settings::SettingsStore;
 use crate::workspace::WorkspaceStore;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -102,17 +104,84 @@ pub async fn git_changes(store: State<'_, WorkspaceStore>, workspace_id: String)
 
 /// M4: a file's `HEAD` content for the diff view. `path` is workspace-relative with `/`
 /// separators; `..`, absolute paths and drive letters are rejected (`outside_workspace`).
+/// 0.6: optional `rev` (default `HEAD`, a commit id or ref name); git runs in the nearest
+/// existing folder of `path`, so a path inside a worktree reads from that worktree.
 #[tauri::command]
 pub async fn git_show_head(
     store: State<'_, WorkspaceStore>,
     workspace_id: String,
     path: String,
+    rev: Option<String>,
 ) -> AppResult<gitcli::HeadContent> {
     let root = PathBuf::from(store.find_path(&workspace_id)?);
     gitcli::validate_rel(&path)?;
-    tauri::async_runtime::spawn_blocking(move || gitcli::show_head_at(&root, &path))
+    let rev = rev.unwrap_or_else(|| "HEAD".to_string());
+    gitcli::validate_rev(&rev)?;
+    blocking(move || Ok(gitcli::show_at(&root, &path, &rev))).await
+}
+
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
+    tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|e| AppError::io(e.to_string()))
+        .map_err(|e| AppError::io(e.to_string()))?
+}
+
+/// 0.6: the workspace's linked worktrees (see `crate::gitcli::worktree`).
+#[tauri::command]
+pub async fn worktree_list(store: State<'_, WorkspaceStore>, workspace_id: String) -> AppResult<worktree::WorktreeList> {
+    let root = PathBuf::from(store.find_path(&workspace_id)?);
+    blocking(move || worktree::list_at(&root)).await
+}
+
+/// 0.6: a new worktree `.kotilo/worktrees/<slug>` on branch `<worktrees.branchPrefix><slug>`.
+#[tauri::command]
+pub async fn worktree_create(
+    store: State<'_, WorkspaceStore>,
+    settings: State<'_, SettingsStore>,
+    workspace_id: String,
+    name: String,
+) -> AppResult<worktree::WorktreeInfo> {
+    let root = PathBuf::from(store.find_path(&workspace_id)?);
+    let prefix = settings.get().worktrees.branch_prefix;
+    blocking(move || worktree::create_at(&root, &name, &prefix)).await
+}
+
+/// 0.6: a worktree's changes against the merge base with its base branch.
+#[tauri::command]
+pub async fn worktree_changes(
+    store: State<'_, WorkspaceStore>,
+    workspace_id: String,
+    name: String,
+) -> AppResult<worktree::WorktreeChanges> {
+    let root = PathBuf::from(store.find_path(&workspace_id)?);
+    blocking(move || worktree::changes_at(&root, &name)).await
+}
+
+/// 0.6: merges (or squash-merges) a managed worktree's branch into its base.
+#[tauri::command]
+pub async fn worktree_merge(
+    store: State<'_, WorkspaceStore>,
+    workspace_id: String,
+    name: String,
+    squash: bool,
+    message: Option<String>,
+) -> AppResult<worktree::MergeResult> {
+    let root = PathBuf::from(store.find_path(&workspace_id)?);
+    blocking(move || worktree::merge_at(&root, &name, squash, message.as_deref())).await
+}
+
+/// 0.6: removes a managed worktree (and optionally its branch).
+#[tauri::command]
+pub async fn worktree_remove(
+    store: State<'_, WorkspaceStore>,
+    workspace_id: String,
+    name: String,
+    force: bool,
+    delete_branch: bool,
+    force_branch: bool,
+) -> AppResult<worktree::RemoveResult> {
+    let root = PathBuf::from(store.find_path(&workspace_id)?);
+    blocking(move || worktree::remove_at(&root, &name, force, delete_branch, force_branch)).await
 }
 
 #[cfg(test)]

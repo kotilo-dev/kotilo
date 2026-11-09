@@ -14,6 +14,7 @@ import * as composerFx from "./composerFixtures";
 import * as timelineFx from "./timelineFixtures";
 import * as assistantFx from "./assistantFixtures";
 import * as themeFx from "./themeFixtures";
+import * as worktreeFx from "./worktreeFixtures";
 
 declare global {
   interface Window {
@@ -200,9 +201,19 @@ mockIPC(
       case "git_changes":
         return timelineFx.gitChanges;
       case "git_show_head":
-        return timelineFx.showHead(String(args.path ?? ""));
+        return worktreeFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? timelineFx.showHead(String(args.path ?? ""));
       case "fs_read_text":
-        return timelineFx.readText(String(args.rel ?? ""));
+        return worktreeFx.readText(String(args.rel ?? "")) ?? timelineFx.readText(String(args.rel ?? ""));
+      case "worktree_list":
+        return worktreeFx.list();
+      case "worktree_create":
+        return worktreeFx.create(String(args.name ?? ""));
+      case "worktree_changes":
+        return worktreeFx.changes(String(args.name ?? ""));
+      case "worktree_merge":
+        return worktreeFx.merge(String(args.name ?? ""), args.squash === true, typeof args.message === "string" ? args.message : null);
+      case "worktree_remove":
+        return worktreeFx.remove(String(args.name ?? ""), args.force === true, args.deleteBranch === true, args.forceBranch === true);
       case "git_head":
         return { kind: "branch", name: "feature/approval-flow" };
       case "update_check":
@@ -222,6 +233,7 @@ mockIPC(
       case "pty_profiles":
         return [{ id: "pwsh", name: "PowerShell", program: "pwsh.exe", args: [], available: true }];
       case "pty_spawn": {
+        window.__e2eWorktree.spawns.push({ cwdRel: String(args.cwdRel ?? ""), agentCommand: typeof args.agentCommand === "string" ? args.agentCommand : null });
         const paneId = paneIds[spawned++ % paneIds.length]!;
         return { paneId, pid: 1000 + spawned };
       }

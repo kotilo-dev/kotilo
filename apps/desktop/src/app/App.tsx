@@ -47,6 +47,8 @@ import { installUnseenWork } from "../features/agents/unseenWork";
 import { installCompanion } from "../features/companion/companionBridge";
 import { useDefinitionsStore } from "../stores/definitionsStore";
 import { installLeftoverListener } from "../stores/leftoverStore";
+import { WorktreeDialogs } from "../features/worktrees/WorktreeDialogs";
+import { installWorktreeCommands } from "../features/worktrees/worktreeActions";
 
 const WORKSPACE_SHORTCUT_COUNT = 9;
 
@@ -117,6 +119,8 @@ export function App() {
   // M3: "Agents: New <agent>" palette commands for every installed adapter definition plus
   // the user's own commands (re-registered when either list changes).
   useEffect(() => installLaunchCommands(), []);
+  // 0.6: "Agents: New agent in worktree…".
+  useEffect(() => installWorktreeCommands(), []);
 
   // D-069: "Run: <name>" / "Prompt: <name>" palette commands for the quick commands.
   useEffect(() => installQuickCommands(), []);
@@ -403,6 +407,7 @@ export function App() {
       <AppTray />
       <QuickPick />
       <HelpModal />
+      <WorktreeDialogs />
     </div>
   );
 }

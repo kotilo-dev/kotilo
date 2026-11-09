@@ -90,7 +90,7 @@ function ActiveTabBody({ workspaceId, tab, kind }: { workspaceId: string; tab: V
   const needsDoc = TEXTUAL_KINDS.has(kind);
   const doc = useDocument(workspaceId, tab.rel);
 
-  if (tab.diff) return <DiffView workspaceId={workspaceId} rel={tab.rel} />;
+  if (tab.diff) return <DiffView workspaceId={workspaceId} rel={tab.rel} rev={tab.diffRev} />;
   if (needsDoc && doc?.status === "error" && doc.error?.code === "binary_file") {
     return <UnsupportedView workspaceId={workspaceId} rel={tab.rel} />;
   }

@@ -698,6 +698,43 @@ işaretlenir; önizlemeleri yoktur ve açılamazlar; kutucukları bunun yerine a
 servisinin bildiklerini gösterir (bekleyen bir izin, ajanın son bildirimi ya da çalışan
 aracı). Böyle bir oturumun Bitti kutucuğuna tıklamak onu görüldü sayar.
 
+## Worktree'ler
+
+Worktree'ler, birden çok ajanın aynı repoda birbirinin dosyalarına dokunmadan çalışmasını
+sağlar. Her ajan kendi git worktree'sini alır – reponun kendi dalında ikinci bir kopyası –
+ve karşılaştırma, birleştirme ve temizliği Kotilo'dan yaparsınız. Her ajanla çalışır.
+
+**Başlatmak için:** workspace'in sağ tık menüsünde, terminalin **Yeni ajan** menüsünde, komut
+paletinde ya da Görev kontroldeki Worktree'ler panelinde **Worktree'de yeni ajan…**. Bir ad
+verip ajanı seçin. Kotilo, ana kopyanın güncel commit'inden başlayarak `kotilo/<ad>` dalında
+`.kotilo/worktrees/<ad>` klasörünü oluşturur (önek Ayarlar → Terminal'de) ve orada ajanı
+çalıştıran bir terminal sekmesi açar. Sekme, ajan başlığı ve Görev kontrol kutucuğu dalı rozet
+olarak gösterir. Kotilo `.kotilo/` klasörünü reponun kendi `info/exclude` dosyasıyla git'ten
+gizler; `.gitignore` dosyanız değişmez. Worktree dosyaları dosya ağacında ve hızlı açmada
+görünmez.
+
+Worktree'ler için workspace'in reponun en üst klasörü olması ve en az bir commit gerekir.
+
+**Worktree'ler paneli** (Görev kontrol, kutucukların altında): her worktree için bir satır;
+dal, içinde çalışan ajanlar, commit edilmemiş dosyalar, ana dalın önünde/gerisinde olan
+commit'ler ve değişen satırlar. Workspace içinde başka araçların oluşturduğu worktree'ler
+(örneğin `.claude/worktrees/`) yalnızca terminal ve karşılaştırma için listelenir.
+
+- **Karşılaştır**, worktree'nin değişikliklerini (commit'ler ve commit edilmemiş işler) ana
+  daldan ayrıldığı noktaya göre listeler; her dosya diff görünümünde açılır, inceleme notları
+  her zamanki gibi çalışır.
+- **Birleştir**, dalı ana kopyada kendi ana dalına alır: birleştirme commit'i ya da tek bir
+  squash commit'i olarak. Hiçbir şey push edilmez. Ana kopyada ya da worktree'de commit
+  edilmemiş değişiklik varken reddeder (önce ajandan commit etmesini isteyin). Çakışma olursa
+  birleştirme geri alınır ve dosyalar listelenir; bunları bir terminalde çözün (örneğin ana
+  dalı worktree'ye birleştirerek) ve tekrar deneyin.
+- **Kaldır**, worktree'nin terminal sekmelerini kapatır, sonra klasörü ve isterseniz dalı
+  siler. Commit edilmemiş değişikliği ya da birleştirilmemiş commit'i olan worktree için ek
+  onay istenir.
+
+Worktree ajanlarının oturumları Kullanım, Oturumlar ve Projeler'de ana projeye sayılır;
+Oturumlar'dan sürdürülen bir oturum terminali kendi worktree'sinde açar.
+
 ## Kullanım
 
 Son 30 günün günlük kullanımı token ya da maliyet olarak, ajana göre süzülebilir; son

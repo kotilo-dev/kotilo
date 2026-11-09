@@ -147,6 +147,30 @@ public sealed class TranscriptScannerTests : IDisposable
     }
 
     [Fact]
+    public void Usage_from_a_linked_worktree_is_grouped_under_the_main_repository()
+    {
+        // A worktree at <repo>/.kotilo/worktrees/fix (0.6): .git file -> gitdir -> commondir -> <repo>/.git.
+        var repo = Directory.CreateDirectory(_dir.File("repo")).FullName;
+        var gitDir = Directory.CreateDirectory(Path.Combine(repo, ".git", "worktrees", "fix")).FullName;
+        File.WriteAllText(Path.Combine(gitDir, "commondir"), "../..\n");
+        var wt = Directory.CreateDirectory(Path.Combine(repo, ".kotilo", "worktrees", "fix")).FullName;
+        File.WriteAllText(Path.Combine(wt, ".git"), "gitdir: " + gitDir + "\n");
+
+        var db = new Database(_dir.File("wt.db"));
+        db.Migrate();
+        var usage = new UsageRepository(db);
+        var pricing = PricingTable.Parse(PricingProvider.DefaultJson());
+        var scanner = new TranscriptScanner(_projects, new TranscriptOffsetStore(db), usage, () => pricing, new Hub.Infrastructure.Projects.ProjectRootResolver());
+        var cwd = System.Text.Json.JsonSerializer.Serialize(Path.Combine(wt, "src"));
+        Append(Line("m1", 10).Replace("\"cwd\":\"C:\\\\src\\\\alpha\"", "\"cwd\":" + cwd, StringComparison.Ordinal) + "\n");
+
+        scanner.ScanAll(DateTime.MinValue).Entries.Should().Be(1);
+
+        var byProject = UsageAggregator.ByProject(usage.Load(DateTimeOffset.MinValue));
+        byProject.Select(b => b.Key).Should().Equal([repo], "the worktree is not a project of its own");
+    }
+
+    [Fact]
     public void Missing_projects_folder_is_fine()
     {
         var scanner = new TranscriptScanner(_dir.File("none"), null!, null!, () => PricingTable.Empty);

@@ -911,6 +911,8 @@ export interface Settings {
   window?: { closeToTray: boolean };
   /** D-072: "Connect to Kotilo Deck"; missing means on. */
   companion?: { enabled: boolean };
+  /** 0.6: branch name prefix of new worktrees (Rust default `kotilo/`); optional for older fixtures. */
+  worktrees?: { branchPrefix: string };
 }
 
 export interface SavedPrompt {
@@ -984,9 +986,113 @@ export interface GitHeadContent {
   tooLarge: boolean;
 }
 
-/** A file's HEAD version for the diff view. `..`/absolute paths reject with `outside_workspace`. */
-export async function gitShowHead(workspaceId: string, path: string): Promise<GitHeadContent> {
-  return invoke<GitHeadContent>("git_show_head", { workspaceId, path });
+/**
+ * A file's version at `rev` (default `HEAD`) for the diff view. `..`/absolute paths reject with
+ * `outside_workspace`. 0.6: git runs in the nearest existing folder of `path`, so a path inside a
+ * worktree reads from that worktree's repo (the compare view passes the merge-base as `rev`).
+ */
+export async function gitShowHead(workspaceId: string, path: string, rev?: string): Promise<GitHeadContent> {
+  return invoke<GitHeadContent>("git_show_head", rev ? { workspaceId, path, rev } : { workspaceId, path });
+}
+
+// 0.6 — worktrees for parallel agents (shared contract: Rust ⇄ webview ⇄ hub). Worktrees live
+// at `<workspace>/.kotilo/worktrees/<name>` on branch `<branchPrefix><name>`; only worktrees
+// inside the workspace root are listed, the main checkout never is.
+
+export type WorktreeUnsupported = "noGit" | "notRepo" | "notRepoRoot" | "noCommit";
+
+export interface WorktreeInfo {
+  /** Folder name (last path segment). */
+  name: string;
+  /** Workspace-relative, `/`-separated, e.g. `.kotilo/worktrees/fix-login`. */
+  rel: string;
+  /** Short branch name; `null` when detached. */
+  branch: string | null;
+  /** Full commit id. */
+  head: string | null;
+  /** Base branch (`branch.<b>.kotiloBase`, else the main checkout's branch). */
+  base: string | null;
+  /** Ours (under `.kotilo/worktrees/`); others are list/compare/terminal only. */
+  managed: boolean;
+  locked: boolean;
+  /** The folder is missing. */
+  prunable: boolean;
+  /** Tracked changes + untracked files in the worktree. */
+  dirty: number;
+  /** Commits on the branch not on the base. */
+  ahead: number;
+  /** Commits on the base not on the branch. */
+  behind: number;
+  /** Lines, merge-base(base, HEAD) vs the worktree's working copy (tracked files). */
+  added: number;
+  removed: number;
+}
+
+export interface WorktreeList {
+  supported: boolean;
+  reason: WorktreeUnsupported | null;
+  /** The main checkout's branch. */
+  currentBranch: string | null;
+  /** The main checkout has tracked changes. */
+  mainDirty: boolean;
+  /** Sorted by name. */
+  worktrees: WorktreeInfo[];
+}
+
+export async function worktreeList(workspaceId: string): Promise<WorktreeList> {
+  return invoke<WorktreeList>("worktree_list", { workspaceId });
+}
+
+/** Creates the folder + branch from the main checkout's HEAD. Errors: `invalid_name`, `already_exists`. */
+export async function worktreeCreate(workspaceId: string, name: string): Promise<WorktreeInfo> {
+  return invoke<WorktreeInfo>("worktree_create", { workspaceId, name });
+}
+
+export interface WorktreeChanges {
+  /** Merge-base commit id used for the diff's left side; `null` if none. */
+  base: string | null;
+  /** Workspace-relative paths (prefixed with the worktree's rel), committed + uncommitted + untracked vs the merge-base. */
+  files: GitChangedFile[];
+  truncated: boolean;
+}
+
+export async function worktreeChanges(workspaceId: string, name: string): Promise<WorktreeChanges> {
+  return invoke<WorktreeChanges>("worktree_changes", { workspaceId, name });
+}
+
+export type WorktreeMergeStatus = "merged" | "upToDate" | "conflict" | "mainDirty" | "worktreeDirty" | "notOnBase" | "failed";
+
+export interface WorktreeMergeResult {
+  status: WorktreeMergeStatus;
+  conflicts: string[];
+  /** git's stderr (last 2000 chars). */
+  detail: string | null;
+}
+
+/** Merges into the base in the main checkout; a conflict is aborted and reported. Unmanaged → `invalid_name`. */
+export async function worktreeMerge(
+  workspaceId: string,
+  name: string,
+  opts: { squash: boolean; message?: string | null },
+): Promise<WorktreeMergeResult> {
+  return invoke<WorktreeMergeResult>("worktree_merge", { workspaceId, name, squash: opts.squash, message: opts.message ?? null });
+}
+
+export type WorktreeRemoveStatus = "removed" | "dirty" | "unmerged" | "failed";
+
+export interface WorktreeRemoveResult {
+  status: WorktreeRemoveStatus;
+  branchDeleted: boolean;
+  detail: string | null;
+}
+
+/** `dirty` / `unmerged` unless the matching force flag is set. The caller closes the worktree's terminals first. */
+export async function worktreeRemove(
+  workspaceId: string,
+  name: string,
+  opts: { force: boolean; deleteBranch: boolean; forceBranch: boolean },
+): Promise<WorktreeRemoveResult> {
+  return invoke<WorktreeRemoveResult>("worktree_remove", { workspaceId, name, ...opts });
 }
 
 // ---------------------------------------------------------------------------

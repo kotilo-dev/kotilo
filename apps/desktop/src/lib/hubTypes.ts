@@ -88,6 +88,13 @@ export interface SessionDto {
   unseen: boolean;
   /** 0.3.2: background work keeping the session Working after its turn; missing on older hubs. */
   backgroundTasks?: string[];
+  /**
+   * 0.6: absolute native path of the linked git worktree root the session runs in (its
+   * `projectRoot` is then the main repo root); missing on older hubs.
+   */
+  worktree?: string | null;
+  /** 0.6: that worktree's branch; missing on older hubs. */
+  worktreeBranch?: string | null;
 }
 
 export interface TransitionDto {
@@ -772,4 +779,8 @@ export interface SessionHistoryRow {
   tokens: number;
   /** Null when some usage has no known price. */
   costUsd: number | null;
+  /** 0.6: absolute native path of the worktree root (`projectRoot` is the main repo); missing on older hubs. */
+  worktree?: string | null;
+  /** 0.6: that worktree's branch; missing on older hubs. */
+  worktreeBranch?: string | null;
 }

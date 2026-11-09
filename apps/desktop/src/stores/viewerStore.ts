@@ -43,6 +43,8 @@ export interface ViewerTab {
   revealTarget?: RevealTarget | null;
   /** M4: a read-only HEAD ↔ working copy diff of `rel` (timeline rail); never persisted. */
   diff?: boolean;
+  /** 0.6: the diff's left side at this commit instead of HEAD (worktree compare: the merge-base). */
+  diffRev?: string;
 }
 
 interface WorkspaceViewerState {
@@ -78,8 +80,11 @@ interface ViewerStore {
    * kaydırır; markdown/html sekmelerinde mod `edit`'e geçer (kaynağı görmeden kaydırma anlamsız).
    */
   openFile: (workspaceId: string, rel: string, opts?: { pinned?: boolean; line?: number; column?: number | null }) => void;
-  /** M4: opens (or activates) the diff tab of `rel`, pinned; separate from the file's own tab. */
-  openDiff: (workspaceId: string, rel: string) => void;
+  /**
+   * M4: opens (or activates) the diff tab of `rel`, pinned; separate from the file's own tab.
+   * 0.6: `rev` diffs against that commit; a tab is one (rel, rev) pair.
+   */
+  openDiff: (workspaceId: string, rel: string, opts?: { rev?: string }) => void;
   activate: (workspaceId: string, tabId: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
   /** Düzenleme başlaması: önizleme sekmesini kalıcı sekmeye çevirir (no-op zaten pinliyse). */
@@ -340,12 +345,13 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
     schedulePersist(get().byWorkspace);
   },
 
-  openDiff: (workspaceId, rel) => {
+  openDiff: (workspaceId, rel, opts) => {
+    const rev = opts?.rev || undefined;
     set((s) => {
       const ws = s.byWorkspace[workspaceId] ?? { tabs: [], activeTabId: null };
-      const existing = ws.tabs.find((t) => t.rel === rel && t.diff);
+      const existing = ws.tabs.find((t) => t.rel === rel && t.diff && t.diffRev === rev);
       if (existing) return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...ws, activeTabId: existing.id } } };
-      const tab: ViewerTab = { id: makeTabId(), rel, pinned: true, missing: false, diff: true };
+      const tab: ViewerTab = { id: makeTabId(), rel, pinned: true, missing: false, diff: true, ...(rev ? { diffRev: rev } : {}) };
       return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { tabs: [...ws.tabs, tab], activeTabId: tab.id } } };
     });
   },

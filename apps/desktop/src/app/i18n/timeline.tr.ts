@@ -34,6 +34,9 @@ export const timelineTr: typeof timelineEn = {
   openDiff: (path: string) => `${path} değişikliklerini göster`,
   diffTab: (name: string) => `${name} (fark)`,
   diffHeader: "HEAD ↔ çalışma kopyası (salt okunur)",
+  /** 0.6 worktree compare: the left side is the merge-base commit (short id). */
+  diffTabRev: (name: string, rev: string) => `${name} (${rev} farkı)`,
+  diffHeaderRev: (rev: string) => `${rev} ↔ çalışma kopyası (salt okunur)`,
   diffBinary: "İkili dosya: metin farkı yok.",
   diffTooLarge: "HEAD sürümü 2 MB'tan büyük: fark gösterilmiyor.",
   diffFailed: "Fark yüklenemedi.",

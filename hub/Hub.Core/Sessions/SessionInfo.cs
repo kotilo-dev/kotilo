@@ -23,6 +23,15 @@ public sealed record SessionInfo(
     /// <summary>Kotilo terminal pane the session runs in, when started inside the app.</summary>
     public string? PaneId { get; init; }
 
+    /// <summary>
+    /// Root of the linked git worktree the session works in (0.6); null in the main checkout. <see cref="ProjectRoot"/> is still
+    /// the main repository's root, so usage and history group under one project.
+    /// </summary>
+    public string? Worktree { get; init; }
+
+    /// <summary>Branch checked out in <see cref="Worktree"/>; null when detached or not in a worktree.</summary>
+    public string? WorktreeBranch { get; init; }
+
     /// <summary>When the current turn started (last UserPromptSubmit, or first Working event if none was seen).</summary>
     public DateTimeOffset? TurnStartedAt { get; init; }
 

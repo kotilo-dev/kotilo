@@ -91,6 +91,13 @@ fn child_rel(parent_rel: &str, name: &str) -> String {
     }
 }
 
+/// 0.6: the `.kotilo/worktrees` entry is left out of a listing (but a folder below it
+/// can still be listed directly).
+fn builtin_hidden_child(parent_rel: &str, name: &str) -> bool {
+    crate::settings::is_builtin_hidden_rel(&child_rel(parent_rel, name))
+        && !crate::settings::is_builtin_hidden_rel(parent_rel)
+}
+
 fn workspace_root(store: &State<'_, WorkspaceStore>, workspace_id: &str) -> AppResult<PathBuf> {
     Ok(PathBuf::from(store.find_path(workspace_id)?))
 }
@@ -271,7 +278,9 @@ pub async fn fs_read_dir(
     for entry in std::fs::read_dir(&target)? {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().to_string();
-        if hidden.is_match(&name) {
+        // 0.6: `.kotilo/worktrees` never shows in the tree (a folder below it can still be
+        // read directly).
+        if hidden.is_match(&name) || builtin_hidden_child(&rel, &name) {
             continue;
         }
         // `DirEntry::file_type()` reads the type without following a symlink/junction
@@ -914,6 +923,17 @@ mod tests {
         entries.sort_by(dir_entry_cmp);
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, vec!["Apple", "Banana", "zebra", "apple.txt", "banana.txt"]);
+    }
+
+    #[test]
+    fn worktrees_folder_is_left_out_of_the_tree() {
+        assert!(builtin_hidden_child(".kotilo", "worktrees"));
+        assert!(builtin_hidden_child(".kotilo", "Worktrees"));
+        assert!(!builtin_hidden_child(".kotilo", "attachments"));
+        assert!(!builtin_hidden_child("", ".kotilo"));
+        assert!(!builtin_hidden_child("src", "worktrees"));
+        assert!(!builtin_hidden_child(".kotilo/worktrees", "fix-login"));
+        assert!(!builtin_hidden_child(".kotilo/worktrees/fix-login", "src"));
     }
 
     #[test]

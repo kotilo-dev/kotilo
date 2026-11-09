@@ -26,6 +26,8 @@ import { splitBeside, splitTabToRight } from "./splitLayout";
 import { focusTerminal } from "./terminalRegistry";
 import { copyOutputWithToast, resetWithToast } from "./terminalActions";
 import { AgentPane } from "../workspace/AgentPane";
+import { WorktreeBadge, useWorktreeMatch } from "../worktrees/WorktreeBadge";
+import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 import { quickCommandsFor } from "../quickCommands/quickCommandLogic";
 import { agentTabFor, openQuickCommandSettings, runQuickCommand } from "../quickCommands/quickCommandActions";
 
@@ -46,6 +48,7 @@ interface PendingBusyClose {
 const TAB_DRAG_TYPE = "application/x-agenthub-tab";
 
 function TabButton({
+  workspaceId,
   tab,
   active,
   onActivate,
@@ -55,6 +58,7 @@ function TabButton({
   onDragStart,
   onDragEnd,
 }: {
+  workspaceId: string;
   tab: TerminalTab;
   /** Shown in one of the panel's halves (the active tab, or the right half of a split). */
   active: boolean;
@@ -69,6 +73,8 @@ function TabButton({
   const [editing, setEditing] = useState(false);
   // faz5-spec §2.3: the pane's agent status dot left of the tab title (none without an agent).
   const agentState = useAgentStore((s) => (tab.paneId ? stateForPane(s.agents, tab.paneId) : null));
+  // 0.6: the worktree the tab runs in.
+  const worktree = useWorktreeMatch(workspaceId, tab.cwdRel);
 
   return (
     <div
@@ -106,6 +112,7 @@ function TabButton({
       ) : (
         <span className="max-w-[10rem] truncate">{tab.title}</span>
       )}
+      {worktree && !editing && <WorktreeBadge match={worktree} />}
       <button
         type="button"
         title={strings.terminal.closeTooltip}
@@ -161,10 +168,13 @@ function NewMenuButton({
         onClick: () => useTerminalStore.getState().newTerminal(workspaceId, { profileId: p.id }),
       }));
     }
-    return launch.map((o) => ({
-      label: o.label,
-      onClick: () => spawnTerminal(workspaceId, o.command),
-    }));
+    return [
+      ...launch.map((o) => ({
+        label: o.label,
+        onClick: () => spawnTerminal(workspaceId, o.command),
+      })),
+      { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(workspaceId), separatorBefore: true },
+    ];
   }
 
   const rect = btnRef.current?.getBoundingClientRect();
@@ -225,7 +235,10 @@ function EmptyNewAgentButton({ workspaceId, launch }: { workspaceId: string; lau
         <ContextMenu
           state={{
             ...menuAt,
-            items: launch.map((o) => ({ label: o.label, onClick: () => spawnTerminal(workspaceId, o.command) })),
+            items: [
+              ...launch.map((o) => ({ label: o.label, onClick: () => spawnTerminal(workspaceId, o.command) })),
+              { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(workspaceId), separatorBefore: true },
+            ],
           }}
           onClose={() => setMenuAt(null)}
         />
@@ -341,6 +354,7 @@ export function TerminalPanel() {
           {tabs.map((tab) => (
             <TabButton
               key={tab.id}
+              workspaceId={activeWorkspaceId}
               tab={tab}
               active={tab.id === activeWs?.activeTabId || tab.id === activeWs?.splitTabId}
               onActivate={() => {

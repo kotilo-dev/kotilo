@@ -28,6 +28,9 @@ import { Composer } from "../composer/Composer";
 import { AgentHeaderStrip, type HeaderLimit } from "./AgentHeaderStrip";
 import { matchSession, paneVisualState, statusFamily, type PaneVisualState } from "./paneSession";
 import { LeftoverStrip } from "./LeftoverStrip";
+import { useWorktreeMatch } from "../worktrees/WorktreeBadge";
+import { worktreeFromSession } from "../worktrees/worktreeLogic";
+import { useWorktreeStore } from "../../stores/worktreeStore";
 import { PermissionCard, PermissionResult, type PermissionDecision } from "./PermissionCard";
 
 /** The newest answer sent to `paneId` (by the card or Kotilo Deck). */
@@ -156,7 +159,9 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
   const onWorkspace = useRouteStore((st) => st.route === "workspace");
   const appActive = useAppActive();
   const now = useNow(1000, visible && hasAgent && onWorkspace);
-  const branch = useBranch(workspaceId, visible && hasAgent && onWorkspace && appActive);
+  // 0.6: in a worktree the badge names its branch; the main checkout's branch would be wrong.
+  const cwdWorktree = useWorktreeMatch(workspaceId, tab.cwdRel);
+  const branch = useBranch(workspaceId, visible && hasAgent && onWorkspace && appActive && !cwdWorktree);
 
   const [dismissed, setDismissed] = useState<string | null>(null);
   // The card's and Kotilo Deck's answers (D-072) both land here; shown for a moment.
@@ -184,6 +189,10 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
         .filter((l) => l.agent === adapterId)
         .reduce<HeaderLimit | null>((best, l) => (best && best.usedPercent >= l.usedPercent ? best : { window: l.window, usedPercent: l.usedPercent }), null)
     : null;
+
+  const workspacePath = useWorkspaceStore((st) => st.workspaces.find((w) => w.id === workspaceId)?.path ?? null);
+  const listed = useWorktreeStore((st) => st.byWorkspace[workspaceId]?.list?.worktrees ?? null);
+  const worktree = cwdWorktree ?? worktreeFromSession(session, workspacePath, listed);
 
   const pending = pendingPermissionOf(session, agent, definition);
   const permission = pending?.permission ?? null;
@@ -220,6 +229,7 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
           limit={limit}
           background={background}
           actions={split ? <SplitButton split={split} /> : undefined}
+          worktree={worktree}
         />
       )}
       {paneId && <LeftoverStrip paneId={paneId} />}

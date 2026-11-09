@@ -63,6 +63,8 @@ public sealed record TaskProgressDto(int Completed, int InProgress, int Total);
 /// One session as seen by <c>/v1/sessions</c> and the <c>sessions</c> stream message. <c>state</c> keeps the C# names (M1 wire format).
 /// <c>unseen</c>: a turn finished after the user last looked and the session is Idle, Ended or Stale.
 /// <c>backgroundTasks</c>: labels of the background work a Working session's finished turn waits for (empty when none).
+/// <c>worktree</c>: root of the linked git worktree the session works in (0.6), null in the main checkout; <c>projectRoot</c> is
+/// still the main repository. <c>worktreeBranch</c>: that worktree's branch, null when detached or not in a worktree.
 /// </summary>
 public sealed record SessionDto(
     string SessionId,
@@ -87,7 +89,9 @@ public sealed record SessionDto(
     PendingPermissionDto? PendingPermission,
     DateTimeOffset? LastCompletedAt,
     bool Unseen,
-    IReadOnlyList<string> BackgroundTasks)
+    IReadOnlyList<string> BackgroundTasks,
+    string? Worktree,
+    string? WorktreeBranch)
 {
     public static SessionDto From(SessionInfo s) => new(
         s.SessionId,
@@ -114,7 +118,9 @@ public sealed record SessionDto(
             : null,
         s.LastCompletedAt,
         s.IsUnseen,
-        s.BackgroundTasks);
+        s.BackgroundTasks,
+        s.Worktree,
+        s.WorktreeBranch);
 }
 
 public sealed record TotalsDto(long Input, long Output, long CacheCreate, long CacheRead, long Tokens, decimal CostUsd, bool HasUnpricedEntries, int Entries)

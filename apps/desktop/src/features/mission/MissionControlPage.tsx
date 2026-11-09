@@ -41,6 +41,10 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { navigateToAgent } from "../agents/navigate";
 import { LimitStrip } from "../overview/OverviewPage";
 import { readBufferTail } from "../terminal/terminalRegistry";
+import { useWorktreeStore } from "../../stores/worktreeStore";
+import { WorktreeBadge } from "../worktrees/WorktreeBadge";
+import { WorktreesPanel } from "../worktrees/WorktreesPanel";
+import { worktreeForCwd, worktreeFromSession, type WorktreeMatch } from "../worktrees/worktreeLogic";
 import {
   PREVIEW_LINES,
   PREVIEW_SCAN_ROWS,
@@ -63,6 +67,8 @@ const PREVIEW_INTERVAL_MS = 1000;
 interface PaneTarget {
   tabId: string;
   workspaceId: string;
+  /** 0.6: the tab's cwd, for the worktree badge. */
+  cwdRel: string;
 }
 
 /** Workspace route, the session's workspace, its tab, focus the terminal. */
@@ -135,6 +141,7 @@ export function MissionControlPage() {
   const limits = useHubStore((st) => st.limits);
   const byWorkspace = useTerminalStore((st) => st.byWorkspace);
   const workspaces = useWorkspaceStore((st) => st.workspaces);
+  const worktreeLists = useWorktreeStore((st) => st.byWorkspace);
   const [filter, setFilter] = useState<MissionFilter>("all");
   const now = useNow(1000);
 
@@ -147,7 +154,7 @@ export function MissionControlPage() {
     for (const session of live) {
       if (!session.paneId) continue;
       const found = findTabByPaneIdInMap(byWorkspace, session.paneId);
-      if (found) map.set(sessionKey(session), { tabId: found.tab.id, workspaceId: found.workspaceId });
+      if (found) map.set(sessionKey(session), { tabId: found.tab.id, workspaceId: found.workspaceId, cwdRel: found.tab.cwdRel });
     }
     return map;
   }, [live, byWorkspace]);
@@ -191,10 +198,14 @@ export function MissionControlPage() {
                 const key = sessionKey(session);
                 const target = targets.get(key);
                 const workspace = target ? workspaces.find((w) => w.id === target.workspaceId) : undefined;
+                const worktree =
+                  (target ? worktreeForCwd(target.cwdRel, worktreeLists[target.workspaceId]?.list?.worktrees) : null) ??
+                  worktreeFromSession(session, workspace?.path, target ? worktreeLists[target.workspaceId]?.list?.worktrees : null);
                 return (
                   <MissionTile
                     key={key}
                     session={session}
+                    worktree={worktree}
                     now={now}
                     inApp={target !== undefined}
                     workspaceName={workspace?.name ?? null}
@@ -214,18 +225,22 @@ export function MissionControlPage() {
           )}
         </>
       )}
+      {/* 0.6: worktrees work without the hub (git only). */}
+      <WorktreesPanel />
     </Page>
   );
 }
 
 function MissionTile({
   session,
+  worktree,
   now,
   inApp,
   workspaceName,
   preview,
 }: {
   session: SessionDto;
+  worktree: WorktreeMatch | null;
   now: number;
   inApp: boolean;
   workspaceName: string | null;
@@ -259,7 +274,10 @@ function MissionTile({
       <div className="flex items-center gap-2.5 border-b border-border-subtle px-3.5 py-3">
         <AgentAvatar agent={session.agent} size={30} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-semibold text-text">{session.projectName}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-semibold text-text">{session.projectName}</span>
+            {worktree && <WorktreeBadge match={worktree} />}
+          </span>
           <span className="truncate text-meta text-muted">{sub}</span>
         </div>
         <StatusPill state={session.state} suffix={since} unseen={unseen} background={background} />

@@ -31,12 +31,12 @@ public sealed class SessionRepositoryTests : IDisposable
     [Fact]
     public void Migrate_creates_all_tables_and_is_repeatable()
     {
-        _db.Migrate().Should().Be(11);
+        _db.Migrate().Should().Be(12);
 
         using var c = _db.Open();
         var tables = c.Query<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
         tables.Should().Contain(["sessions", "session_transitions", "usage_entries", "transcript_offsets", "projects", "notification_log", "schema_version", "personal_tasks", "dictations"]);
-        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(11);
+        c.ExecuteScalar<long>("SELECT COUNT(*) FROM schema_version").Should().Be(12);
     }
 
     [Fact]
@@ -75,7 +75,9 @@ public sealed class SessionRepositoryTests : IDisposable
         using (var c = _db.Open())
         {
             // Back to schema 10: no seen_at column yet, one finished session.
-            c.Execute("DELETE FROM schema_version WHERE version = 11");
+            c.Execute("DELETE FROM schema_version WHERE version >= 11");
+            c.Execute("ALTER TABLE sessions DROP COLUMN worktree");
+            c.Execute("ALTER TABLE sessions DROP COLUMN worktree_branch");
             c.Execute("ALTER TABLE sessions DROP COLUMN seen_at");
             c.Execute(
                 """
@@ -85,7 +87,7 @@ public sealed class SessionRepositoryTests : IDisposable
                 new { at = T0.ToUnixTimeMilliseconds() });
         }
 
-        _db.Migrate().Should().Be(11);
+        _db.Migrate().Should().Be(12);
 
         var loaded = _repo.LoadRecent(T0, TimeSpan.FromMinutes(30)).Should().ContainSingle().Subject;
         loaded.SeenAt.Should().Be(T0);
@@ -100,6 +102,20 @@ public sealed class SessionRepositoryTests : IDisposable
         var loaded = _repo.LoadRecent(T0, TimeSpan.FromMinutes(30)).Should().ContainSingle().Subject;
         loaded.Agent.Should().Be("codex");
         loaded.PaneId.Should().Be("pane-7");
+    }
+
+    [Fact]
+    public void Worktree_and_its_branch_round_trip()
+    {
+        _repo.Upsert(Session("wt", SessionState.Working, T0) with { Worktree = @"C:\src\alpha\.kotilo\worktrees\fix", WorktreeBranch = "kotilo/fix" });
+        _repo.Upsert(Session("main", SessionState.Working, T0));
+
+        var loaded = _repo.LoadHistory(T0.AddDays(-1), 10).ToDictionary(s => s.SessionId);
+        loaded["wt"].ProjectRoot.Should().Be(@"C:\src\alpha");
+        loaded["wt"].Worktree.Should().Be(@"C:\src\alpha\.kotilo\worktrees\fix");
+        loaded["wt"].WorktreeBranch.Should().Be("kotilo/fix");
+        loaded["main"].Worktree.Should().BeNull();
+        loaded["main"].WorktreeBranch.Should().BeNull();
     }
 
     [Fact]

@@ -15,6 +15,7 @@ import { reviewTr } from "./review.tr";
 import { quickCommandsTr } from "./quickCommands.tr";
 import { sessionsTr } from "./sessions.tr";
 import { missionTr } from "./mission.tr";
+import { worktreesTr } from "./worktrees.tr";
 import { updateTr } from "./update.tr";
 import { assistantTr } from "./assistant.tr";
 
@@ -613,6 +614,7 @@ export const tr: Strings = {
   quickCommands: quickCommandsTr,
   sessions: sessionsTr,
   mission: missionTr,
+  worktrees: worktreesTr,
   update: updateTr,
   assistant: assistantTr,
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SessionHistoryRow } from "../../lib/hubTypes";
-import { filterSessions, groupSessions, isSafeSessionId, resumeCommand, workspaceForFolder } from "./sessionHistory";
+import { filterSessions, groupSessions, isSafeSessionId, resumeCommand, resumeTarget, workspaceForFolder } from "./sessionHistory";
 
 function row(over: Partial<SessionHistoryRow>): SessionHistoryRow {
   return {
@@ -81,5 +81,29 @@ describe("filterSessions / groupSessions", () => {
     expect(groupSessions(rows, "agent", names).map((g) => g.label)).toEqual(["Codex", "Claude Code"]);
     expect(groupSessions(rows, "none", names)).toHaveLength(1);
     expect(groupSessions([], "none", names)).toEqual([]);
+  });
+});
+
+describe("resumeTarget (0.6 worktrees)", () => {
+  const workspaces = [{ id: "w", path: "C:\\src\\orders-service" }];
+  const wt = "C:\\src\\orders-service\\.kotilo\\worktrees\\fix-login";
+  const yes = () => Promise.resolve(true);
+
+  it("resumes a worktree session in its worktree", async () => {
+    expect(await resumeTarget(workspaces, row({ worktree: wt }), true, yes)).toEqual({ workspaceId: "w", cwdRel: ".kotilo/worktrees/fix-login" });
+  });
+
+  it("falls back to the project folder when the worktree folder is gone", async () => {
+    const exists = (_ws: string, rel: string) => Promise.resolve(rel === "");
+    expect(await resumeTarget(workspaces, row({ worktree: wt }), true, exists)).toEqual({ workspaceId: "w", cwdRel: "" });
+    const throws = () => Promise.reject(new Error("io"));
+    expect(await resumeTarget(workspaces, row({ worktree: wt }), true, throws)).toEqual({ workspaceId: "w", cwdRel: "" });
+  });
+
+  it("uses the project folder without a worktree, or when no workspace holds the worktree", async () => {
+    expect(await resumeTarget(workspaces, row({}), true, yes)).toEqual({ workspaceId: "w", cwdRel: "" });
+    expect(await resumeTarget(workspaces, row({ worktree: null }), true, yes)).toEqual({ workspaceId: "w", cwdRel: "" });
+    expect(await resumeTarget(workspaces, row({ worktree: "D:\\elsewhere\\wt" }), true, yes)).toEqual({ workspaceId: "w", cwdRel: "" });
+    expect(await resumeTarget([], row({ worktree: wt }), true, yes)).toBeNull();
   });
 });

@@ -16,7 +16,8 @@ function ViewerTabItem({ workspaceId, tab, active, onActivate, onRequestClose }:
   const strings = useStrings();
   const doc = useDocument(workspaceId, tab.rel);
   const dirty = !tab.diff && (doc?.dirty ?? false);
-  const name = tab.diff ? strings.timeline.diffTab(baseName(tab.rel) || tab.rel) : baseName(tab.rel) || tab.rel;
+  const base = baseName(tab.rel) || tab.rel;
+  const name = tab.diff ? (tab.diffRev ? strings.timeline.diffTabRev(base, tab.diffRev.slice(0, 8)) : strings.timeline.diffTab(base)) : base;
 
   return (
     <div

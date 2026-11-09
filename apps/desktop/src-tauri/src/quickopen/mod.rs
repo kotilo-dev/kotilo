@@ -132,6 +132,15 @@ fn walk_workspace(root: &Path, settings: &Settings) -> AppResult<(HashSet<String
         .follow_links(false)
         .parents(false)
         .overrides(overrides);
+    // 0.6: the managed worktrees are full checkouts of the same repo – never indexed.
+    let walk_root = root.to_path_buf();
+    builder.filter_entry(move |entry| {
+        entry
+            .path()
+            .strip_prefix(&walk_root)
+            .map(|rel| !crate::settings::is_builtin_hidden_rel(&rel.to_string_lossy().replace('\\', "/")))
+            .unwrap_or(true)
+    });
     if settings.files.respect_gitignore {
         builder.git_ignore(true).git_exclude(true);
     }
@@ -313,6 +322,10 @@ impl QuickOpenIndex {
         let mut guard = self.entries();
         let entry = guard.entry(ws_id.to_string()).or_default();
         for (rel, exists, is_file) in events {
+            // 0.6: changes inside the (never indexed) worktrees must not dirty the index.
+            if crate::settings::is_builtin_hidden_rel(rel) {
+                continue;
+            }
             entry.generation = entry.generation.wrapping_add(1);
             let Some(files) = entry.files.as_mut() else {
                 // Finding #2: nothing built yet (or this same batch already dirtied it
@@ -633,7 +646,33 @@ mod tests {
         assert_eq!(index.generation("ws1"), gen_before + 1);
     }
 
+    #[test]
+    fn apply_events_ignores_the_worktrees_folder() {
+        let index = QuickOpenIndex::default();
+        index.ensure_entry("ws1");
+        assert!(index.store_if_current("ws1", 0, Arc::new(hs(&["a.txt"])), false));
+        let gen_before = index.generation("ws1");
+        index.apply_events("ws1", [(".kotilo/worktrees/x/new.txt", true, true), (".kotilo/worktrees/x", true, false)]);
+        assert_eq!(index.generation("ws1"), gen_before);
+        assert!(index.snapshot("ws1").is_some(), "no rebuild for worktree changes");
+    }
+
     // -- walk_workspace (spec §4, §10.15) --------------------------------------------
+
+    #[test]
+    fn walk_workspace_never_indexes_the_worktrees_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        for rel in [".kotilo/worktrees/x/src/lib.rs", ".kotilo/attachments/a.png", "src/lib.rs"] {
+            let path = dir.path().join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "x").unwrap();
+        }
+        let (files, _) = walk_workspace(dir.path(), &Settings::default()).unwrap();
+        assert_eq!(
+            sorted(files.into_iter().collect()),
+            vec![".kotilo/attachments/a.png".to_string(), "src/lib.rs".to_string()]
+        );
+    }
 
     #[test]
     fn walk_workspace_lists_files_only_and_hides_configured_patterns() {

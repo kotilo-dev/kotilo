@@ -23,6 +23,12 @@ public sealed record HookEvent(
 
     public string? Cwd { get; init; }
 
+    /// <summary>Root of the linked git worktree <see cref="Cwd"/> is in (0.6); set by the hub after project resolution, null otherwise.</summary>
+    public string? Worktree { get; init; }
+
+    /// <summary>Branch checked out in <see cref="Worktree"/>; null when detached or not in a worktree.</summary>
+    public string? WorktreeBranch { get; init; }
+
     public string? ToolName { get; init; }
 
     /// <summary><c>tool_input.command</c> (shell tools), truncated. In memory only: never stored or logged.</summary>

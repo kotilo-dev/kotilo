@@ -29,17 +29,20 @@ public sealed class SessionRepository(Database db) : ISessionRepository
             """
             INSERT INTO sessions (session_id, agent, pane_id, project_root, transcript_path, state, state_since, last_event_at,
                                   current_tool, last_notification, model, parent_pid, turn_started_at,
-                                  last_completed_at, seen_at, ended_at, end_reason, error_kind, error_resets_at, context_reset_at)
+                                  last_completed_at, seen_at, ended_at, end_reason, error_kind, error_resets_at, context_reset_at,
+                                  worktree, worktree_branch)
             VALUES (@SessionId, @Agent, @PaneId, @ProjectRoot, @TranscriptPath, @State, @StateSince, @LastEventAt,
                     @CurrentTool, @LastNotification, @Model, @ParentPid, @TurnStartedAt,
-                    @LastCompletedAt, @SeenAt, @EndedAt, @EndReason, @ErrorKind, @ErrorResetsAt, @ContextResetAt)
+                    @LastCompletedAt, @SeenAt, @EndedAt, @EndReason, @ErrorKind, @ErrorResetsAt, @ContextResetAt,
+                    @Worktree, @WorktreeBranch)
             ON CONFLICT(session_id) DO UPDATE SET
                 agent = excluded.agent, pane_id = excluded.pane_id, project_root = excluded.project_root, transcript_path = excluded.transcript_path,
                 state = excluded.state, state_since = excluded.state_since, last_event_at = excluded.last_event_at,
                 current_tool = excluded.current_tool, last_notification = excluded.last_notification,
                 model = excluded.model, parent_pid = excluded.parent_pid, turn_started_at = excluded.turn_started_at,
                 last_completed_at = excluded.last_completed_at, seen_at = excluded.seen_at, ended_at = excluded.ended_at, end_reason = excluded.end_reason,
-                error_kind = excluded.error_kind, error_resets_at = excluded.error_resets_at, context_reset_at = excluded.context_reset_at
+                error_kind = excluded.error_kind, error_resets_at = excluded.error_resets_at, context_reset_at = excluded.context_reset_at,
+                worktree = excluded.worktree, worktree_branch = excluded.worktree_branch
             """,
             new
             {
@@ -63,6 +66,8 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                 ErrorKind = s.Error?.Kind.ToString(),
                 ErrorResetsAt = Ms(s.Error?.ResetsAt),
                 ContextResetAt = Ms(s.ContextResetAt),
+                s.Worktree,
+                s.WorktreeBranch,
             });
     }
 
@@ -92,7 +97,8 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                        current_tool AS CurrentTool, last_notification AS LastNotification, model AS Model,
                        parent_pid AS ParentPid, turn_started_at AS TurnStartedAt,
                        last_completed_at AS LastCompletedAt, seen_at AS SeenAt, ended_at AS EndedAt, end_reason AS EndReason,
-                       error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt
+                       error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt,
+                       worktree AS Worktree, worktree_branch AS WorktreeBranch
                 FROM sessions
                 WHERE state <> 'Ended' OR COALESCE(ended_at, state_since) >= @cutoff
                 """,
@@ -112,7 +118,8 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                        current_tool AS CurrentTool, last_notification AS LastNotification, model AS Model,
                        parent_pid AS ParentPid, turn_started_at AS TurnStartedAt,
                        last_completed_at AS LastCompletedAt, seen_at AS SeenAt, ended_at AS EndedAt, end_reason AS EndReason,
-                       error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt
+                       error_kind AS ErrorKind, error_resets_at AS ErrorResetsAt, context_reset_at AS ContextResetAt,
+                       worktree AS Worktree, worktree_branch AS WorktreeBranch
                 FROM sessions
                 WHERE last_event_at >= @since
                 ORDER BY last_event_at DESC
@@ -238,6 +245,10 @@ public sealed class SessionRepository(Database db) : ISessionRepository
 
         public long? ContextResetAt { get; set; }
 
+        public string? Worktree { get; set; }
+
+        public string? WorktreeBranch { get; set; }
+
         public SessionInfo ToModel() =>
             new(SessionId, ProjectRoot, SessionInfo.ProjectNameFrom(ProjectRoot), TranscriptPath, ParseState(State),
                 FromMs(StateSince), FromMs(LastEventAt), CurrentTool, LastNotification, Model,
@@ -254,6 +265,8 @@ public sealed class SessionRepository(Database db) : ISessionRepository
                     ? new SessionError(kind, ErrorResetsAt is { } r ? FromMs(r) : null)
                     : null,
                 ContextResetAt = ContextResetAt is { } cr ? FromMs(cr) : null,
+                Worktree = Worktree,
+                WorktreeBranch = WorktreeBranch,
             };
     }
 }

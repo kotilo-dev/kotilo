@@ -157,11 +157,46 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         row.GetProperty("live").GetBoolean().Should().BeTrue();
         row.GetProperty("paneId").GetString().Should().Be("pane-9");
         row.GetProperty("tokens").GetInt64().Should().Be(0);
+        row.GetProperty("worktree").ValueKind.Should().Be(JsonValueKind.Null);
+        row.GetProperty("worktreeBranch").ValueKind.Should().Be(JsonValueKind.Null);
         row.TryGetProperty("prompt", out _).Should().BeFalse();
 
         (await Http.GetAsync("/v1/sessions/history?days=0")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await Http.GetAsync("/v1/sessions/history?limit=0")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await Http.GetAsync("/v1/sessions/history?limit=1001")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Worktree_session_belongs_to_the_main_project_and_carries_its_worktree_and_branch()
+    {
+        // What `git worktree add -b kotilo/fix .kotilo/worktrees/fix` leaves behind (0.6).
+        var repo = Directory.CreateDirectory(Path.Combine(hub.Dir, "repos", "main-" + Guid.NewGuid().ToString("N")[..8])).FullName;
+        var gitDir = Directory.CreateDirectory(Path.Combine(repo, ".git", "worktrees", "fix")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(gitDir, "HEAD"), "ref: refs/heads/kotilo/fix\n");
+        await File.WriteAllTextAsync(Path.Combine(gitDir, "commondir"), "../..\n");
+        var wt = Directory.CreateDirectory(Path.Combine(repo, ".kotilo", "worktrees", "fix")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(wt, ".git"), "gitdir: " + gitDir + "\n");
+        var cwd = Directory.CreateDirectory(Path.Combine(wt, "src")).FullName;
+
+        var id = "wt-" + Guid.NewGuid().ToString("N");
+        var payload = $$$"""{"v":1,"agent":"codex","event":"UserPromptSubmit","receivedAt":"{{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}}}","payload":{"session_id":"{{{id}}}","cwd":{{{JsonSerializer.Serialize(cwd)}}},"hook_event_name":"UserPromptSubmit"}}""";
+        hub.Host.Pipeline.EnqueueHook(Encoding.UTF8.GetBytes(payload));
+
+        var session = await WaitForAsync(async () =>
+            (await GetJsonAsync("/v1/sessions")).EnumerateArray().FirstOrDefault(s => s.GetProperty("sessionId").GetString() == id));
+        session.GetProperty("projectRoot").GetString().Should().Be(repo);
+        session.GetProperty("projectName").GetString().Should().Be(Path.GetFileName(repo));
+        session.GetProperty("worktree").GetString().Should().Be(wt);
+        session.GetProperty("worktreeBranch").GetString().Should().Be("kotilo/fix");
+
+        var row = await WaitForAsync(async () =>
+            (await GetJsonAsync("/v1/sessions/history?days=1")).EnumerateArray().FirstOrDefault(s => s.GetProperty("sessionId").GetString() == id));
+        row.GetProperty("projectRoot").GetString().Should().Be(repo);
+        row.GetProperty("worktree").GetString().Should().Be(wt);
+        row.GetProperty("worktreeBranch").GetString().Should().Be("kotilo/fix");
+
+        hub.Host.Repository.LoadHistory(DateTimeOffset.UtcNow.AddDays(-1), 1000).Should()
+            .Contain(s => s.SessionId == id && s.ProjectRoot == repo && s.Worktree == wt, "the worktree is persisted with the main project");
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed class InsightsRepositoryTests : IDisposable
     public InsightsRepositoryTests()
     {
         _db = new Database(_dir.File("hub.db"));
-        _db.Migrate().Should().Be(11);
+        _db.Migrate().Should().Be(12);
     }
 
     public void Dispose() => _dir.Dispose();

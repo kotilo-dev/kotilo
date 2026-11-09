@@ -690,6 +690,43 @@ Kotilo**; they have no preview and can't be opened — their tile shows what the
 service knows instead (a pending permission, the agent's last notification or its current
 tool). Clicking a Done tile of such a session marks it as seen.
 
+## Worktrees
+
+Worktrees let several agents work on one repository without touching each other's files.
+Each agent gets its own git worktree – a second checkout of the repository on its own
+branch – and you compare, merge and clean up from Kotilo. It works with every agent.
+
+**Start one:** **New agent in worktree…** in the workspace's right-click menu, the
+**New agent** menu of the terminal, the command palette or the Worktrees panel in Mission
+control. Give it a name and pick the agent. Kotilo creates `.kotilo/worktrees/<name>` on
+the branch `kotilo/<name>` (the prefix is in Settings → Terminal), starting from the main
+checkout's current commit, and opens a terminal tab there running the agent. The tab, the
+agent header and the Mission control tile show the branch as a badge. Kotilo hides
+`.kotilo/` from git through the repository's own `info/exclude` file; your `.gitignore`
+is not changed. Worktree files stay out of the file tree and quick open.
+
+Worktrees need the workspace to be the repository's top folder and at least one commit.
+
+**Worktrees panel** (Mission control, under the tiles): one row per worktree with its
+branch, the agents running in it, uncommitted files, commits ahead of and behind the base
+branch, and changed lines. Worktrees created by other tools inside the workspace (for
+example `.claude/worktrees/`) are listed for terminals and compare only.
+
+- **Compare** lists the worktree's changes (commits and uncommitted work) against the
+  point where it left the base branch; each file opens in the diff view, where review
+  notes work as usual.
+- **Merge** brings the branch into its base branch in the main checkout, as a merge
+  commit or as one squashed commit. Nothing is pushed. It refuses while the main checkout
+  or the worktree has uncommitted changes (ask the agent to commit first). If the merge
+  has conflicts it is undone and the files are listed; resolve them in a terminal, for
+  example by merging the base into the worktree, and try again.
+- **Remove** closes the worktree's terminal tabs, then deletes the folder and, if you
+  choose, the branch. A worktree with uncommitted changes or unmerged commits needs an
+  extra confirmation.
+
+Sessions of worktree agents count under the main project in Usage, Sessions and Projects;
+resuming one from Sessions opens the terminal in its worktree.
+
 ## Usage
 
 Daily usage for the last 30 days as tokens or cost, filterable by agent; 5-hour

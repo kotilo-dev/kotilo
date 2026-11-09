@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import { AgentAvatar, meterColorClass } from "../../app/ui";
 import { formatCurrencyUsd, formatTokens, useStrings } from "../../app/i18n";
 import { PaneStatePill } from "./PaneStatus";
+import { WorktreeBadge } from "../worktrees/WorktreeBadge";
+import type { WorktreeMatch } from "../worktrees/worktreeLogic";
 import type { PaneVisualState } from "./paneSession";
 
 export interface HeaderLimit {
@@ -32,11 +34,13 @@ export interface AgentHeaderStripProps {
   background?: string | null;
   /** Panel actions at the end of the strip (M4: the split button). */
   actions?: ReactNode;
+  /** 0.6: the worktree the agent runs in; its badge replaces the branch in the meta line. */
+  worktree?: WorktreeMatch | null;
 }
 
 export function AgentHeaderStrip(p: AgentHeaderStripProps) {
   const s = useStrings();
-  const meta = [p.agentName, p.branch, p.model].filter(Boolean).join(" · ");
+  const meta = [p.agentName, p.worktree ? null : p.branch, p.model].filter(Boolean).join(" · ");
   const context = p.contextPercent === null ? null : Math.max(0, Math.min(100, p.contextPercent));
   const usage =
     p.costUsd !== null ? formatCurrencyUsd(p.costUsd) : p.tokens !== null && p.tokens > 0 ? s.workspace.tokens(formatTokens(p.tokens)) : s.workspace.noData;
@@ -50,7 +54,10 @@ export function AgentHeaderStrip(p: AgentHeaderStripProps) {
     >
       <AgentAvatar agent={p.agent} size={28} />
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-title font-semibold text-text">{p.projectName}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-title font-semibold text-text">{p.projectName}</span>
+          {p.worktree && <WorktreeBadge match={p.worktree} />}
+        </span>
         <span className="truncate text-meta text-muted">{meta}</span>
       </div>
       <span aria-live={urgent ? "assertive" : "polite"}>

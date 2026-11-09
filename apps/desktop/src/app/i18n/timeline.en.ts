@@ -35,6 +35,9 @@ export const timelineEn = {
   openDiff: (path: string) => `Show changes in ${path}`,
   diffTab: (name: string) => `${name} (diff)`,
   diffHeader: "HEAD ↔ working copy (read-only)",
+  /** 0.6 worktree compare: the left side is the merge-base commit (short id). */
+  diffTabRev: (name: string, rev: string) => `${name} (vs ${rev})`,
+  diffHeaderRev: (rev: string) => `${rev} ↔ working copy (read-only)`,
   diffBinary: "Binary file: no text diff.",
   diffTooLarge: "The HEAD version is larger than 2 MB: no diff.",
   diffFailed: "Could not load the diff.",

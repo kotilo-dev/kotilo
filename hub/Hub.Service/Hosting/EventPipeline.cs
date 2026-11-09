@@ -249,7 +249,14 @@ public sealed class EventPipeline : IAsyncDisposable
         }
 
         // Sessions are keyed to the project (git) root, not the folder Claude happens to be in (spec §8.1).
-        e = e with { Cwd = _roots.Resolve(e.Cwd) };
+        // A linked worktree maps to the main repository's project; the session keeps the worktree and its branch (0.6).
+        var location = _roots.ResolveLocation(e.Cwd);
+        e = e with
+        {
+            Cwd = location.Root,
+            Worktree = location.Worktree,
+            WorktreeBranch = location.Worktree is { } worktree ? ProjectRootResolver.WorktreeBranch(worktree) : null,
+        };
         if (IsHiddenCwd(e.Cwd))
         {
             return false;

@@ -16,6 +16,8 @@ use serde::Serialize;
 
 use crate::error::{AppError, AppResult};
 
+pub mod worktree;
+
 pub const GIT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Untracked files above this size get `added: null` (not read).
 const LINE_COUNT_MAX_BYTES: u64 = 1024 * 1024;
@@ -37,29 +39,60 @@ pub enum GitError {
 /// Runs `git <args>` in `cwd` and returns stdout when it exits with 0, `Ok(None)` when it
 /// exits non-zero (not a repo, unknown revision, ...).
 pub fn run_git(cwd: &Path, args: &[&str], timeout: Duration) -> Result<Option<Vec<u8>>, GitError> {
+    let out = exec_git(cwd, args, timeout, false)?;
+    Ok(out.success.then_some(out.stdout))
+}
+
+/// Timeout of the 0.6 worktree write commands (`worktree add/remove`, `merge`, `commit`).
+pub const GIT_WRITE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Result of a write command: exit status plus both streams (stderr goes into `detail`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GitOutput {
+    pub success: bool,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+}
+
+/// Runs a git command that changes the repo: unlike [`run_git`] it takes the normal
+/// optional locks, captures stderr and never opens an editor.
+pub fn run_git_write(cwd: &Path, args: &[&str], timeout: Duration) -> Result<GitOutput, GitError> {
+    exec_git(cwd, args, timeout, true)
+}
+
+fn read_pipe<R: Read + Send + 'static>(pipe: Option<R>) -> mpsc::Receiver<Vec<u8>> {
+    let (tx, rx) = mpsc::channel();
+    if let Some(mut pipe) = pipe {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = pipe.read_to_end(&mut buf);
+            let _ = tx.send(buf);
+        });
+    }
+    rx
+}
+
+fn exec_git(cwd: &Path, args: &[&str], timeout: Duration, write: bool) -> Result<GitOutput, GitError> {
     let mut cmd = Command::new("git");
     cmd.args(["-c", "core.quotepath=off", "-c", "core.fsmonitor=false", "-c", "diff.relative=false"])
         .args(args)
         .current_dir(cwd)
-        .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_TERMINAL_PROMPT", "0")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stdout(Stdio::piped());
+    if write {
+        cmd.env("GIT_EDITOR", "true").env("GIT_MERGE_AUTOEDIT", "no").stderr(Stdio::piped());
+    } else {
+        cmd.env("GIT_OPTIONAL_LOCKS", "0").stderr(Stdio::null());
+    }
     crate::platform::hide_console_window(&mut cmd);
     let mut child = cmd.spawn().map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => GitError::NotInstalled,
         _ => GitError::Io(e.to_string()),
     })?;
-    // Read stdout on a helper thread so a full pipe never blocks the child.
-    let (tx, rx) = mpsc::channel();
-    if let Some(mut stdout) = child.stdout.take() {
-        std::thread::spawn(move || {
-            let mut buf = Vec::new();
-            let _ = stdout.read_to_end(&mut buf);
-            let _ = tx.send(buf);
-        });
-    }
+    // Read the pipes on helper threads so a full pipe never blocks the child.
+    let stdout_rx = read_pipe(child.stdout.take());
+    let stderr_rx = write.then(|| read_pipe(child.stderr.take()));
     let deadline = Instant::now() + timeout;
     let status = loop {
         match child.try_wait() {
@@ -74,8 +107,12 @@ pub fn run_git(cwd: &Path, args: &[&str], timeout: Duration) -> Result<Option<Ve
         }
     };
     let remaining = deadline.saturating_duration_since(Instant::now()).max(Duration::from_millis(200));
-    let stdout = rx.recv_timeout(remaining).map_err(|_| GitError::Timeout)?;
-    Ok(status.success().then_some(stdout))
+    let stdout = stdout_rx.recv_timeout(remaining).map_err(|_| GitError::Timeout)?;
+    let stderr = match stderr_rx {
+        Some(rx) => rx.recv_timeout(Duration::from_millis(200).max(remaining)).unwrap_or_default(),
+        None => Vec::new(),
+    };
+    Ok(GitOutput { success: status.success(), stdout, stderr })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -316,15 +353,52 @@ pub fn changes_at(root: &Path) -> GitChanges {
 
 /// `git_show_head` core (blocking). `rel` must already be validated with [`validate_rel`].
 pub fn show_head_at(root: &Path, rel: &str) -> HeadContent {
-    let spec = format!("HEAD:./{rel}");
-    let Some(size) = git_ok(root, &["cat-file", "-s", &spec]) else {
+    show_at(root, rel, "HEAD")
+}
+
+/// A revision `git_show_head` accepts: a commit id or ref name (`HEAD`, `main`,
+/// `kotilo/fix-login`) – `[A-Za-z0-9._/-]`, no leading `-`/`/`, no `..`, at most 255 bytes.
+/// Anything git would read as an option, a range or a `rev:path` spec is refused.
+pub fn validate_rev(rev: &str) -> AppResult<()> {
+    let ok = !rev.is_empty()
+        && rev.len() <= 255
+        && !rev.starts_with(['-', '/'])
+        && !rev.contains("..")
+        && rev.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'/' | b'-'));
+    if ok {
+        Ok(())
+    } else {
+        Err(AppError::invalid_argument(format!("invalid revision: {rev}")))
+    }
+}
+
+/// The nearest existing folder at or above `rel`'s parent, inside `root`, and `rel`
+/// relative to it (`/`-separated). Running git there makes a path inside a linked
+/// worktree read from that worktree's repo.
+fn nearest_existing_dir(root: &Path, rel: &str) -> (std::path::PathBuf, String) {
+    let parts: Vec<&str> = rel.split('/').collect();
+    for depth in (1..parts.len()).rev() {
+        let dir = parts[..depth].iter().fold(root.to_path_buf(), |p, s| p.join(s));
+        if dir.is_dir() {
+            return (dir, parts[depth..].join("/"));
+        }
+    }
+    (root.to_path_buf(), rel.to_string())
+}
+
+/// A file's content at `rev` (blocking). `rel` must already be validated with
+/// [`validate_rel`], `rev` with [`validate_rev`].
+pub fn show_at(root: &Path, rel: &str, rev: &str) -> HeadContent {
+    let (cwd, rest) = nearest_existing_dir(root, rel);
+    let spec = format!("{rev}:./{rest}");
+    let Some(size) = git_ok(&cwd, &["cat-file", "-s", &spec]) else {
         return HeadContent::default();
     };
     let size: u64 = field(&size).trim().parse().unwrap_or(u64::MAX);
     if size > SHOW_MAX_BYTES {
         return HeadContent { content: None, binary: false, too_large: true };
     }
-    let Some(bytes) = git_ok(root, &["cat-file", "blob", &spec]) else {
+    let Some(bytes) = git_ok(&cwd, &["cat-file", "blob", &spec]) else {
         return HeadContent::default();
     };
     if crate::textfile::is_binary(&bytes) {
@@ -387,6 +461,17 @@ mod tests {
         assert!(validate_rel("src/ok file.rs").is_ok());
         assert_eq!(under_prefix("pkg/app/x.rs", "pkg/app/"), Some("x.rs".into()));
         assert_eq!(under_prefix("other/x.rs", "pkg/app/"), None);
+    }
+
+    #[test]
+    fn revs_are_commit_ids_or_ref_names() {
+        for ok in ["HEAD", "main", "kotilo/fix-login", "0123abcdef0123abcdef0123abcdef0123abcdef", "v1.2_rc-1"] {
+            assert!(validate_rev(ok).is_ok(), "{ok}");
+        }
+        for bad in ["", "-p", "--output=x", "/x", "a..b", "HEAD:x", "a b", "HEAD^", "HEAD~1", "@{1}", "a\nb", "x\0 "] {
+            assert_eq!(validate_rev(bad).unwrap_err().code, crate::error::ErrorCode::InvalidArgument, "{bad}");
+        }
+        assert!(validate_rev(&"a".repeat(256)).is_err());
     }
 
     #[test]
@@ -529,6 +614,24 @@ mod tests {
         let c = changes_at(&ws);
         assert_eq!(c.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["a.txt"]);
         assert_eq!(show_head_at(&ws, "a.txt").content.as_deref(), Some("a\n"));
+        // From the repo root: git runs in the nearest existing folder of the path.
+        assert_eq!(show_head_at(&root, "pkg/app/a.txt").content.as_deref(), Some("a\n"));
+        std::fs::remove_dir_all(root.join("pkg")).unwrap();
+        assert_eq!(show_head_at(&root, "pkg/app/a.txt").content.as_deref(), Some("a\n"), "folder deleted");
+    }
+
+    #[test]
+    fn show_at_reads_other_revisions() {
+        let Some((_dir, root)) = temp_repo() else { return };
+        write(&root, "a.txt", b"v1\n");
+        git(&root, &["add", "-A"]);
+        git(&root, &["commit", "-q", "-m", "one"]);
+        git(&root, &["branch", "old"]);
+        write(&root, "a.txt", b"v2\n");
+        git(&root, &["commit", "-q", "-am", "two"]);
+        assert_eq!(show_at(&root, "a.txt", "old").content.as_deref(), Some("v1\n"));
+        assert_eq!(show_at(&root, "a.txt", "HEAD").content.as_deref(), Some("v2\n"));
+        assert_eq!(show_at(&root, "a.txt", "nope"), HeadContent::default());
     }
 
     #[test]

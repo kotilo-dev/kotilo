@@ -167,7 +167,9 @@ fn handle_debounce_result(
         // of state exists yet, e.g. very early in `setup`, is a harmless no-op via
         // `try_state`).
         if let Some(rel) = to_rel_ci(root, &event.path) {
-            if is_hidden_rel(&rel, &hidden) {
+            // 0.6: `.kotilo/worktrees` still gets `fs:changed` (above) but never touches the
+            // quick-open index or the `.gitignore` rescan.
+            if is_hidden_rel(&rel, &hidden) || crate::settings::is_builtin_hidden_rel(&rel) {
                 continue;
             }
             let exists = event.path.exists();

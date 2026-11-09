@@ -32,7 +32,9 @@ public sealed record SessionHistoryDto(
     DateTimeOffset LastEventAt,
     DateTimeOffset? EndedAt,
     long Tokens,
-    decimal? CostUsd);
+    decimal? CostUsd,
+    string? Worktree,
+    string? WorktreeBranch);
 
 /// <summary>Sessions, usage and plan limits (docs/hub-api.md §Sessions, §Usage, §Limits).</summary>
 internal static class UsageEndpoints
@@ -216,7 +218,9 @@ internal static class UsageEndpoints
                     s.LastEventAt,
                     s.EndedAt,
                     usage?.Tokens ?? 0,
-                    usage?.CostUsd);
+                    usage?.CostUsd,
+                    s.Worktree,
+                    s.WorktreeBranch);
             })
             .ToList();
     }

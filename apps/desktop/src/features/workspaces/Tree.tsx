@@ -19,6 +19,7 @@ import { useAgentStore } from "../../stores/agentStore";
 import { urgentStateForWorkspace } from "../agents/agentLogic";
 import { AgentBadge } from "../agents/AgentBadge";
 import { isModPressed } from "../../lib/keys";
+import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 
 const ROW_HEIGHT = 22;
 const INDENT_PX = 14;
@@ -317,6 +318,7 @@ export function Tree() {
         onClick: () => void setActive(ws.id),
         disabled: ws.id === activeId,
       },
+      { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(ws.id), separatorBefore: true },
       { label: strings.contextMenu.newFile, onClick: () => startCreate(ws.id, "", "file"), separatorBefore: true },
       { label: strings.contextMenu.newFolder, onClick: () => startCreate(ws.id, "", "dir") },
       {

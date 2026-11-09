@@ -321,6 +321,24 @@ impl Default for CompanionSettings {
     }
 }
 
+/// 0.6 worktrees: branch name prefix of a new worktree (`<branchPrefix><name>`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreesSettings {
+    #[serde(default = "default_branch_prefix")]
+    pub branch_prefix: String,
+}
+
+fn default_branch_prefix() -> String {
+    "kotilo/".to_string()
+}
+
+impl Default for WorktreesSettings {
+    fn default() -> Self {
+        Self { branch_prefix: default_branch_prefix() }
+    }
+}
+
 /// Faz 7 spec §6/§9.1: `verboseLogging` toggles the live log level ceiling between
 /// `Info` (default) and `Debug` (`log::set_max_level`, applied both at startup and on
 /// every `settings_set` — see `logging::apply_verbose_logging`). Missing from an old
@@ -393,6 +411,8 @@ pub struct Settings {
     pub composer: ComposerSettings,
     #[serde(default)]
     pub companion: CompanionSettings,
+    #[serde(default)]
+    pub worktrees: WorktreesSettings,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -411,6 +431,7 @@ impl Default for Settings {
             diagnostics: DiagnosticsSettings::default(),
             composer: ComposerSettings::default(),
             companion: CompanionSettings::default(),
+            worktrees: WorktreesSettings::default(),
             extra: serde_json::Map::new(),
         }
     }
@@ -456,6 +477,20 @@ fn validate_hidden_pattern(pattern: &str) -> AppResult<()> {
     globset::Glob::new(pattern)
         .map_err(|_| AppError::invalid_argument(format!("Invalid pattern: {pattern}")))?;
     Ok(())
+}
+
+/// A worktree branch prefix: empty, or `[A-Za-z0-9._/-]` without `..` and without a
+/// leading `-` or `/` (git's own ref rules are checked again when a worktree is created).
+fn validate_branch_prefix(prefix: &str) -> AppResult<()> {
+    let ok = prefix.is_empty()
+        || (!prefix.starts_with(['-', '/'])
+            && !prefix.contains("..")
+            && prefix.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'/' | b'-')));
+    if ok {
+        Ok(())
+    } else {
+        Err(AppError::invalid_argument(format!("Invalid branch prefix: {prefix}")))
+    }
 }
 
 const MAX_SAVED_PROMPTS: usize = 200;
@@ -605,6 +640,9 @@ pub fn validate_and_normalize(mut settings: Settings) -> AppResult<Settings> {
     settings.composer.saved_prompts =
         normalize_saved_prompts(std::mem::take(&mut settings.composer.saved_prompts));
 
+    settings.worktrees.branch_prefix = settings.worktrees.branch_prefix.trim().to_string();
+    validate_branch_prefix(&settings.worktrees.branch_prefix)?;
+
     if !is_theme_id(&settings.appearance.dark_theme) {
         settings.appearance.dark_theme = default_dark_theme();
     }
@@ -627,7 +665,8 @@ pub fn validate_and_normalize(mut settings: Settings) -> AppResult<Settings> {
 }
 
 /// Spec §1.1, review finding #14: load-time recovery for a hand-edited `settings.json`
-/// that carries one or more hidden patterns that no longer compile. Drops only the
+/// that carries one or more hidden patterns that no longer compile (or, 0.6, an invalid
+/// worktree branch prefix, which goes back to the default). Drops only the
 /// offending pattern(s) — unlike [`SettingsStore::load_from`]'s old fallback, this must
 /// never reset the *whole* `files` section, which would also silently discard the user's
 /// `respectGitignore` choice and every other (perfectly valid) pattern in the list.
@@ -636,6 +675,9 @@ fn drop_invalid_hidden_patterns(mut settings: Settings) -> Settings {
         .files
         .hidden_patterns
         .retain(|p| validate_hidden_pattern(p.trim()).is_ok());
+    if validate_branch_prefix(settings.worktrees.branch_prefix.trim()).is_err() {
+        settings.worktrees.branch_prefix = default_branch_prefix();
+    }
     settings
 }
 
@@ -663,6 +705,20 @@ pub fn build_hidden_globset(patterns: &[String]) -> globset::GlobSet {
             .build()
             .expect("empty GlobSetBuilder always builds")
     })
+}
+
+/// 0.6: `true` for the managed worktrees folder (`.kotilo/worktrees`) and everything
+/// under it. Always hidden from the file tree and quick open – each worktree is a full
+/// second checkout of the repo – whatever the user's hidden patterns say. The watcher
+/// still reports changes there (the worktree compare view reloads from them).
+pub fn is_builtin_hidden_rel(rel: &str) -> bool {
+    let root = crate::gitcli::worktree::WORKTREES_REL;
+    match rel.get(..root.len()) {
+        Some(head) if head.eq_ignore_ascii_case(root) => {
+            rel.len() == root.len() || rel.as_bytes()[root.len()] == b'/'
+        }
+        _ => false,
+    }
 }
 
 /// Builds the `ignore::WalkBuilder` overrides that hide `patterns` at every depth under
@@ -704,8 +760,8 @@ impl SettingsStore {
         // an invalid hidden pattern drops only that pattern (`drop_invalid_hidden_patterns`)
         // rather than resetting the whole `files` section — the user's `respectGitignore`
         // choice and every other valid pattern survive. `validate_and_normalize`'s only
-        // failure mode is an uncompilable hidden pattern, so re-running it after dropping
-        // every one that doesn't compile always succeeds; `unwrap_or_default` is just a
+        // failure modes are an uncompilable hidden pattern and an invalid worktree branch
+        // prefix (reset to the default there too), so re-running it always succeeds; `unwrap_or_default` is just a
         // defensive fallback in case that ever stops being true.
         let normalized = validate_and_normalize(parsed.clone())
             .unwrap_or_else(|_| validate_and_normalize(drop_invalid_hidden_patterns(parsed)).unwrap_or_default());
@@ -872,6 +928,54 @@ mod tests {
         assert!(s.terminal.osc52_clipboard);
         assert!(s.companion.enabled);
         assert!(!s.diagnostics.verbose_logging);
+        assert_eq!(s.worktrees.branch_prefix, "kotilo/");
+    }
+
+    #[test]
+    fn validate_checks_the_worktree_branch_prefix() {
+        for ok in ["", "kotilo/", "  agents/wt-  ", "a.b_c/"] {
+            let mut s = Settings::default();
+            s.worktrees.branch_prefix = ok.to_string();
+            assert_eq!(validate_and_normalize(s).unwrap().worktrees.branch_prefix, ok.trim());
+        }
+        for bad in ["-x/", "/x", "a..b", "a b/", "x:y", "x~", "é/"] {
+            let mut s = Settings::default();
+            s.worktrees.branch_prefix = bad.to_string();
+            let err = validate_and_normalize(s).unwrap_err();
+            assert_eq!(err.code, crate::error::ErrorCode::InvalidArgument, "{bad}");
+        }
+        let s: Settings = serde_json::from_value(serde_json::json!({"worktrees": {}})).unwrap();
+        assert_eq!(s.worktrees.branch_prefix, "kotilo/");
+        assert_eq!(
+            serde_json::to_value(Settings::default()).unwrap()["worktrees"],
+            serde_json::json!({"branchPrefix": "kotilo/"})
+        );
+    }
+
+    #[test]
+    fn builtin_hidden_covers_the_worktrees_folder_only() {
+        assert!(is_builtin_hidden_rel(".kotilo/worktrees"));
+        assert!(is_builtin_hidden_rel(".kotilo/worktrees/a/src/x.rs"));
+        assert!(is_builtin_hidden_rel(".Kotilo/Worktrees/a"));
+        assert!(!is_builtin_hidden_rel(".kotilo"));
+        assert!(!is_builtin_hidden_rel(".kotilo/attachments/x.png"));
+        assert!(!is_builtin_hidden_rel(".kotilo/worktreesx"));
+        assert!(!is_builtin_hidden_rel("src/.kotilo/worktrees"));
+        assert!(!is_builtin_hidden_rel(""));
+        assert!(!is_builtin_hidden_rel(".kotilo/worktreé"));
+    }
+
+    #[test]
+    fn load_resets_an_invalid_branch_prefix_only() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"v":1,"worktrees":{"branchPrefix":"-bad"},"agents":{"commands":["codex"]}}"#,
+        )
+        .unwrap();
+        let s = SettingsStore::load_from(dir.path().to_path_buf()).get();
+        assert_eq!(s.worktrees.branch_prefix, "kotilo/");
+        assert_eq!(s.agents.commands, vec!["codex"]);
     }
 
     /// Faz 7 spec §6: an old `settings.json` written before `diagnostics` existed must

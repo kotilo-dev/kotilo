@@ -280,3 +280,22 @@ Preparation: an installer build from these changes (`./scripts/release.ps1 -Arch
 | K-6 | Click "Open Kotilo desktop" on the deck while Kotilo is minimized or in the tray | The Kotilo window comes to the front; no second Kotilo starts |
 | K-7 | Turn off Settings → Agents → Connect to Kotilo Deck | The deck shows the desktop as disconnected; turning it on reconnects within a few seconds |
 | K-8 | Close the deck and use Kotilo for a while | No dialogs, no errors; `~/.kotilo/companion.token` exists (created by whichever app started first) |
+
+## Worktrees (0.6, D-073)
+
+Preparation: stop the dev app, `dotnet build hub/AgentHub.sln` (the hub has a new migration), then `npm --prefix apps/desktop run tauri dev`. Use a throwaway clone of a small repo as the workspace (workspace root = repo root) with a clean working copy and at least one commit.
+
+| # | Steps | Expected |
+|---|---|---|
+| W-1 | Start "New agent in worktree…", name `try one`, pick Claude Code | `.kotilo/worktrees/try-one` and branch `kotilo/try-one` exist (`git worktree list`); a new tab runs Claude there and shows a worktree badge; `.kotilo/` does not appear in `git status`; `.gitignore` unchanged |
+| W-2 | Start a second worktree agent (`try two`, Codex or another agent) and let both change files | Each agent changes only its own folder; the file tree and Ctrl+P do not list files from `.kotilo/worktrees`; Mission Control's Worktrees panel shows both with dirty counts |
+| W-3 | Check the agent header, Mission Control and the Sessions page for the worktree agents | Project = the main repo, branch = the worktree's branch; usage counts under the main project |
+| W-4 | Let one agent commit, then **Compare** | Changed files show (committed and uncommitted); a diff opens with the merge base on the left; editing a file in the worktree reloads the open diff |
+| W-5 | **Merge** while the worktree still has uncommitted changes | Refused with "commit in the worktree first"; nothing changes in the main checkout |
+| W-6 | Commit everything in the worktree, **Merge** (normal) | Merge commit on the base branch in the main checkout; cleanup is offered |
+| W-7 | Make both worktrees change the same line, merge one, then merge the other | The second merge reports a conflict with the file list; the main checkout is clean afterwards (`git status`) |
+| W-8 | **Squash merge** a worktree with two commits | One commit with the given message on the base branch |
+| W-9 | **Remove** a worktree whose agent is still running | Its terminal tabs close first, then the folder and (if chosen) the branch are gone; no "file in use" error |
+| W-10 | **Remove** a dirty / unmerged worktree | A second, explicit confirmation is asked; cancelling keeps everything |
+| W-11 | Resume a worktree agent's session from the Sessions page | The terminal opens in the worktree folder and the agent finds its session |
+| W-12 | Open a workspace that is a subfolder of a repo, and one that is not a repo | The Worktrees panel explains why worktrees are not available; no errors |

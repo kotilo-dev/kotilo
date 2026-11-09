@@ -1,3 +1,59 @@
+# Roadmap after 0.5 (agreed 2026-11-09)
+
+Input: "Kotilo Docs – Modül Spesifikasyonu" (Downloads, 2026-11-05) with five more module ideas. Taken in this order: **0.6 Worktrees → 0.7 Docs (narrowed) → Usage extras → Context (read-only) → watch rules (Guard without blocking)**. Left out: the `KotiloModule` loader and moving Usage into it (no code plugins, PRD §5.5), a Node core (`@kotilo/docs-core`, ts-morph, better-sqlite3 – logic goes into the hub), a separate MIT repo, ABAP/abapGit/RAP, an MCP server for now (new surface that writes agent configs; its own phase later), blocking Guard (the hook always exits 0 and prints nothing, so a down Kotilo never breaks an agent), storing prompts for Review (rule 5).
+
+- **0.7 Docs, narrowed:** links from Markdown links, `file=` code blocks and `.kotilo/docs.toml` (default; front matter optional, since GitHub renders a README's front matter as a table); paths named in a doc that no longer exist (agent instruction files first: `CLAUDE.md`, `AGENTS.md`); file-level staleness over `reviewed..HEAD`; badges and "why stale"; "Update with agent" puts a prompt into the agent's composer (as D-066), the diff shows in the timeline; `kotilo docs check` CLI. Later: git co-change, symbol index (tree-sitter), OpenAPI, GitHub Action, batch tasks.
+- **Usage extras:** tray summary, weekly chart (first check what Reports already has).
+- **Context:** read-only view of what an agent gets (instruction files, skills, MCP server list with `env` values hidden – rule 3), rough token estimate.
+- **Watch rules:** policy file of risky patterns (`.env` reads, force push, `rm -rf`, prod URLs) that raise the permission card's risk tag and notify; never blocks.
+- Before 0.6 ships: run the open 0.5.0 manual checks (S-1…S-5, K-1…K-8).
+
+# 0.6 – Worktrees for parallel agents (planned 2026-11-09)
+
+Goal: run several agents on one repo without them touching each other's files – each in its own git worktree and branch, then compare, merge and clean up from Kotilo. Works for every agent (no agent-specific flags such as Claude Code's `--worktree`). Defaults chosen with the user's go-ahead ("senin önerinle devam"):
+- Location `<repo>/.kotilo/worktrees/<name>`: inside the workspace root, so terminal cwd (`fsguard`), file links and the hub's project mapping keep working; Claude Code's own `.claude/worktrees/` sets the precedent. `.kotilo/` is hidden from git through `.git/info/exclude` (repo-local, append only, our marker line) – never by editing the user's `.gitignore`.
+- Branch `kotilo/<name>` from the current branch's HEAD (prefix is a setting).
+- Merge only into the base branch in the main checkout, never with a dirty main checkout; conflicts → abort and say so (the user resolves in a terminal). Squash is an option. No PR creation in 0.6.
+- Removing a worktree closes its terminals first (Windows file locks); a dirty worktree or an unmerged branch needs an explicit confirmation.
+
+Order: A → B → C → D → E → F (A and D can run in parallel).
+
+## A – Git core (Rust `gitcli`)
+- [x] `git worktree list --porcelain` parser (path, HEAD, branch, locked, prunable) + fixture tests
+- [x] Create: name → safe slug + branch, `git worktree add -b <branch> <path> <base>`; refuse an existing path/branch with a clear error
+- [x] Status per worktree: dirty files, ahead/behind base, `git diff --shortstat base...branch`
+- [x] Remove (`git worktree remove`, `--force` only after confirmation) + delete branch (`-d`, `-D` only after confirmation) + `prune`
+- [x] Merge / squash merge into base in the main checkout: precondition checks, `--abort` on conflict, result reported
+- [x] `.git/info/exclude` entry for `.kotilo/` (idempotent; works when `.git` is a file)
+- [x] All tests on temp repos (rule 4), Windows + Unix paths
+
+## B – Workspace and terminals
+- [x] File tree, Ctrl+P and the main workspace's file watcher skip `.kotilo/worktrees/` (no duplicate results, no change storms)
+- [x] "New agent in worktree…" (workspace menu, palette, Mission Control): name + agent → worktree + terminal tab in it running the agent
+- [x] Tab, agent header and Mission Control card show a worktree/branch badge
+- [x] Opening a file link from a worktree terminal opens the worktree's copy
+
+## C – Worktrees panel, compare, merge, clean up
+- [x] Panel under the workspace in Mission Control: one row per worktree (branch, agent + state, dirty, ahead/behind, +/− lines), actions Open terminal / Compare / Merge / Remove
+- [x] Compare: changed files `base...branch` in the existing DiffView (review notes keep working)
+- [x] Merge / Squash with confirm dialog; result toast; offer cleanup after a merge
+- [x] Remove with the confirmations above; closes the worktree's tabs first
+
+## D – Hub
+- [x] Session in a worktree → project of the main repo (`.git` file → gitdir → `commondir`); branch/worktree kept as session metadata
+- [x] Usage, Sessions and Projects group under the main project; fixture tests
+
+## E – Settings and strings
+- [x] `worktrees.branchPrefix` (default `kotilo/`), en + tr strings, user guide (en + tr)
+
+## F – Close-out
+- [x] Unit tests (parser, slugs, preconditions), e2e (mocked IPC) + screenshots of panel, compare and badges
+- [x] `docs/manual-tests.md` W-1…W-12 (two agents in parallel worktrees, merge, conflict, cleanup with an open terminal)
+- [x] D-073 ✓; cargo test 707 + clippy ✓, hub 745/261/90 ✓ (one infra failure once under load, not reproduced), npm test 1032 + build ✓, full e2e 114/114 ✓ (--workers=2)
+- [ ] Manual W-1…W-12 (user, `tauri dev` after `dotnet build`)
+
+Later (not 0.6): setup command after create (e.g. `npm install`, copying `.env`), PR creation via `gh`, worktree-per-task from Tasks.
+
 # 0.5 – Kotilo Deck companion client (planned 2026-11-06)
 
 Input: request from the kotilo-deck project (second-screen dashboard, WebSocket server on `127.0.0.1:47831`). Protocol: `docs/companion-protocol.md`, copied verbatim from kotilo-deck v1.0.1 (d0a12c7); it wins over this plan. Agreed with the deck side on 2026-11-06: mutual HMAC handshake (token never on the socket, never the legacy hello), `decision: "unknown"`, opaque ids, waits that keys cannot answer stay out of `approvals[]`. Design: D-072. Order: A → B → C → D → E.

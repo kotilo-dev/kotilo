@@ -15,6 +15,7 @@ import { reviewEn } from "./review.en";
 import { quickCommandsEn } from "./quickCommands.en";
 import { sessionsEn } from "./sessions.en";
 import { missionEn } from "./mission.en";
+import { worktreesEn } from "./worktrees.en";
 import { updateEn } from "./update.en";
 import { assistantEn } from "./assistant.en";
 
@@ -633,6 +634,7 @@ export const en = {
   sessions: sessionsEn,
   /** M4: Mission control page (`mission.en.ts`). */
   mission: missionEn,
+  worktrees: worktreesEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */
   update: updateEn,
   /** M7: assistant chat popup and its settings (`assistant.en.ts`). */

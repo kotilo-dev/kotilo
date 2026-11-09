@@ -545,4 +545,21 @@ describe("diff tabs (M4 timeline)", () => {
       vi.useRealTimers();
     }
   });
+
+  it("0.6: a diff against a rev is its own tab (one tab per rel + rev)", async () => {
+    const store = await freshStore();
+    await store.useViewerStore.getState().init();
+    const v = store.useViewerStore.getState();
+    v.openDiff("ws1", "wt/a.txt");
+    v.openDiff("ws1", "wt/a.txt", { rev: "abc123" });
+    v.openDiff("ws1", "wt/a.txt", { rev: "abc123" });
+    v.openDiff("ws1", "wt/a.txt", { rev: "def456" });
+    expect(tabsOf(store, "ws1").map((t) => [t.rel, t.diffRev ?? null])).toEqual([
+      ["wt/a.txt", null],
+      ["wt/a.txt", "abc123"],
+      ["wt/a.txt", "def456"],
+    ]);
+    v.openDiff("ws1", "wt/a.txt", { rev: "abc123" });
+    expect(store.useViewerStore.getState().byWorkspace.ws1?.activeTabId).toBe(tabsOf(store, "ws1")[1]!.id);
+  });
 });

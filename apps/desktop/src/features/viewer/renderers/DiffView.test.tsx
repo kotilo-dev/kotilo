@@ -31,7 +31,14 @@ describe("loadDiff", () => {
     ipc.gitShowHead.mockResolvedValue(head("old"));
     ipc.fsReadText.mockResolvedValue({ text: "new" });
     expect(await loadDiff("ws", "a.ts")).toEqual({ status: "ready", original: "old", modified: "new" });
-    expect(ipc.gitShowHead).toHaveBeenCalledWith("ws", "a.ts");
+    expect(ipc.gitShowHead).toHaveBeenCalledWith("ws", "a.ts", undefined);
+  });
+
+  it("reads the left side at the given rev (worktree compare)", async () => {
+    ipc.gitShowHead.mockResolvedValue(head("base"));
+    ipc.fsReadText.mockResolvedValue({ text: "new" });
+    expect(await loadDiff("ws", ".kotilo/worktrees/x/a.ts", "abc123")).toEqual({ status: "ready", original: "base", modified: "new" });
+    expect(ipc.gitShowHead).toHaveBeenCalledWith("ws", ".kotilo/worktrees/x/a.ts", "abc123");
   });
 
   it("uses empty sides for added and deleted files", async () => {
