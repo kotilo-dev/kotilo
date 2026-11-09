@@ -119,6 +119,18 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     // Just below the pointer, so the link stays readable.
     setLinkMenu({ x: event.clientX, y: event.clientY + 10, items });
   };
+  /**
+   * True when xterm reported this click to a program that tracks the mouse. Such programs may
+   * open the link on Ctrl/Cmd+click themselves (Claude Code's fullscreen mode does), so opening it
+   * here too gave two browser tabs. As in Windows Terminal, the program owns the click; Shift
+   * (Option on macOS with `macOptionClickForcesSelection`) is not reported, so it opens here.
+   * Mirrors xterm's `SelectionService.shouldForceSelection`.
+   */
+  const programGotClick = (event: MouseEvent) => {
+    if ((term.modes.mouseTrackingMode ?? "none") === "none") return false;
+    const forced = isMac() ? event.altKey && !!term.options.macOptionClickForcesSelection : event.shiftKey;
+    return !forced;
+  };
   /** Bumped to load WebGL again after a context loss (otherwise the DOM renderer stays until a tab switch). */
   const [webglAttempt, setWebglAttempt] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -208,6 +220,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
         ]);
         return;
       }
+      if (programGotClick(event)) return;
       void openExternalUrl(uri);
     };
     const webLinkHover = {
@@ -262,6 +275,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
                   ]);
                   return;
                 }
+                if (programGotClick(event)) return;
                 open();
               },
             };

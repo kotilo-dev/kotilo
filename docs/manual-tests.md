@@ -264,6 +264,7 @@ Preparation: a build from these changes (stop the dev app, `dotnet build hub/Age
 | S-2 | Ask Claude to start a shell of at least 12 minutes in the background, and let the turn end | "Background: …" shows; it stays after 60 seconds and after 10 minutes, with no completed toast. When the shell ends Claude wakes by itself and the toast comes when that turn ends |
 | S-3 | Ask Claude to run `echo kotilo-test`, then leave the keyboard alone | After about six seconds "Needs permission" and the permission card show the command; allowing it from the card returns to working. **If the card never appears, this blocks the release** |
 | S-4 | On an OSC 8 link in a terminal: Ctrl+click, then plain click and **Open** | The link opens once each time, not twice |
+| S-5 | Claude Code in fullscreen mode (`/tui fullscreen`): Ctrl+click a link in its output, then Ctrl+Shift+click it | Each opens the browser once (the first by Claude Code itself, the second by Kotilo) |
 
 ## Kotilo Deck companion (0.5, D-072)
 

@@ -106,3 +106,34 @@ test("Ctrl+click on an OSC 8 link opens it once through the opener, without a co
   expect(await page.evaluate(() => window.__e2eOpenedUrls)).toEqual(["https://example.com/docs"]);
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("a program that tracks the mouse owns Ctrl+click on a link; Ctrl+Shift+click opens it here", async ({ page }) => {
+  const errors = await openShell(page);
+  // Claude Code's fullscreen mode turns on mouse tracking and opens Ctrl+clicked links itself.
+  await writeToTerminal(page, "\x1b[2J\x1b[H\x1b[?1000h\x1b[?1006hSee \x1b]8;;https://example.com/docs\x07the docs page\x1b]8;;\x07 for details\r\n");
+  const box = (await page.locator(".xterm-screen").boundingBox())!;
+  const cell = await page.evaluate(async () => {
+    const registry = await import("/src/features/terminal/terminalRegistry.ts");
+    const term = registry.allEntries()[0]!.term as unknown as { _core: { _renderService: { dimensions: { css: { cell: { width: number; height: number } } } } } };
+    return term._core._renderService.dimensions.css.cell;
+  });
+  const x = box.x + cell.width * 8.5;
+  const y = box.y + cell.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.waitForTimeout(300);
+  await page.keyboard.down("Control");
+  await page.mouse.click(x, y);
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__e2eOpenedUrls)).toEqual([]);
+
+  await page.keyboard.down("Control");
+  await page.keyboard.down("Shift");
+  await page.mouse.move(x + 1, y);
+  await page.waitForTimeout(300);
+  await page.mouse.click(x + 1, y);
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("Control");
+  await expect.poll(() => page.evaluate(() => window.__e2eOpenedUrls)).toEqual(["https://example.com/docs"]);
+  expect(errors, errors.join("\n")).toEqual([]);
+});
