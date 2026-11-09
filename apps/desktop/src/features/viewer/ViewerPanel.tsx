@@ -8,7 +8,7 @@ import { PanelHeader } from "../../app/PanelHeader";
 import { strings, useStrings } from "../../app/strings";
 import { registerCommand } from "../../app/commands";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { useViewerStore, type ViewerMode, type ViewerTab } from "../../stores/viewerStore";
+import { isFileTab, useViewerStore, type ViewerMode, type ViewerTab } from "../../stores/viewerStore";
 import { docKey, useDocument, useDocumentStore } from "../../stores/documentStore";
 import { useToastStore } from "../../stores/toastStore";
 import { getRenderer, type RenderKind } from "./getRenderer";
@@ -24,6 +24,7 @@ const HtmlView = lazy(() => import("./renderers/HtmlView").then((m) => ({ defaul
 const ImageView = lazy(() => import("./renderers/ImageView").then((m) => ({ default: m.ImageView })));
 const PdfView = lazy(() => import("./renderers/PdfView").then((m) => ({ default: m.PdfView })));
 const DiffView = lazy(() => import("./renderers/DiffView").then((m) => ({ default: m.DiffView })));
+const DocsView = lazy(() => import("../docs/DocsView").then((m) => ({ default: m.DocsView })));
 import { UnsupportedView } from "./renderers/UnsupportedView";
 
 const TEXTUAL_KINDS = new Set<RenderKind>(["text", "markdown", "html", "svg"]);
@@ -51,7 +52,7 @@ function useDocumentLifecycle(byWorkspace: Record<string, { tabs: ViewerTab[] }>
     const current = new Map<string, LoadedTabEntry>();
     for (const [workspaceId, ws] of Object.entries(byWorkspace)) {
       for (const tab of ws.tabs) {
-        if (!tab.diff && TEXTUAL_KINDS.has(getRenderer(tab.rel))) {
+        if (isFileTab(tab) && TEXTUAL_KINDS.has(getRenderer(tab.rel))) {
           current.set(tab.id, { workspaceId, rel: tab.rel });
         }
       }
@@ -90,6 +91,7 @@ function ActiveTabBody({ workspaceId, tab, kind }: { workspaceId: string; tab: V
   const needsDoc = TEXTUAL_KINDS.has(kind);
   const doc = useDocument(workspaceId, tab.rel);
 
+  if (tab.docs) return <DocsView workspaceId={workspaceId} />;
   if (tab.diff) return <DiffView workspaceId={workspaceId} rel={tab.rel} rev={tab.diffRev} />;
   if (needsDoc && doc?.status === "error" && doc.error?.code === "binary_file") {
     return <UnsupportedView workspaceId={workspaceId} rel={tab.rel} />;
@@ -129,7 +131,7 @@ function toggleMarkdownMode() {
   if (!workspaceId) return;
   const ws = useViewerStore.getState().byWorkspace[workspaceId];
   const tab = ws?.tabs.find((t) => t.id === ws.activeTabId);
-  if (!tab || tab.diff || getRenderer(tab.rel) !== "markdown") return;
+  if (!tab || !isFileTab(tab) || getRenderer(tab.rel) !== "markdown") return;
   const next: ViewerMode = tab.mode === "edit" ? "preview" : "edit";
   useViewerStore.getState().setMode(workspaceId, tab.id, next);
 }
@@ -139,7 +141,7 @@ async function saveActiveTab() {
   if (!workspaceId) return;
   const ws = useViewerStore.getState().byWorkspace[workspaceId];
   const tab = ws?.tabs.find((t) => t.id === ws.activeTabId);
-  if (!tab || tab.diff) return;
+  if (!tab || !isFileTab(tab)) return;
 
   const doc = useDocumentStore.getState().docs[docKey(workspaceId, tab.rel)];
   if (doc?.readOnly) {
@@ -264,7 +266,7 @@ export function ViewerPanel() {
             onRequestClose={(tabId) => requestCloseTab(activeWorkspaceId, tabId, setPendingClose)}
             onSetMode={(tabId, mode) => useViewerStore.getState().setMode(activeWorkspaceId, tabId, mode)}
           />
-          {activeTab && !activeTab.diff && TEXTUAL_KINDS.has(getRenderer(activeTab.rel)) && (
+          {activeTab && isFileTab(activeTab) && TEXTUAL_KINDS.has(getRenderer(activeTab.rel)) && (
             <ExternalChangeBanner workspaceId={activeWorkspaceId} rel={activeTab.rel} />
           )}
           <div className="min-h-0 flex-1">{activeTab && renderActiveTab(activeWorkspaceId, activeTab)}</div>
@@ -304,7 +306,7 @@ function requestCloseTab(workspaceId: string, tabId: string, setPendingClose: (p
   const ws = useViewerStore.getState().byWorkspace[workspaceId];
   const tab = ws?.tabs.find((t) => t.id === tabId);
   if (!tab) return;
-  const dirty = !tab.diff && (useDocumentStore.getState().docs[docKey(workspaceId, tab.rel)]?.dirty ?? false);
+  const dirty = isFileTab(tab) && (useDocumentStore.getState().docs[docKey(workspaceId, tab.rel)]?.dirty ?? false);
   if (!dirty) {
     useViewerStore.getState().closeTab(workspaceId, tabId);
     return;

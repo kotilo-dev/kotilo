@@ -702,8 +702,8 @@ control. Give it a name and pick the agent. Kotilo creates `.kotilo/worktrees/<n
 the branch `kotilo/<name>` (the prefix is in Settings → Terminal), starting from the main
 checkout's current commit, and opens a terminal tab there running the agent. The tab, the
 agent header and the Mission control tile show the branch as a badge. Kotilo hides
-`.kotilo/` from git through the repository's own `info/exclude` file; your `.gitignore`
-is not changed. Worktree files stay out of the file tree and quick open.
+`.kotilo/` from git through the repository's own `info/exclude` file, except
+`.kotilo/docs.toml` (see [Docs check](#docs-check)); your `.gitignore` is not changed. Worktree files stay out of the file tree and quick open.
 
 Worktrees need the workspace to be the repository's top folder and at least one commit.
 
@@ -726,6 +726,52 @@ example `.claude/worktrees/`) are listed for terminals and compare only.
 
 Sessions of worktree agents count under the main project in Usage, Sessions and Projects;
 resuming one from Sessions opens the terminal in its worktree.
+
+## Docs check
+
+Docs check finds documentation that no longer matches the code: paths a doc names that do
+not exist any more, and docs whose code changed after the doc was last updated or
+reviewed. Agent instruction files (`CLAUDE.md`, `AGENTS.md`, …) are listed first, since a
+wrong path there misleads every agent.
+
+**Open it:** **Check docs** in the workspace's right-click menu, or **Docs: Check** in the
+command palette. The Docs tab opens in the viewer and re-checks by itself when files
+change. Doc files with findings get a dot in the file tree: red for missing paths, amber
+for stale (turn the dots off in Settings → Files).
+
+**What counts as a link:** a relative Markdown link (`[api](../hub/Api.cs)`), a code
+block with `file=` in its first line (```` ```ts file=src/api.ts ````), a path in inline
+code (`` `src/api.ts` ``, only checked for existence), and the `covers` list of a doc in
+`.kotilo/docs.toml`. Links to other Markdown files and paths git ignores are not counted.
+
+```toml
+# .kotilo/docs.toml – commit this file, so your team and CI see the same results
+[[doc]]
+path = "docs/api.md"
+covers = ["src/api/**", "schema/api.json"]   # globs, relative to the repository root
+reviewed = "3f2c1ab…"                        # written by "Mark reviewed"
+```
+
+A doc is **stale** when a covered file changed in a commit after the doc's baseline: the
+commit stored by **Mark reviewed**, or else the last commit that changed the doc.
+Uncommitted changes do not count. Each stale doc shows why: the commits and the changed
+files (click a file for its diff since the baseline).
+
+- **Open doc** opens it; clicking a missing path opens the doc at that line.
+- **Mark reviewed** stores the current commit as the doc's `reviewed` value in
+  `.kotilo/docs.toml` (the file is created if needed, comments are kept). Commit that
+  change like any other.
+- **Update with agent…** writes a prompt for one of the workspace's running agents into
+  its composer, with the missing paths and the reason the doc is stale. Nothing is sent
+  until you send it; the agent's changes show in the timeline.
+
+**On the command line and in CI:** Kotilo installs `kotilo-docs` next to the app
+(Windows: `%LOCALAPPDATA%\kotilo\kotilo-docs.exe`); each release also has a standalone copy
+per platform. Run `kotilo-docs check` in a repository: it prints one line per finding
+(`docs/api.md:12: missing src/old.ts (link)`) and exits with 1 when it finds something, 0
+when not, 2 on an error. `--json` prints the full report, `--missing-only` /
+`--stale-only` limit it, and `kotilo-docs reviewed <doc>` does what **Mark reviewed**
+does.
 
 ## Usage
 

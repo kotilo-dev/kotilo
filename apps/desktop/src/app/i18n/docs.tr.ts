@@ -1,0 +1,80 @@
+/** Turkish `docs` (same shape as `docs.en.ts`). */
+import type { docsEn } from "./docs.en";
+
+export const docsTr: typeof docsEn = {
+  tabTitle: "Dokümanlar",
+  title: "Doküman denetimi",
+  commandCategory: "Dokümanlar",
+  commandTitle: "Denetle",
+  contextMenu: "Dokümanları denetle",
+  summary: (scanned: number, missing: number, stale: number) =>
+    `${scanned} doküman tarandı · ${missing} dokümanda eksik yol · ${stale} doküman güncel değil`,
+  checking: "Denetleniyor…",
+  checkAgain: "Yeniden denetle",
+  loadFailed: "Doküman denetimi başarısız oldu.",
+  filter: {
+    label: "Göster",
+    all: (n: number) => `Tümü ${n}`,
+    missing: (n: number) => `Eksik ${n}`,
+    stale: (n: number) => `Eskimiş ${n}`,
+  },
+  noGit: "Burada git yok, bu yüzden yalnızca eksik yollar denetlendi.",
+  truncated: "Yalnızca ilk 2000 doküman denetlendi.",
+  configError: (line: number, message: string) => `.kotilo/docs.toml satır ${line}: ${message}. Denetim yalnızca Markdown bağlantılarıyla yapıldı.`,
+  allGood: (n: number) => `Bağlantı içeren ${n} dokümanın hepsi kodla uyumlu.`,
+  noneMissing: "Hiçbir doküman eksik bir yol anmıyor.",
+  noneStale: "Eskimiş doküman yok.",
+  agentFile: "Ajan dosyası",
+  missingCount: (n: number) => `${n} eksik yol`,
+  staleSince: (id: string) => `eskimiş (${id} sonrası)`,
+  staleCommits: (n: number) => `eskimiş · ${n} commit`,
+  expand: (path: string) => `${path} ayrıntıları`,
+  missingTitle: "Eksik yollar",
+  whyStale: "Neden eskimiş",
+  staleReason: (count: number, id: string, reviewed: boolean) =>
+    `Kapsanan kod ${id} sonrasında ${count} commit ile değişti (${reviewed ? "son gözden geçirme" : "dokümanın son değişikliği"}).`,
+  reviewedMissing: "Gözden geçirilen commit artık yok (rebase mi edildi?), bu yüzden dokümanın son değişikliği esas alındı.",
+  moreCommits: (n: number) => `… ve ${n} commit daha`,
+  changedFiles: "Değişen dosyalar",
+  fileCommits: (n: number) => `${n} commit`,
+  openAt: (path: string, line: number) => `${path} dosyasını ${line}. satırda aç`,
+  openConfig: ".kotilo/docs.toml dosyasını aç",
+  inConfig: "docs.toml, hiçbir şeyle eşleşmiyor",
+  showDiff: (path: string, id: string) => `${path} dosyasında ${id} sonrasındaki değişiklikleri göster`,
+  source: {
+    link: "bağlantı",
+    codeBlock: "kod bloğu",
+    inline: "satır içi kod",
+    config: "docs.toml",
+    frontMatter: "front matter",
+  },
+  actions: {
+    openDoc: "Dokümanı aç",
+    markReviewed: "Gözden geçirildi say",
+    updateWithAgent: "Ajanla güncelle…",
+    noAgent: "Önce bu çalışma alanında bir ajan başlatın.",
+    noCommit: "En az bir commit'i olan bir git deposu gerekir.",
+  },
+  confirm: {
+    title: (path: string) => `${path} gözden geçirildi sayılsın mı?`,
+    body: (id: string) =>
+      `Bu doküman için geçerli commit (${id}) .kotilo/docs.toml dosyasına yazılır (dosya yoksa oluşturulur). Gözden geçirmeyi ekibinizle ve CI ile paylaşmak için dosyayı commit edin.`,
+    confirm: "Gözden geçirildi say",
+  },
+  markedToast: (path: string) => `${path} gözden geçirildi olarak işaretlendi`,
+  sentTo: (label: string) => `İstem ${label} giriş kutusunda – kontrol edip gönderin.`,
+  empty: {
+    title: "Henüz koda bağlanan bir doküman yok",
+    body: "Dokümanlar andıkları yollara göre denetlenir: Markdown bağlantıları, file= kod blokları ve satır içi koddaki yollar. Bir dokümanın hangi kodu kapsadığını belirtmek için depoya .kotilo/docs.toml ekleyin:",
+    copy: "Örneği kopyala",
+    copied: "Örnek kopyalandı",
+  },
+  badge: {
+    missing: "Doküman eksik yollar anıyor",
+    stale: "Doküman eskimiş",
+  },
+  settings: {
+    treeBadges: "Dosya ağacında doküman denetimi işaretlerini göster",
+    treeBadgesHint: "Kırmızı: doküman artık var olmayan yollar anıyor. Sarı: dokümanın kapsadığı kod son gözden geçirmeden sonra değişti.",
+  },
+};

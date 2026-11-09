@@ -16,8 +16,11 @@
        signCommand (scripts/sign.ps1) signs the app exe, the sidecars it bundles and the installer.
     4. `tauri build --target <triple> --bundles nsis` with a generated `--config` overlay
        (sidecars, staged resources, updater artifacts, signing). Tauri runs the UI build first
-       (`beforeBuildCommand`), and src-tauri/build.rs builds the hook sidecar for the target.
-    5. Installer (+ `.sig` updater signature) copied to target/release-artifacts/<arch>/.
+       (`beforeBuildCommand`), and src-tauri/build.rs builds the hook and docs sidecars for the
+       target.
+    5. Installer (+ `.sig` updater signature) copied to target/release-artifacts/<arch>/, plus the
+       standalone docs CLI (0.7) as `<exePrefix>-docs-<version>-<triple>.exe` for CI use (signed
+       with -Sign like the bundled copy).
 
   Updater artifacts: produced only when TAURI_SIGNING_PRIVATE_KEY (and, if the key has one,
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD) is set; the private key never lives in the repo. The app
@@ -146,7 +149,7 @@ if ($Sign) {
 
 # --- 4. Tauri build ---------------------------------------------------------------------------
 $bundle = [ordered]@{
-    externalBin = @("binaries/$prefix-hook", "binaries/$prefix-hub")
+    externalBin = @("binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-hub")
     # JSON merge patch: null drops the dev mapping (adapters incl. fixtures).
     resources   = [ordered]@{
         '../../../adapters/'          = $null
@@ -189,6 +192,15 @@ $installers = @(Get-ChildItem $nsisDir -File -Filter '*-setup.exe*' -ErrorAction
     Where-Object { $_.Name -like "*_$($tauriConf.version)_*" })
 if ($installers.Count -eq 0) { throw "no installer found in $nsisDir" }
 $installers | ForEach-Object { Copy-Item $_.FullName $artifacts -Force }
+
+# The docs CLI on its own (0.7), so CI jobs can download it from the release.
+$docsCli = Join-Path $tauriDir "binaries\$prefix-docs-$triple.exe"
+if (-not (Test-Path $docsCli)) { throw "docs CLI not found at $docsCli" }
+$docsAsset = Join-Path $artifacts "$prefix-docs-$($tauriConf.version)-$triple.exe"
+Copy-Item $docsCli $docsAsset -Force
+if ($Sign) {
+    Invoke-Native 'sign: standalone docs CLI' { & $signScript $docsAsset }
+}
 
 Write-Host "==> artifacts ($Arch)" -ForegroundColor Green
 Get-ChildItem $artifacts -File | ForEach-Object { Write-Host ("  {0}  {1}" -f $_.FullName, (Format-Size $_.Length)) }

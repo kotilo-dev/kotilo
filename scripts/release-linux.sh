@@ -8,8 +8,9 @@
 #      sit next to the hub. The exe becomes the sidecar `binaries/<exePrefix>-hub-<triple>`.
 #   2. Built-in adapter definitions staged without `fixtures/` (D-021).
 #   3. `tauri build --bundles appimage,deb,rpm` with a generated `--config` overlay (sidecars,
-#      staged adapters, updater artifacts). src-tauri/build.rs builds the hook sidecar.
-#   4. Packages (+ their updater `.sig`s) copied to target/release-artifacts/linux-x64/.
+#      staged adapters, updater artifacts). src-tauri/build.rs builds the hook and docs sidecars.
+#   4. Packages (+ their updater `.sig`s) copied to target/release-artifacts/linux-x64/, plus the
+#      standalone docs CLI (0.7) as `<exePrefix>-docs-<version>-<triple>` for CI use.
 #
 # Updater artifacts only with TAURI_SIGNING_PRIVATE_KEY set (see release.ps1).
 # Prerequisites: .NET 10 SDK, Rust stable, Node LTS with `npm --prefix apps/desktop ci` done,
@@ -77,7 +78,7 @@ overlay="$staging/tauri.release.conf.json"
 cat > "$overlay" <<EOF
 {
   "bundle": {
-    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-hub"],
+    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-hub"],
     "resources": {
       "../../../adapters/": null,
       "$staging_rel/adapters/": "adapters/"
@@ -99,6 +100,10 @@ if [ ${#found[@]} -eq 0 ]; then
   exit 1
 fi
 cp "${found[@]}" "$artifacts/"
+# The docs CLI on its own (0.7), so CI jobs can download it from the release.
+docs_cli="$tauri_dir/binaries/$prefix-docs-$triple"
+[ -f "$docs_cli" ] || { echo "docs CLI not found at $docs_cli" >&2; exit 1; }
+install -m 755 "$docs_cli" "$artifacts/$prefix-docs-$version-$triple"
 
 printf '\033[32m==> artifacts (linux-x64)\033[0m\n'
 ls -lh "$artifacts"

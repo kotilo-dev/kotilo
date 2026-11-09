@@ -1,8 +1,9 @@
 name: Release
 
 # A `v*` tag builds the Windows installers (x64, ARM64), the Linux packages (AppImage, .deb, .rpm),
-# the macOS apps (Apple Silicon, Intel: .dmg + updater .app.tar.gz), the updater signatures and
-# `latest.json`, and attaches them
+# the macOS apps (Apple Silicon, Intel: .dmg + updater .app.tar.gz), the updater signatures,
+# `latest.json` and the standalone docs CLI per platform (`<exePrefix>-docs-<version>-<triple>[.exe]`,
+# collected by the release scripts next to the installers, 0.7), and attaches them
 # to a draft GitHub release. Publishing the draft is a manual step (and makes `latest.json` the
 # feed behind brand.json `updateEndpoint`:
 # https://github.com/kotilo-dev/kotilo/releases/latest/download/latest.json).

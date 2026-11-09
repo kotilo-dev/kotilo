@@ -2,7 +2,7 @@ import { useStrings, type Strings } from "../../app/strings";
 import { baseName } from "../workspaces/paths";
 import { useDocument } from "../../stores/documentStore";
 import { getRenderer } from "./getRenderer";
-import type { ViewerMode, ViewerTab } from "../../stores/viewerStore";
+import { isFileTab, type ViewerMode, type ViewerTab } from "../../stores/viewerStore";
 
 interface ViewerTabItemProps {
   workspaceId: string;
@@ -15,16 +15,16 @@ interface ViewerTabItemProps {
 function ViewerTabItem({ workspaceId, tab, active, onActivate, onRequestClose }: ViewerTabItemProps) {
   const strings = useStrings();
   const doc = useDocument(workspaceId, tab.rel);
-  const dirty = !tab.diff && (doc?.dirty ?? false);
+  const dirty = isFileTab(tab) && (doc?.dirty ?? false);
   const base = baseName(tab.rel) || tab.rel;
-  const name = tab.diff ? (tab.diffRev ? strings.timeline.diffTabRev(base, tab.diffRev.slice(0, 8)) : strings.timeline.diffTab(base)) : base;
+  const name = tab.docs ? strings.docs.tabTitle : tab.diff ? (tab.diffRev ? strings.timeline.diffTabRev(base, tab.diffRev.slice(0, 8)) : strings.timeline.diffTab(base)) : base;
 
   return (
     <div
       className={`flex h-full shrink-0 items-center gap-1 border-r border-border px-2 text-xs ${active ? "bg-bg" : "bg-transparent"} ${
         tab.missing ? "text-blocked" : "text-text"
       } ${tab.pinned ? "not-italic" : "italic"}`}
-      title={tab.missing ? `${tab.rel} — ${strings.viewer.deletedOnDisk}` : tab.rel}
+      title={tab.docs ? strings.docs.tabTitle : tab.missing ? `${tab.rel} — ${strings.viewer.deletedOnDisk}` : tab.rel}
       onClick={onActivate}
       onMouseDown={(e) => {
         if (e.button === 1) {
@@ -76,7 +76,7 @@ function modeOptions(kind: "markdown" | "html" | "svg", strings: Strings): { val
 export function ViewerTabStrip({ workspaceId, tabs, activeTabId, onActivate, onRequestClose, onSetMode }: ViewerTabStripProps) {
   const strings = useStrings();
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const activeKind = activeTab && !activeTab.diff ? getRenderer(activeTab.rel) : null;
+  const activeKind = activeTab && isFileTab(activeTab) ? getRenderer(activeTab.rel) : null;
   const options =
     activeTab && (activeKind === "markdown" || activeKind === "html" || activeKind === "svg") ? modeOptions(activeKind, strings) : null;
 

@@ -230,7 +230,9 @@ export type ErrorCode =
   | "spawn_failed"
   | "invalid_json"
   | "invalid_argument"
-  | "hub_unavailable";
+  | "hub_unavailable"
+  /** 0.7: `.kotilo/docs.toml` is not valid TOML; it is never rewritten. */
+  | "invalid_config";
 
 /** Tüm command'ların reddettiği hata şekli — Tauri, invoke'u bu objenin kendisiyle reddeder. */
 export interface AppError {
@@ -913,6 +915,8 @@ export interface Settings {
   companion?: { enabled: boolean };
   /** 0.6: branch name prefix of new worktrees (Rust default `kotilo/`); optional for older fixtures. */
   worktrees?: { branchPrefix: string };
+  /** 0.7: docs check badges in the file tree (Rust default `true`); optional for older fixtures. */
+  docs?: { treeBadges: boolean };
 }
 
 export interface SavedPrompt {
@@ -1093,6 +1097,71 @@ export async function worktreeRemove(
   opts: { force: boolean; deleteBranch: boolean; forceBranch: boolean },
 ): Promise<WorktreeRemoveResult> {
   return invoke<WorktreeRemoveResult>("worktree_remove", { workspaceId, name, ...opts });
+}
+
+// ---------------------------------------------------------------------------
+// 0.7 — Docs: docs that no longer match the code (crate `agenthub-docs`, D-074)
+// ---------------------------------------------------------------------------
+
+export type DocLinkSource = "link" | "codeBlock" | "inline" | "config" | "frontMatter";
+
+/** A path a doc names; `line` is 1-based (0 for a docs.toml `covers` glob). */
+export interface DocLink {
+  target: string;
+  source: DocLinkSource;
+  line: number;
+  exists: boolean;
+}
+
+export interface DocStaleCommit {
+  id: string;
+  subject: string;
+  /** ISO date. */
+  date: string;
+}
+
+export interface DocStale {
+  baseline: string;
+  baselineKind: "reviewed" | "lastTouch";
+  /** The reviewed commit is gone (rebased away); the baseline fell back to the last touch. */
+  reviewedMissing: boolean;
+  /** Newest first, at most 20. */
+  commits: DocStaleCommit[];
+  commitCount: number;
+  /** Changed covered files, at most 50. */
+  files: { path: string; commits: number }[];
+}
+
+export interface DocDoc {
+  /** Repo-relative, "/"-separated. */
+  path: string;
+  agentFile: boolean;
+  links: DocLink[];
+  missing: DocLink[];
+  stale: DocStale | null;
+}
+
+export interface DocsReport {
+  root: string;
+  gitAvailable: boolean;
+  head: string | null;
+  /** ".kotilo/docs.toml" when present. */
+  configPath: string | null;
+  configError: { line: number; message: string } | null;
+  /** Docs with at least one link; agent files first, then by path. */
+  docs: DocDoc[];
+  truncated: boolean;
+  summary: { docs: number; stale: number; missing: number };
+}
+
+/** Runs the docs check for the workspace's folder. */
+export async function docsCheck(workspaceId: string): Promise<DocsReport> {
+  return invoke<DocsReport>("docs_check", { workspaceId });
+}
+
+/** Writes `reviewed = "<HEAD>"` for `path` into `.kotilo/docs.toml`. Errors: `invalid_config`, `invalid_argument`. */
+export async function docsMarkReviewed(workspaceId: string, path: string): Promise<{ commit: string }> {
+  return invoke<{ commit: string }>("docs_mark_reviewed", { workspaceId, path });
 }
 
 // ---------------------------------------------------------------------------

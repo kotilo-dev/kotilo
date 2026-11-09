@@ -8,17 +8,11 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { createPortal } from "react-dom";
 import type * as Monaco from "monaco-editor/editor/editor.api";
 import { useStrings } from "../../app/i18n";
-import { agentDisplayName } from "../../app/ui";
-import type { Agent } from "../../lib/ipc";
-import { useAgentStore } from "../../stores/agentStore";
-import { useDefinitionsStore } from "../../stores/definitionsStore";
-import { useHubStore } from "../../stores/hubStore";
-import { matchSession } from "../workspace/paneSession";
-import { useTerminalStore } from "../../stores/terminalStore";
 import { useToastStore } from "../../stores/toastStore";
 import { navigateToAgent } from "../agents/navigate";
 import { useComposerInbox } from "../composer/composerInbox";
 import { ContextMenu, type ContextMenuState } from "../workspaces/ContextMenu";
+import { useAgentTargets, type AgentTarget } from "./agentTargets";
 import { buildReviewPrompt, lineLabel, type ReviewNote } from "./reviewNotes";
 import { openNotes, useOpenNoteCount, useReviewStore } from "./reviewStore";
 
@@ -343,49 +337,14 @@ function NoteCard({ note }: { note: ReviewNote }) {
   );
 }
 
-interface Target {
-  agent: Agent;
-  label: string;
-}
-
-/**
- * Agents running in the workspace's terminals (the pane's own record or a live hub session, as
- * on the pane header), named like the header.
- */
-function useTargets(workspaceId: string): Target[] {
-  const strings = useStrings();
-  const agents = useAgentStore((s) => s.agents);
-  const sessions = useHubStore((s) => s.sessions);
-  const definitions = useDefinitionsStore((s) => s.definitions);
-  const byWorkspace = useTerminalStore((s) => s.byWorkspace);
-  return useMemo(() => {
-    const tabs = byWorkspace[workspaceId]?.tabs ?? [];
-    return tabs.flatMap((tab) => {
-      if (tab.status !== "running" || !tab.paneId) return [];
-      const paneId = tab.paneId;
-      const known = agents.find((a) => a.paneId === paneId);
-      const session = matchSession(sessions, paneId, known);
-      if (!known && !session) return [];
-      const adapterId = session?.agent ?? known?.adapterId ?? null;
-      const name = adapterId ? agentDisplayName(adapterId, definitions) : strings.agents.kindLabel[known?.kind ?? "other"];
-      const agent: Agent = known ?? { id: paneId, paneId, workspaceId, kind: "other", state: "idle", sinceMs: 0, source: "hook", sessionId: session?.sessionId ?? null };
-      // A renamed tab says which one; otherwise only agents of the same kind need a number.
-      return [{ agent, name, label: tab.titleEdited ? `${name} · ${tab.title}` : name }];
-    }).map((t, _, list) => {
-      const same = list.filter((o) => o.label === t.label);
-      return { agent: t.agent, label: same.length > 1 ? `${t.label} (${same.indexOf(t) + 1})` : t.label };
-    });
-  }, [agents, sessions, definitions, byWorkspace, workspaceId, strings]);
-}
-
 export function SendNotesButton({ workspaceId }: { workspaceId: string }) {
   const strings = useStrings();
   const count = useOpenNoteCount(workspaceId);
-  const targets = useTargets(workspaceId);
+  const targets = useAgentTargets(workspaceId);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   if (count === 0) return <span className="ml-auto truncate text-faint">{strings.review.hint}</span>;
 
-  const send = (target: Target) => {
+  const send = (target: AgentTarget) => {
     const prompt = buildReviewPrompt(openNotes(useReviewStore.getState().notes, workspaceId));
     // Navigate first: it focuses the terminal on the next frame, the composer focuses itself after.
     navigateToAgent(target.agent);

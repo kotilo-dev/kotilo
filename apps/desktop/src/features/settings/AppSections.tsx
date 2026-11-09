@@ -214,6 +214,12 @@ export function FilesSection() {
         onChange={(v) => update({ clipboard: { copyPathAfterImageSave: v } })}
         label={s.settings.clipboard.copyPathAfterImageSave}
       />
+      <Checkbox
+        checked={settings.docs?.treeBadges ?? true}
+        onChange={(v) => update({ docs: { treeBadges: v } })}
+        label={s.docs.settings.treeBadges}
+        hint={s.docs.settings.treeBadgesHint}
+      />
     </div>
   );
 }

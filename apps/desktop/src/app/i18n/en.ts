@@ -16,6 +16,7 @@ import { quickCommandsEn } from "./quickCommands.en";
 import { sessionsEn } from "./sessions.en";
 import { missionEn } from "./mission.en";
 import { worktreesEn } from "./worktrees.en";
+import { docsEn } from "./docs.en";
 import { updateEn } from "./update.en";
 import { assistantEn } from "./assistant.en";
 
@@ -40,6 +41,7 @@ const errorMessages: Record<ErrorCode, string> = {
   invalid_json: "settings.json is invalid or has an unexpected format — it was left untouched",
   invalid_argument: "Invalid value",
   hub_unavailable: `The ${APP_NAME} background service is not running`,
+  invalid_config: "The docs config (.kotilo/docs.toml) is invalid – it was left untouched",
 };
 
 export const en = {
@@ -635,6 +637,7 @@ export const en = {
   /** M4: Mission control page (`mission.en.ts`). */
   mission: missionEn,
   worktrees: worktreesEn,
+  docs: docsEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */
   update: updateEn,
   /** M7: assistant chat popup and its settings (`assistant.en.ts`). */

@@ -223,7 +223,7 @@ Sent when the user adds a todo on the Deck (optional for the desktop to act on, 
 
 ## 8. Reference client
 
-`scripts/mock-desktop.mjs` (Node ≥ 22, no dependencies) connects, authenticates with the mutual handshake
+The Deck repository's `mock-desktop.mjs` script ([source](https://github.com/kotilo-dev/kotilo-deck/blob/main/scripts/mock-desktop.mjs), Node ≥ 22, no dependencies) connects, authenticates with the mutual handshake
 (`--legacy-hello` for the deprecated one), sends sample agents/usage,
 prints every Deck message and can request an approval from the command line. It doubles as the manual
 acceptance test for Phase 3.

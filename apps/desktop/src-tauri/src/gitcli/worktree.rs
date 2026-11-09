@@ -5,7 +5,8 @@
 //! Reads go through [`run_git`] (5 s, no optional locks); writes through
 //! [`run_git_write`] (120 s, stderr kept for `detail`). Only supported when the workspace
 //! root is the repo's top level and `HEAD` has a commit. The user's `.gitignore` is never
-//! touched: `.kotilo/` goes into the repo's `info/exclude`.
+//! touched: `.kotilo/*` goes into the repo's `info/exclude`, except `.kotilo/docs.toml`
+//! (0.7 Docs config, committed with the repo).
 
 use std::path::{Path, PathBuf};
 
@@ -19,8 +20,11 @@ use crate::error::{AppError, AppResult};
 
 /// Workspace-relative folder that holds the managed worktrees.
 pub const WORKTREES_REL: &str = ".kotilo/worktrees";
-/// The line Kotilo appends to `info/exclude`.
-const EXCLUDE_LINE: &str = ".kotilo/";
+/// The lines Kotilo writes to `info/exclude` under its comment line: everything in `.kotilo/`
+/// is hidden from git except the committed Docs config (0.7).
+const EXCLUDE_LINES: [&str; 2] = [".kotilo/*", "!.kotilo/docs.toml"];
+/// The single line 0.6 wrote; migrated in place.
+const EXCLUDE_LINE_V06: &str = ".kotilo/";
 const SLUG_MAX_CHARS: usize = 40;
 const DETAIL_MAX_CHARS: usize = 2000;
 
@@ -390,7 +394,8 @@ pub fn list_at(root: &Path) -> AppResult<WorktreeList> {
     })
 }
 
-/// Appends `.kotilo/` to the repo's `info/exclude` unless a line already covers it.
+/// Writes Kotilo's block to the repo's `info/exclude`: migrates a 0.6 block (our comment line
+/// followed by `.kotilo/`) in place, leaves a `.kotilo` line the user wrote alone, else appends.
 pub fn ensure_exclude(root: &Path) -> AppResult<()> {
     let Some(path) = read_line(root, &["rev-parse", "--git-path", "info/exclude"])? else {
         return Err(AppError::io("could not resolve info/exclude"));
@@ -402,23 +407,48 @@ pub fn ensure_exclude(root: &Path) -> AppResult<()> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(e.into()),
     };
-    let covered = existing
-        .lines()
-        .map(str::trim)
-        .any(|l| matches!(l, ".kotilo" | ".kotilo/" | "/.kotilo" | "/.kotilo/"));
-    if covered {
+    let Some(text) = exclude_update(&existing, crate::brand::NAME) else {
         return Ok(());
-    }
+    };
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let mut text = existing;
+    std::fs::write(&path, text)?;
+    Ok(())
+}
+
+/// The new `info/exclude` text, or `None` when nothing needs to change.
+fn exclude_update(existing: &str, brand_name: &str) -> Option<String> {
+    let comment = format!("# {brand_name} worktrees and attachments");
+    let mut lines: Vec<String> = existing.lines().map(str::to_string).collect();
+    if let Some(i) = lines.iter().position(|l| l.trim() == comment) {
+        let next = lines.get(i + 1).map(|l| l.trim().to_string());
+        if next.as_deref() == Some(EXCLUDE_LINE_V06) || next.as_deref() == Some(EXCLUDE_LINES[0]) {
+            let negation_present = lines.get(i + 2).is_some_and(|l| l.trim() == EXCLUDE_LINES[1]);
+            if next.as_deref() == Some(EXCLUDE_LINES[0]) && negation_present {
+                return None;
+            }
+            lines[i + 1] = EXCLUDE_LINES[0].to_string();
+            if !negation_present {
+                lines.insert(i + 2, EXCLUDE_LINES[1].to_string());
+            }
+            let mut text = lines.join("\n");
+            text.push('\n');
+            return Some(text);
+        }
+    }
+    let user_line = existing.lines().map(str::trim).any(|l| {
+        matches!(l, ".kotilo" | ".kotilo/" | "/.kotilo" | "/.kotilo/" | ".kotilo/*" | "/.kotilo/*")
+    });
+    if user_line {
+        return None;
+    }
+    let mut text = existing.to_string();
     if !text.is_empty() && !text.ends_with('\n') {
         text.push('\n');
     }
-    text.push_str(&format!("# {} worktrees and attachments\n{EXCLUDE_LINE}\n", crate::brand::NAME));
-    std::fs::write(&path, text)?;
-    Ok(())
+    text.push_str(&format!("{comment}\n{}\n{}\n", EXCLUDE_LINES[0], EXCLUDE_LINES[1]));
+    Some(text)
 }
 
 /// `worktree_create` core: folder + branch from the main checkout's `HEAD`, base recorded
@@ -806,12 +836,12 @@ worktree /srv/bare.git\nbare\n";
         assert_eq!((info.dirty, info.ahead, info.behind), (0, 0, 0));
         assert!(wt(&root, "fix-login").join("a.txt").is_file());
         assert_eq!(git(&root, &["config", "--get", "branch.kotilo/fix-login.kotiloBase"]), "main");
-        // `.kotilo/` is excluded once, the main checkout stays clean.
-        assert_eq!(exclude_text(&root).lines().filter(|l| *l == ".kotilo/").count(), 1);
+        // `.kotilo/*` is excluded once, the main checkout stays clean.
+        assert_eq!(exclude_text(&root).lines().filter(|l| *l == ".kotilo/*").count(), 1);
         assert_eq!(git(&root, &["status", "--porcelain"]), "");
 
         create_at(&root, "second", "").unwrap();
-        assert_eq!(exclude_text(&root).lines().filter(|l| *l == ".kotilo/").count(), 1, "exclude is idempotent");
+        assert_eq!(exclude_text(&root).lines().filter(|l| *l == ".kotilo/*").count(), 1, "exclude is idempotent");
         assert!(ref_exists(&root, "refs/heads/second").unwrap(), "empty prefix is allowed");
 
         // Existing folder or branch → already_exists; nothing usable → invalid_name.
@@ -852,11 +882,35 @@ worktree /srv/bare.git\nbare\n";
         std::fs::write(&path, "*.log").unwrap();
         ensure_exclude(&root).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.starts_with("*.log\n#"), "{text}");
-        assert!(text.ends_with(".kotilo/\n"));
+        assert_eq!(text, format!("*.log\n# {} worktrees and attachments\n.kotilo/*\n!.kotilo/docs.toml\n", crate::brand::NAME));
+        // The Docs config stays visible to git, everything else in `.kotilo/` is hidden.
+        write_file(&root, ".kotilo/docs.toml", "[[doc]]\n");
+        write_file(&root, ".kotilo/worktrees/x/a.txt", "x\n");
+        assert_eq!(git(&root, &["status", "--porcelain", "--untracked-files=all"]), "?? .kotilo/docs.toml");
         std::fs::write(&path, "/.kotilo/\n").unwrap();
         ensure_exclude(&root).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "/.kotilo/\n");
+    }
+
+    #[test]
+    fn exclude_update_migrates_the_v06_block_in_place() {
+        let name = "Kotilo";
+        let block = "# Kotilo worktrees and attachments\n.kotilo/*\n!.kotilo/docs.toml\n";
+        assert_eq!(exclude_update("", name).as_deref(), Some(block));
+        assert_eq!(exclude_update(block, name), None, "up to date");
+        let old = "# git ls-files --others --exclude-from=.git/info/exclude\n*.tmp\n# Kotilo worktrees and attachments\n.kotilo/\nafter\n";
+        assert_eq!(
+            exclude_update(old, name).as_deref(),
+            Some("# git ls-files --others --exclude-from=.git/info/exclude\n*.tmp\n# Kotilo worktrees and attachments\n.kotilo/*\n!.kotilo/docs.toml\nafter\n")
+        );
+        // Our comment with `.kotilo/*` but no negation (hand-edited): the negation is added.
+        assert_eq!(exclude_update("# Kotilo worktrees and attachments\n.kotilo/*\n", name).as_deref(), Some(block));
+        // A `.kotilo` line the user wrote (no comment of ours before it) is left alone.
+        for user in [".kotilo/\n", "# mine\n.kotilo\n", "/.kotilo/*\n"] {
+            assert_eq!(exclude_update(user, name), None, "{user}");
+        }
+        // Another brand's comment is not ours.
+        assert_eq!(exclude_update("# Other worktrees and attachments\n.kotilo/\n", name), None);
     }
 
     #[test]

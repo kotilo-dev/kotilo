@@ -563,3 +563,38 @@ describe("diff tabs (M4 timeline)", () => {
     expect(store.useViewerStore.getState().byWorkspace.ws1?.activeTabId).toBe(tabsOf(store, "ws1")[1]!.id);
   });
 });
+
+describe("docs tab (0.7)", () => {
+  it("is one pinned tab per workspace, never persisted, untouched by file events and preview replacement", async () => {
+    const store = await freshStore();
+    vi.useFakeTimers();
+    try {
+      await store.useViewerStore.getState().init();
+      const v = store.useViewerStore.getState();
+      v.openDocs("ws1");
+      v.openFile("ws1", "a.md", { pinned: false });
+      v.openDocs("ws1");
+      expect(tabsOf(store, "ws1").map((t) => [t.rel, t.docs ?? false, t.pinned])).toEqual([
+        ["", true, true],
+        ["a.md", false, false],
+      ]);
+      expect(store.useViewerStore.getState().byWorkspace.ws1?.activeTabId).toBe(tabsOf(store, "ws1")[0]!.id);
+      // A preview of another file replaces the preview tab, never the docs tab.
+      v.openFile("ws1", "b.md", { pinned: false });
+      expect(tabsOf(store, "ws1").map((t) => t.rel)).toEqual(["", "b.md"]);
+
+      await vi.advanceTimersByTimeAsync(600);
+      const calls = ipc.saveStateSlice.mock.calls;
+      const saved = calls[calls.length - 1]?.[1] as Record<string, { tabs: { rel: string }[] }>;
+      expect(saved.ws1!.tabs.map((t) => t.rel)).toEqual(["b.md"]);
+
+      ipc.fsExists.mockResolvedValue(false);
+      fsRescanHandler?.({ workspaceId: "ws1" });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(tabsOf(store, "ws1").map((t) => t.docs ?? false)).toEqual([true]);
+      expect(ipc.fsExists).not.toHaveBeenCalledWith("ws1", "");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

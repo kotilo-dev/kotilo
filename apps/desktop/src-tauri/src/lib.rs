@@ -262,6 +262,8 @@ pub fn run() {
             commands::git::git_head,
             commands::git::git_changes,
             commands::git::git_show_head,
+            commands::docs::docs_check,
+            commands::docs::docs_mark_reviewed,
             commands::git::worktree_list,
             commands::git::worktree_create,
             commands::git::worktree_changes,

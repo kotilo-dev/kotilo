@@ -4,8 +4,9 @@
 
 .DESCRIPTION
   Optional local signing (M5). Used by scripts/release.ps1 -Sign for the hub sidecar, its native
-  DLLs and the hook sidecar before bundling, and as Tauri's bundle.windows.signCommand for the
-  app exe, the installer and the uninstaller.
+  DLLs and the hook sidecar before bundling, for the standalone docs CLI release asset, and as
+  Tauri's bundle.windows.signCommand for the app exe, the bundled sidecars, the installer and the
+  uninstaller.
 
   Environment:
     AGENTHUB_SIGN_THUMBPRINT     SHA-1 thumbprint of the code-signing certificate. Unset: a

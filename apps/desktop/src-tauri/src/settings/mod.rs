@@ -339,6 +339,20 @@ impl Default for WorktreesSettings {
     }
 }
 
+/// 0.7 docs: show missing/stale badges on doc files in the file tree.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DocsSettings {
+    #[serde(default = "default_true")]
+    pub tree_badges: bool,
+}
+
+impl Default for DocsSettings {
+    fn default() -> Self {
+        Self { tree_badges: true }
+    }
+}
+
 /// Faz 7 spec §6/§9.1: `verboseLogging` toggles the live log level ceiling between
 /// `Info` (default) and `Debug` (`log::set_max_level`, applied both at startup and on
 /// every `settings_set` — see `logging::apply_verbose_logging`). Missing from an old
@@ -413,6 +427,8 @@ pub struct Settings {
     pub companion: CompanionSettings,
     #[serde(default)]
     pub worktrees: WorktreesSettings,
+    #[serde(default)]
+    pub docs: DocsSettings,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -432,6 +448,7 @@ impl Default for Settings {
             composer: ComposerSettings::default(),
             companion: CompanionSettings::default(),
             worktrees: WorktreesSettings::default(),
+            docs: DocsSettings::default(),
             extra: serde_json::Map::new(),
         }
     }

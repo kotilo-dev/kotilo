@@ -12,9 +12,11 @@
 #   2. Built-in adapter definitions staged without `fixtures/` (D-021).
 #   3. `tauri build --bundles app,dmg` with a generated `--config` overlay (sidecars, staged
 #      adapters, the hub's dylib, updater artifacts, signing mode). src-tauri/build.rs builds the
-#      hook sidecar for the target.
+#      hook and docs sidecars for the target.
 #   4. .dmg + updater .app.tar.gz (+ .sig) copied to target/release-artifacts/macos-<arch>/, the
-#      updater bundle renamed per arch (Tauri names it <product>.app.tar.gz on both).
+#      updater bundle renamed per arch (Tauri names it <product>.app.tar.gz on both), plus the
+#      standalone docs CLI (0.7) as `<exePrefix>-docs-<version>-<triple>`, taken from the signed
+#      app bundle.
 #
 # Signing (env, all optional):
 #   - none set: ad-hoc signature (`-`) without hardened runtime. Apple Silicon only runs signed
@@ -185,7 +187,7 @@ overlay="$staging/tauri.release.conf.json"
 cat > "$overlay" <<EOF
 {
   "bundle": {
-    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-hub"],
+    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-hub"],
     "resources": {
       "../../../adapters/": null,
       "$staging_rel/adapters/": "adapters/"
@@ -223,6 +225,11 @@ step "verify signature"
 app="$bundle/macos/$product.app"
 codesign --verify --deep --strict --verbose=2 "$app"
 codesign --display --entitlements - "$app/Contents/MacOS/$prefix-hub" 2>/dev/null || true
+
+# The docs CLI on its own (0.7), so CI jobs can download it: the copy Tauri signed in the bundle.
+docs_cli="$app/Contents/MacOS/$prefix-docs"
+[ -f "$docs_cli" ] || { echo "docs CLI not found at $docs_cli" >&2; exit 1; }
+cp "$docs_cli" "$artifacts/$prefix-docs-$version-$triple"
 
 printf '\033[32m==> artifacts (macos-%s, %s)\033[0m\n' "$dmg_arch" "$([ "$signed" = true ] && echo signed || echo ad-hoc)"
 ls -lh "$artifacts"

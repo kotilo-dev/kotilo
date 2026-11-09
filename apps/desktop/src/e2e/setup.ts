@@ -15,6 +15,7 @@ import * as timelineFx from "./timelineFixtures";
 import * as assistantFx from "./assistantFixtures";
 import * as themeFx from "./themeFixtures";
 import * as worktreeFx from "./worktreeFixtures";
+import * as docsFx from "./docsFixtures";
 
 declare global {
   interface Window {
@@ -193,17 +194,17 @@ mockIPC(
         void emit("workspaces:changed", { workspaces: workspaceList, activeId: activeWorkspaceId });
         return null;
       case "fs_read_dir":
-        return args.rel ? [] : [
+        return docsFx.readDir(String(args.rel ?? "")) ?? (args.rel ? [] : [
           { name: "src", rel: "src", isDir: true },
           { name: "tasks", rel: "tasks", isDir: true },
           { name: "README.md", rel: "README.md", isDir: false },
-        ];
+        ]);
       case "git_changes":
         return timelineFx.gitChanges;
       case "git_show_head":
-        return worktreeFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? timelineFx.showHead(String(args.path ?? ""));
+        return worktreeFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? docsFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? timelineFx.showHead(String(args.path ?? ""));
       case "fs_read_text":
-        return worktreeFx.readText(String(args.rel ?? "")) ?? timelineFx.readText(String(args.rel ?? ""));
+        return worktreeFx.readText(String(args.rel ?? "")) ?? docsFx.readText(String(args.rel ?? "")) ?? timelineFx.readText(String(args.rel ?? ""));
       case "worktree_list":
         return worktreeFx.list();
       case "worktree_create":
@@ -214,6 +215,10 @@ mockIPC(
         return worktreeFx.merge(String(args.name ?? ""), args.squash === true, typeof args.message === "string" ? args.message : null);
       case "worktree_remove":
         return worktreeFx.remove(String(args.name ?? ""), args.force === true, args.deleteBranch === true, args.forceBranch === true);
+      case "docs_check":
+        return docsFx.check();
+      case "docs_mark_reviewed":
+        return docsFx.markReviewed(String(args.path ?? ""));
       case "git_head":
         return { kind: "branch", name: "feature/approval-flow" };
       case "update_check":

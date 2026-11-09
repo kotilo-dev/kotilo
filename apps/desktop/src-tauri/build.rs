@@ -1,10 +1,11 @@
-//! Faz 5 §1.2 / §4 item 2: builds the `agenthub-hook` sidecar *before*
-//! `tauri_build::build()` runs, so `bundle.externalBin` in `tauri.conf.json` always
-//! finds `src-tauri/binaries/agenthub-hook-<TARGET>.exe` — both for `npm run tauri
-//! dev` (Tauri copies the sidecar into the dev target dir) and `npm run tauri build`
-//! (Tauri bundles it), from a clean clone with no manual steps.
+//! Faz 5 §1.2 / §4 item 2: builds the `agenthub-hook` sidecar (and, since 0.7, the
+//! `agenthub-docs` CLI) *before* `tauri_build::build()` runs, so `bundle.externalBin` in
+//! `tauri.conf.json` always finds `src-tauri/binaries/<exePrefix>-hook-<TARGET>.exe` and
+//! `<exePrefix>-docs-<TARGET>.exe` — both for `npm run tauri dev` (Tauri copies the sidecars
+//! into the dev target dir) and `npm run tauri build` (Tauri bundles them), from a clean clone
+//! with no manual steps.
 //!
-//! The sidecar is built with a *separate* `--target-dir` (`<workspace>/target/sidecar`)
+//! The sidecars are built with a *separate* `--target-dir` (`<workspace>/target/sidecar`)
 //! so this nested `cargo build` never contends for the same `target/` lock the outer
 //! `cargo build`/`cargo test` invocation (which is *running this very build script*)
 //! already holds — using the same target dir would deadlock.
@@ -20,7 +21,7 @@ fn main() {
     );
     let brand = read_brand(&workspace_root(&manifest_dir));
     check_tauri_config(&manifest_dir, &brand);
-    build_notify_sidecar(brand_str(&brand, "exePrefix"));
+    build_sidecars(brand_str(&brand, "exePrefix"));
     set_git_sha();
     set_build_date();
     tauri_build::build();
@@ -187,15 +188,18 @@ const SCRUBBED_ENV_VARS: [&str; 4] = [
     "RUSTC_WORKSPACE_WRAPPER",
 ];
 
-/// The cargo package/binary stays `agenthub-hook` (an internal name); the copy Tauri bundles
-/// is named after the brand's exe prefix.
-fn build_notify_sidecar(exe_prefix: &str) {
+/// The sidecars Tauri bundles: (cargo package = binary, suffix after `<exePrefix>-`). The cargo
+/// names stay internal (`agenthub-*`); the bundled copies are named after the brand's exe prefix.
+const SIDECARS: [(&str, &str); 2] = [("agenthub-hook", "hook"), ("agenthub-docs", "docs")];
+
+fn build_sidecars(exe_prefix: &str) {
     let manifest_dir = PathBuf::from(
         env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by cargo"),
     );
     let workspace_root = workspace_root(&manifest_dir);
 
     let agenthub_hook_dir = workspace_root.join("crates").join("hook");
+    let docs_dir = workspace_root.join("crates").join("docs");
     let proto_dir = workspace_root.join("crates").join("proto");
 
     // Precise file-level triggers (a directory's own mtime does not change when an
@@ -204,6 +208,8 @@ fn build_notify_sidecar(exe_prefix: &str) {
         agenthub_hook_dir.join("src").join("main.rs"),
         agenthub_hook_dir.join("src").join("lib.rs"),
         agenthub_hook_dir.join("Cargo.toml"),
+        docs_dir.join("Cargo.toml"),
+        docs_dir.join("build.rs"),
         proto_dir.join("src").join("lib.rs"),
         proto_dir.join("build.rs"),
         proto_dir.join("Cargo.toml"),
@@ -217,6 +223,12 @@ fn build_notify_sidecar(exe_prefix: &str) {
     ] {
         println!("cargo:rerun-if-changed={}", path.display());
     }
+    // Every source file of the docs crate (a flat `src/`).
+    if let Ok(entries) = fs::read_dir(docs_dir.join("src")) {
+        for entry in entries.flatten() {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
 
     let target = env::var("TARGET").expect("TARGET is set by cargo for build scripts");
     // `.exe` only for a Windows target (Tauri's externalBin naming follows the target too).
@@ -225,53 +237,50 @@ fn build_notify_sidecar(exe_prefix: &str) {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
     let dest_dir = manifest_dir.join("binaries");
-    let dest = dest_dir.join(format!("{exe_prefix}-hook-{target}{exe_suffix}"));
+    let dests: Vec<PathBuf> = SIDECARS
+        .iter()
+        .map(|(_, suffix)| dest_dir.join(format!("{exe_prefix}-{suffix}-{target}{exe_suffix}")))
+        .collect();
 
-    // Also rerun if the produced binary itself was deleted by hand (e.g. the clean-state
+    // Also rerun if a produced binary itself was deleted by hand (e.g. the clean-state
     // verification in the spec) — cargo treats a rerun-if-changed path that doesn't
     // exist as always out of date, so this alone is enough to force a fresh build even
     // when none of the source files above changed.
-    println!("cargo:rerun-if-changed={}", dest.display());
+    for dest in &dests {
+        println!("cargo:rerun-if-changed={}", dest.display());
+    }
 
     fs::create_dir_all(&dest_dir).unwrap_or_else(|e| {
-        panic!(
-            "failed to create {} for the agenthub-hook sidecar: {e}",
-            dest_dir.display()
-        )
+        panic!("failed to create {} for the sidecars: {e}", dest_dir.display())
     });
 
+    // One nested build for all sidecars.
     let mut cmd = Command::new(&cargo);
     cmd.current_dir(&workspace_root);
-    cmd.args([
-        "build",
-        "-p",
-        "agenthub-hook",
-        "--bin",
-        "agenthub-hook",
-        "--release",
-        "--target",
-        &target,
-        "--target-dir",
-    ]);
+    cmd.arg("build");
+    for (package, _) in SIDECARS {
+        cmd.args(["-p", package, "--bin", package]);
+    }
+    cmd.args(["--release", "--target", &target, "--target-dir"]);
     cmd.arg(&sidecar_target_dir);
     for key in SCRUBBED_ENV_VARS {
         cmd.env_remove(key);
     }
 
-    let status = cmd.status().unwrap_or_else(|e| {
-        panic!("failed to spawn `{cargo} build -p agenthub-hook --bin agenthub-hook --release`: {e}")
-    });
+    let status = cmd
+        .status()
+        .unwrap_or_else(|e| panic!("failed to spawn `{cargo} build` for the sidecars: {e}"));
     if !status.success() {
-        panic!(
-            "`cargo build -p agenthub-hook --bin agenthub-hook --release` failed with {status}"
-        );
+        panic!("`cargo build --release` of the sidecars ({SIDECARS:?}) failed with {status}");
     }
 
-    let built_exe = sidecar_target_dir
-        .join(&target)
-        .join("release")
-        .join(format!("agenthub-hook{exe_suffix}"));
-    copy_sidecar(&built_exe, &dest);
+    for ((package, _), dest) in SIDECARS.iter().zip(&dests) {
+        let built_exe = sidecar_target_dir
+            .join(&target)
+            .join("release")
+            .join(format!("{package}{exe_suffix}"));
+        copy_sidecar(&built_exe, dest);
+    }
 }
 
 fn copy_sidecar(built_exe: &Path, dest: &Path) {
@@ -315,6 +324,7 @@ fn check_tauri_config(manifest_dir: &Path, brand: &serde_json::Value) {
         serde_json::from_str(&text).unwrap_or_else(|e| panic!("{} is not valid JSON: {e}", path.display()));
     let name = brand_str(brand, "name");
     let expected_bin = format!("binaries/{}-hook", brand_str(brand, "exePrefix"));
+    let expected_docs_bin = format!("binaries/{}-docs", brand_str(brand, "exePrefix"));
     let checks = [
         ("productName", conf.pointer("/productName"), name),
         (
@@ -325,6 +335,7 @@ fn check_tauri_config(manifest_dir: &Path, brand: &serde_json::Value) {
         ("identifier", conf.pointer("/identifier"), brand_str(brand, "identifier")),
         ("app.windows[0].title", conf.pointer("/app/windows/0/title"), name),
         ("bundle.externalBin[0]", conf.pointer("/bundle/externalBin/0"), expected_bin.as_str()),
+        ("bundle.externalBin[1]", conf.pointer("/bundle/externalBin/1"), expected_docs_bin.as_str()),
     ];
     let mismatches: Vec<String> = checks
         .iter()

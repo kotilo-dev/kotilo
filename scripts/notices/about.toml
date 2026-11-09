@@ -1,12 +1,13 @@
 # cargo-about configuration for THIRD_PARTY_NOTICES (run through generate-notices.ps1).
-# Shipped binaries: apps/desktop/src-tauri (agenthub) and crates/hook (agenthub-hook), for the
-# two release targets. Dev-dependencies are not shipped and are ignored.
+# Shipped binaries: apps/desktop/src-tauri (agenthub), crates/hook (agenthub-hook) and crates/docs
+# (agenthub-docs), for the two release targets. Dev-dependencies are not shipped and are ignored.
 
 targets = ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]
 ignore-dev-dependencies = true
 ignore-build-dependencies = false
 ignore-transitive-dependencies = false
-# Our own workspace crates (agenthub, agenthub-hook, agenthub-proto) are not third-party.
+# Our own workspace crates (agenthub, agenthub-hook, agenthub-docs, agenthub-proto) are not
+# third-party.
 private = { ignore = true }
 
 # Permissive licenses we accept, in order of preference. For an OR expression cargo-about

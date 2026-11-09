@@ -39,5 +39,6 @@ Thumbs.db
 CLAUDE.local.md
 
 # Local Kotilo workspace data and private test notes
-.kotilo/
+.kotilo/*
+!.kotilo/docs.toml
 docs/test/

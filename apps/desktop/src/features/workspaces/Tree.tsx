@@ -20,6 +20,11 @@ import { urgentStateForWorkspace } from "../agents/agentLogic";
 import { AgentBadge } from "../agents/AgentBadge";
 import { isModPressed } from "../../lib/keys";
 import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useDocsStore } from "../../stores/docsStore";
+import { openDocsCheck } from "../docs/docsActions";
+import { DocBadgeDot } from "../docs/DocBadgeDot";
+import { badgeIndex } from "../docs/docsLogic";
 
 const ROW_HEIGHT = 22;
 const INDENT_PX = 14;
@@ -114,6 +119,12 @@ export function Tree() {
 
   const openFile = useViewerStore((s) => s.openFile);
   const agents = useAgentStore((s) => s.agents);
+
+  // 0.7: docs check badges on the active workspace's doc files (missing red, stale amber).
+  const treeBadges = useSettingsStore((s) => s.settings.docs?.treeBadges ?? true);
+  const docsReport = useDocsStore((s) => (activeId ? s.byWorkspace[activeId]?.report : null));
+  const docBadges = useMemo(() => (treeBadges ? badgeIndex(docsReport) : null), [treeBadges, docsReport]);
+  useEffect(() => (treeBadges && activeId ? useDocsStore.getState().watch(activeId) : undefined), [treeBadges, activeId]);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -319,6 +330,7 @@ export function Tree() {
         disabled: ws.id === activeId,
       },
       { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(ws.id), separatorBefore: true },
+      { label: strings.docs.contextMenu, onClick: () => openDocsCheck(ws.id) },
       { label: strings.contextMenu.newFile, onClick: () => startCreate(ws.id, "", "file"), separatorBefore: true },
       { label: strings.contextMenu.newFolder, onClick: () => startCreate(ws.id, "", "dir") },
       {
@@ -473,6 +485,7 @@ export function Tree() {
     const isActive = isRoot && activeId === workspaceId;
     const isSel = matchesSelected(row);
     const rootWorkspace = row.kind === "root" ? row.workspace : null;
+    const docBadge = row.kind === "file" && workspaceId === activeId ? docBadges?.get(rel) : undefined;
 
     return (
       <div
@@ -570,6 +583,7 @@ export function Tree() {
                 {strings.workspaces.activate}
               </button>
             )}
+            {docBadge && <DocBadgeDot badge={docBadge} />}
             {isRoot && <AgentBadge state={urgentStateForWorkspace(agents, workspaceId)} />}
           </>
         )}

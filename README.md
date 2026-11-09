@@ -48,6 +48,8 @@ Kotilo does not replace or wrap the agents. It does not include them, does not t
 - **Permission handling:** a card with the tool, the command or file and a risk label; allow once, always allow or deny with one click, or answer in the terminal.
 - **Mission control and timeline:** every running agent on one screen, with a timeline of what each session did.
 - **Review loop:** leave notes on lines of a diff and hand them to an agent as one prompt.
+- **Worktrees:** run several agents on one repository, each in its own git worktree and branch; compare, merge and clean up from Kotilo.
+- **Docs check:** find docs that name paths that no longer exist or cover code that changed since their last review; hand the fix to an agent, or run `kotilo-docs check` in CI.
 - **Session history:** every past agent session with model, tokens and cost; resume one in a new tab with the agent's own resume command.
 - **Finished work you have not looked at** stays marked as done, with a count on the Kotilo taskbar icon, and one "while you were away" summary when you come back to the computer.
 - **Themes:** Kotilo, Catppuccin, Tokyo Night, Rosé Pine, Dracula, Nord, One, Gruvbox, Solarized, GitHub, Kanagawa and Everforest for the whole app; terminals follow the theme or use their own colour scheme, including schemes imported from Windows Terminal. A translucent window background (optionally blurred) like Windows Terminal. Images (sixel) and Nerd Font icons in terminals.
@@ -181,7 +183,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 
 Kotilo is applying to the SignPath Foundation. Until the project is accepted, release binaries are unsigned (`v0.1.0` is an unsigned beta); this section will say from which version on releases are signed.
 
-- **What is signed:** Kotilo's own binaries, built from this repository: the installer and uninstaller, `kotilo.exe`, `kotilo-hub.exe` and `kotilo-hook.exe`. Third-party libraries shipped with the app (for example `e_sqlite3.dll` and the Whisper runtime) and Microsoft's ConPTY (`conpty.dll`, `OpenConsole.exe`, already signed by Microsoft) are not signed by this project.
+- **What is signed:** Kotilo's own binaries, built from this repository: the installer and uninstaller, `kotilo.exe`, `kotilo-hub.exe`, `kotilo-hook.exe` and `kotilo-docs.exe`. Third-party libraries shipped with the app (for example `e_sqlite3.dll` and the Whisper runtime) and Microsoft's ConPTY (`conpty.dll`, `OpenConsole.exe`, already signed by Microsoft) are not signed by this project.
 - **Builds:** release binaries are built by GitHub Actions from this repository ([`.github/workflows/release.yml`](.github/workflows/release.yml), [`scripts/release.ps1`](scripts/release.ps1)); nothing is built or signed on a personal machine for a release.
 - **Committers and reviewers:** [@xmsadik](https://github.com/xmsadik). Changes from other contributors are reviewed by a committer before they are merged.
 - **Approvers:** [@xmsadik](https://github.com/xmsadik) approves each signing request manually.

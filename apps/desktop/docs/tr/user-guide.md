@@ -710,7 +710,7 @@ verip ajanı seçin. Kotilo, ana kopyanın güncel commit'inden başlayarak `kot
 `.kotilo/worktrees/<ad>` klasörünü oluşturur (önek Ayarlar → Terminal'de) ve orada ajanı
 çalıştıran bir terminal sekmesi açar. Sekme, ajan başlığı ve Görev kontrol kutucuğu dalı rozet
 olarak gösterir. Kotilo `.kotilo/` klasörünü reponun kendi `info/exclude` dosyasıyla git'ten
-gizler; `.gitignore` dosyanız değişmez. Worktree dosyaları dosya ağacında ve hızlı açmada
+gizler, yalnızca `.kotilo/docs.toml` hariç ([Doküman denetimi](#doküman-denetimi)); `.gitignore` dosyanız değişmez. Worktree dosyaları dosya ağacında ve hızlı açmada
 görünmez.
 
 Worktree'ler için workspace'in reponun en üst klasörü olması ve en az bir commit gerekir.
@@ -734,6 +734,53 @@ commit'ler ve değişen satırlar. Workspace içinde başka araçların oluştur
 
 Worktree ajanlarının oturumları Kullanım, Oturumlar ve Projeler'de ana projeye sayılır;
 Oturumlar'dan sürdürülen bir oturum terminali kendi worktree'sinde açar.
+
+## Doküman denetimi
+
+Doküman denetimi, artık koda uymayan dokümanları bulur: bir dokümanın andığı ama artık var
+olmayan yolları ve son güncellemeden ya da gözden geçirmeden sonra kodu değişmiş dokümanları.
+Ajan talimat dosyaları (`CLAUDE.md`, `AGENTS.md`, …) en üstte listelenir, çünkü oradaki yanlış
+bir yol her ajanı yanıltır.
+
+**Açmak için:** workspace'in sağ tık menüsünde **Dokümanları denetle** ya da komut paletinde
+**Dokümanlar: Denetle**. Dokümanlar sekmesi görüntüleyicide açılır ve dosyalar değiştikçe
+kendiliğinden yeniden denetler. Bulgusu olan doküman dosyaları dosya ağacında bir nokta alır:
+eksik yol için kırmızı, eskimiş için sarı (noktaları Ayarlar → Dosyalar'dan kapatabilirsiniz).
+
+**Neler bağlantı sayılır:** göreli bir Markdown linki (`[api](../hub/Api.cs)`), ilk satırında
+`file=` olan bir kod bloğu (```` ```ts file=src/api.ts ````), satır içi koddaki bir yol
+(`` `src/api.ts` ``, yalnızca var olup olmadığına bakılır) ve `.kotilo/docs.toml` içinde bir
+dokümanın `covers` listesi. Başka Markdown dosyalarına giden linkler ve git'in yok saydığı
+yollar sayılmaz.
+
+```toml
+# .kotilo/docs.toml – bu dosyayı commit edin, takımınız ve CI aynı sonucu görsün
+[[doc]]
+path = "docs/api.md"
+covers = ["src/api/**", "schema/api.json"]   # glob'lar, repo köküne göre
+reviewed = "3f2c1ab…"                        # "Gözden geçirildi say" yazar
+```
+
+Kapsanan bir dosya, dokümanın başlangıç noktasından sonraki bir commit'te değiştiyse doküman
+**eskimiştir**. Başlangıç noktası **Gözden geçirildi say** ile kaydedilen commit'tir; yoksa
+dokümanı değiştiren son commit. Commit edilmemiş değişiklikler sayılmaz. Her eskimiş doküman
+nedenini gösterir: commit'ler ve değişen dosyalar (bir dosyaya tıklayınca başlangıç
+noktasından bu yana diff'i açılır).
+
+- **Dokümanı aç** dokümanı açar; eksik bir yola tıklamak dokümanı o satırda açar.
+- **Gözden geçirildi say**, güncel commit'i dokümanın `reviewed` değeri olarak
+  `.kotilo/docs.toml` içine yazar (dosya gerekirse oluşturulur, yorumlar korunur). Bu
+  değişikliği diğerleri gibi commit edin.
+- **Ajanla güncelle…**, workspace'te çalışan ajanlardan birinin composer'ına eksik yolları ve
+  eskime nedenini içeren bir istem yazar. Siz göndermeden hiçbir şey gitmez; ajanın
+  değişiklikleri zaman akışında görünür.
+
+**Komut satırında ve CI'da:** Kotilo, uygulamanın yanına `kotilo-docs` kurar (Windows:
+`%LOCALAPPDATA%\kotilo\kotilo-docs.exe`); her sürümde ayrıca platform başına bağımsız bir kopya
+bulunur. Bir repoda `kotilo-docs check` çalıştırın: her bulgu için bir satır yazar
+(`docs/api.md:12: missing src/old.ts (link)`) ve bir şey bulursa 1, bulmazsa 0, hata olursa 2
+ile çıkar. `--json` raporun tamamını yazar, `--missing-only` / `--stale-only` daraltır,
+`kotilo-docs reviewed <doküman>` ise **Gözden geçirildi say** ile aynı işi yapar.
 
 ## Kullanım
 

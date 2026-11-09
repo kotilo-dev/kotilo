@@ -299,3 +299,20 @@ Preparation: stop the dev app, `dotnet build hub/AgentHub.sln` (the hub has a ne
 | W-10 | **Remove** a dirty / unmerged worktree | A second, explicit confirmation is asked; cancelling keeps everything |
 | W-11 | Resume a worktree agent's session from the Sessions page | The terminal opens in the worktree folder and the agent finds its session |
 | W-12 | Open a workspace that is a subfolder of a repo, and one that is not a repo | The Worktrees panel explains why worktrees are not available; no errors |
+
+## Docs check (0.7, D-074)
+
+Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Use a throwaway clone with a few Markdown files and at least one commit; the Kotilo repository itself is a good second test (it has real findings).
+
+| # | Steps | Expected |
+|---|---|---|
+| DC-1 | Right-click the workspace → **Check docs** | The Docs tab opens with a summary; agent files (`AGENTS.md`, `CLAUDE.md`) come first; doc files with findings get red/amber dots in the file tree |
+| DC-2 | In a doc, add `` `src/does-not-exist.ts` `` and a link `[x](src/gone.ts)`, save | Within ~2 s the doc shows both as missing paths with their lines; clicking one opens the doc at that line |
+| DC-3 | Add `.kotilo/docs.toml` with a `[[doc]]` that covers a code file, commit, then change and commit that code file | The doc turns stale; "why stale" lists the commit and the file; clicking the file opens its diff since the baseline |
+| DC-4 | **Mark reviewed** on the stale doc | Confirmation mentions `.kotilo/docs.toml`; afterwards the doc is no longer stale; docs.toml has `reviewed = "<HEAD>"` and keeps its comments; `git status` shows docs.toml (not other `.kotilo/` files) |
+| DC-5 | Break docs.toml (invalid TOML), then **Mark reviewed** | An "invalid docs.toml" error; the file is unchanged; Markdown findings still show |
+| DC-6 | Start an agent, then **Update with agent…** on a doc with findings | The agent picker lists the running agent; the prompt appears in its composer and is not sent until you send it |
+| DC-7 | Settings → Files: turn off the docs badges | The dots disappear from the tree; the Docs tab still works |
+| DC-8 | In a repo created before 0.7 that has a Kotilo worktree, create a new worktree | `.git/info/exclude` now has `.kotilo/*` and `!.kotilo/docs.toml` instead of `.kotilo/`; no duplicate block |
+| DC-9 | In a terminal: `"%LOCALAPPDATA%\kotilo\kotilo-docs.exe" check` in the repo (dev build: `target\debug\agenthub-docs.exe`) | One line per finding, summary last, exit code 1 (`echo %ERRORLEVEL%`); `--json` prints the report; in a clean repo exit 0 |
+| DC-10 | Turkish UI | The Docs tab, menu entries and confirmation are Turkish |

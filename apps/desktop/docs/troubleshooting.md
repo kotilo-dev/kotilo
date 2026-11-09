@@ -89,8 +89,8 @@ already works around this via `.cargo/config.toml`, which forces `CC`/`CXX` to e
 so the `cc` crate locates the real MSVC `cl.exe` instead — if you still hit this
 error, check that you're building from the repository root (so `.cargo/config.toml`
 is picked up) and that nothing else in your shell profile re-exports `CC`/`CXX` after
-Cargo reads its config. See "the `.cargo/config.toml` CC/CXX override" in
-`docs/development.md` in the repository for the full explanation.
+Cargo reads its config. The comment at the top of `.cargo/config.toml` explains the
+override.
 
 ## Where logs and state live
 
@@ -104,7 +104,7 @@ Cargo reads its config. See "the `.cargo/config.toml` CC/CXX override" in
 | `%APPDATA%\kotilo\settings.json` | The app settings |
 | `%APPDATA%\kotilo\state.json.corrupt` / `settings.json.corrupt` | Present if Kotilo had to fall back to defaults because the real file was invalid JSON |
 | `~/.claude/settings.json`, `~/.codex/hooks.json` and their `.kotilo-backup-<timestamp>` copies | The agents' own settings, and Kotilo's pre-write backups of them |
-| Chrome DevTools console (via the remote-debugging tip in `docs/development.md` in the repository) | Frontend errors/warnings — the most useful source of detail for a UI-side bug |
+| DevTools console of the app window: start Kotilo with the environment variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then open `edge://inspect` in Edge | Frontend errors/warnings — the most useful source of detail for a UI-side bug |
 
 ## Reporting a problem
 

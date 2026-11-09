@@ -22,5 +22,7 @@ declare global {
       showHead: { path: string; rev: string | null }[];
       spawns: { cwdRel: string; agentCommand: string | null }[];
     };
+    /** 0.7: docs commands the mocked IPC saw (src/e2e/docsFixtures.ts). */
+    __e2eDocs: { checks: number; reviewed: string[]; showHead: { path: string; rev: string | null }[] };
   }
 }

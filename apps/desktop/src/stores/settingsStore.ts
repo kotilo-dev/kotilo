@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   window: { closeToTray: false },
   companion: { enabled: true },
   worktrees: { branchPrefix: "kotilo/" },
+  docs: { treeBadges: true },
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

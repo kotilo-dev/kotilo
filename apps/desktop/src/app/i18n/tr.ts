@@ -16,6 +16,7 @@ import { quickCommandsTr } from "./quickCommands.tr";
 import { sessionsTr } from "./sessions.tr";
 import { missionTr } from "./mission.tr";
 import { worktreesTr } from "./worktrees.tr";
+import { docsTr } from "./docs.tr";
 import { updateTr } from "./update.tr";
 import { assistantTr } from "./assistant.tr";
 
@@ -40,6 +41,7 @@ const errorMessages: Record<ErrorCode, string> = {
   invalid_json: "settings.json geçersiz ya da beklenmeyen biçimde — dosyaya dokunulmadı",
   invalid_argument: "Geçersiz değer",
   hub_unavailable: `${APP_NAME} arka plan hizmeti çalışmıyor`,
+  invalid_config: "Doküman yapılandırması (.kotilo/docs.toml) geçersiz – dosyaya dokunulmadı",
 };
 
 export const tr: Strings = {
@@ -615,6 +617,7 @@ export const tr: Strings = {
   sessions: sessionsTr,
   mission: missionTr,
   worktrees: worktreesTr,
+  docs: docsTr,
   update: updateTr,
   assistant: assistantTr,
 

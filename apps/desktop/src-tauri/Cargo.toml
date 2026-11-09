@@ -29,6 +29,8 @@ serde = { version = "1", features = ["derive"] }
 # keys. Workspace-wide via Cargo's feature unification — see root Cargo.toml.
 serde_json = { version = "1", features = ["preserve_order"] }
 agenthub-proto = { path = "../../../crates/proto" }
+# 0.7 Docs: docs check + "Mark reviewed" for the Tauri commands (same crate as the CLI).
+agenthub-docs = { path = "../../../crates/docs" }
 regex = "1"
 # M3: screen-rule engine — a per-pane terminal screen for agents whose adapter.json has
 # `screenRules` (D-002 follow-up).

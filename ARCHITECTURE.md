@@ -52,7 +52,7 @@
 ### 2.3 Hook sidecar (`crates/hook`)
 - `agenthub-hook --agent <id> --event <name>`: stdin'den ≤1 MB JSON okur, panel ortam değişkenleriyle zenginleştirir, hub'a POST eder (≤500 ms), hub yoksa spool klasörüne yazar; **her zaman exit 0**, stdout'a yazmaz.
 - Native, bağımlılıksız, ~1–2 MB; Windows'ta `--agent` başına komut satırı kayıtlarına yazılır (Codex `commandWindows`, Copilot `powershell` alanları dahil).
-- OpenCode için ek: küçük JS eklentisi (`adapters/opencode/plugin.ts`) aynı uç noktaya POST eder.
+- OpenCode için ek: küçük JS eklentisi (`adapters/opencode/plugin.js`) aynı uç noktaya POST eder.
 
 ### 2.4 Paylaşılan şema (`crates/proto`, `hub/Hub.Contracts`)
 - `HookEnvelope { v, agent, event, paneId?, workspaceId?, tsMs, payload }`.
@@ -172,7 +172,7 @@ kotilo/
   hub/
     Hub.Core/  Hub.Infrastructure/  Hub.Service/  Hub.Contracts/
     tests/
-  adapters/<id>/           adapter.json, fixtures/, (opencode) plugin.ts
+  adapters/<id>/           adapter.json, fixtures/, (opencode) plugin.js
   schema/                  JSON Schemas for hook envelope, hub API, agent protocol, adapter.json
   docs/                    user guide, decisions, manual tests
   PRD.md  DESIGN_SYSTEM.md  ARCHITECTURE.md  AGENTS.md

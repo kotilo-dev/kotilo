@@ -4,6 +4,7 @@ members = [
     "apps/desktop/src-tauri",
     "crates/proto",
     "crates/hook",
+    "crates/docs",
 ]
 
 # `apps/desktop/src-tauri` enables serde_json's `preserve_order` (hook install/uninstall must

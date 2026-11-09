@@ -37,6 +37,8 @@ pub enum ErrorCode {
     InvalidArgument,
     /// M1: the hub background service is not running or not reachable.
     HubUnavailable,
+    /// 0.7: `.kotilo/docs.toml` is not valid TOML (or not the expected shape); left untouched.
+    InvalidConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -111,6 +113,10 @@ impl AppError {
 
     pub fn invalid_argument(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::InvalidArgument, message)
+    }
+
+    pub fn invalid_config(message: impl Into<String>) -> Self {
+        Self::new(ErrorCode::InvalidConfig, message)
     }
 
     pub fn hub_unavailable(message: impl Into<String>) -> Self {

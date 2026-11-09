@@ -5,6 +5,7 @@ pub mod clipboard;
 pub mod dictation;
 pub mod diagnostics;
 pub mod dialog;
+pub mod docs;
 pub mod fs;
 pub mod git;
 pub mod hooks;

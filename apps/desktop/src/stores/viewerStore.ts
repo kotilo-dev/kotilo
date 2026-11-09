@@ -45,6 +45,8 @@ export interface ViewerTab {
   diff?: boolean;
   /** 0.6: the diff's left side at this commit instead of HEAD (worktree compare: the merge-base). */
   diffRev?: string;
+  /** 0.7: the workspace's docs check tab (one per workspace, `rel` is ""); never persisted. */
+  docs?: boolean;
 }
 
 interface WorkspaceViewerState {
@@ -85,6 +87,8 @@ interface ViewerStore {
    * 0.6: `rev` diffs against that commit; a tab is one (rel, rev) pair.
    */
   openDiff: (workspaceId: string, rel: string, opts?: { rev?: string }) => void;
+  /** 0.7: opens (or activates) the workspace's docs check tab, pinned. */
+  openDocs: (workspaceId: string) => void;
   activate: (workspaceId: string, tabId: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
   /** Düzenleme başlaması: önizleme sekmesini kalıcı sekmeye çevirir (no-op zaten pinliyse). */
@@ -108,6 +112,11 @@ function defaultModeFor(rel: string): ViewerMode | undefined {
   return undefined;
 }
 
+/** A tab showing a file of the workspace (not a diff or the docs check). */
+export function isFileTab(tab: ViewerTab): boolean {
+  return !tab.diff && !tab.docs;
+}
+
 function isDocDirty(workspaceId: string, rel: string): boolean {
   return useDocumentStore.getState().docs[docKey(workspaceId, rel)]?.dirty ?? false;
 }
@@ -115,9 +124,9 @@ function isDocDirty(workspaceId: string, rel: string): boolean {
 function serialize(byWorkspace: Record<string, WorkspaceViewerState>): PersistedViewerState {
   const out: PersistedViewerState = {};
   for (const [workspaceId, ws] of Object.entries(byWorkspace)) {
-    const activeTab = ws.tabs.find((t) => t.id === ws.activeTabId && !t.diff);
+    const activeTab = ws.tabs.find((t) => t.id === ws.activeTabId && isFileTab(t));
     out[workspaceId] = {
-      tabs: ws.tabs.filter((t) => !t.diff).map((t) => ({ rel: t.rel, pinned: t.pinned, mode: t.mode })),
+      tabs: ws.tabs.filter(isFileTab).map((t) => ({ rel: t.rel, pinned: t.pinned, mode: t.mode })),
       activeRel: activeTab?.rel ?? null,
     };
   }
@@ -179,7 +188,7 @@ async function checkTouchedTabs(
   const ws = get().byWorkspace[workspaceId];
   if (!ws) return;
   // Diff tabs stay open for deleted files (HEAD vs nothing) and refresh themselves.
-  const affected = ws.tabs.filter((t) => !t.diff && matches(t.rel));
+  const affected = ws.tabs.filter((t) => isFileTab(t) && matches(t.rel));
   for (const tab of affected) {
     let exists: boolean;
     try {
@@ -299,7 +308,7 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
 
     set((s) => {
       const ws = s.byWorkspace[workspaceId] ?? { tabs: [], activeTabId: null };
-      const existingIdx = ws.tabs.findIndex((t) => t.rel === rel && !t.diff);
+      const existingIdx = ws.tabs.findIndex((t) => t.rel === rel && isFileTab(t));
       if (existingIdx !== -1) {
         const existing = ws.tabs[existingIdx]!;
         // §2/§5.6: çift tık (pinned:true) zaten açık bir önizleme sekmesini de pin'ler;
@@ -320,7 +329,7 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
 
       let tabs = ws.tabs;
       if (!pinned) {
-        const previewIdx = tabs.findIndex((t) => !t.pinned && !t.diff);
+        const previewIdx = tabs.findIndex((t) => !t.pinned && isFileTab(t));
         if (previewIdx !== -1) {
           const previewTab = tabs[previewIdx]!;
           if (isDocDirty(workspaceId, previewTab.rel)) {
@@ -352,6 +361,16 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
       const existing = ws.tabs.find((t) => t.rel === rel && t.diff && t.diffRev === rev);
       if (existing) return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...ws, activeTabId: existing.id } } };
       const tab: ViewerTab = { id: makeTabId(), rel, pinned: true, missing: false, diff: true, ...(rev ? { diffRev: rev } : {}) };
+      return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { tabs: [...ws.tabs, tab], activeTabId: tab.id } } };
+    });
+  },
+
+  openDocs: (workspaceId) => {
+    set((s) => {
+      const ws = s.byWorkspace[workspaceId] ?? { tabs: [], activeTabId: null };
+      const existing = ws.tabs.find((t) => t.docs);
+      if (existing) return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...ws, activeTabId: existing.id } } };
+      const tab: ViewerTab = { id: makeTabId(), rel: "", pinned: true, missing: false, docs: true };
       return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { tabs: [...ws.tabs, tab], activeTabId: tab.id } } };
     });
   },
@@ -407,7 +426,7 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
       const ws = s.byWorkspace[workspaceId];
       if (!ws) return {};
       const tabs = ws.tabs.map((t) => {
-        if (!isSameOrDescendant(t.rel, oldRel)) return t;
+        if (t.docs || !isSameOrDescendant(t.rel, oldRel)) return t;
         changed = true;
         return { ...t, rel: newRel + t.rel.slice(oldRel.length) };
       });

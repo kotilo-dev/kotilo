@@ -92,9 +92,8 @@ MinGW kurulumundan `CC=gcc`) ayarlı olduğunda olur. Depo bunu `.cargo/config.t
 ile zaten çözer: `CC`/`CXX` boşa zorlanır, böylece `cc` crate'i gerçek MSVC `cl.exe`'yi
 bulur. Hatayı yine de alıyorsanız depo kökünden derlediğinizi (ki `.cargo/config.toml`
 okunsun) ve kabuk profilinizdeki başka bir şeyin Cargo yapılandırmayı okuduktan sonra
-`CC`/`CXX`'i yeniden ayarlamadığını kontrol edin. Ayrıntılı açıklama için depodaki
-`docs/development.md` içinde "the `.cargo/config.toml` CC/CXX override" bölümüne
-bakın.
+`CC`/`CXX`'i yeniden ayarlamadığını kontrol edin. Bu ayarın açıklaması `.cargo/config.toml`
+dosyasının başındaki yorumda.
 
 ## Günlükler ve durum nerede
 
@@ -108,7 +107,7 @@ bakın.
 | `%APPDATA%\kotilo\settings.json` | Uygulama ayarları |
 | `%APPDATA%\kotilo\state.json.corrupt` / `settings.json.corrupt` | Asıl dosya geçersiz JSON olduğu için Kotilo varsayılanlara döndüyse bulunur |
 | `~/.claude/settings.json`, `~/.codex/hooks.json` ve `.kotilo-backup-<zaman>` kopyaları | Ajanların kendi ayarları ve Kotilo'ın yazmadan önce aldığı yedekleri |
-| Chrome DevTools konsolu (depodaki `docs/development.md` içindeki uzaktan hata ayıklama ipucuyla) | Arayüz hataları/uyarıları; arayüz tarafındaki bir hata için en faydalı ayrıntı kaynağı |
+| Uygulama penceresinin DevTools konsolu: Kotilo'yu `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` ortam değişkeniyle başlatın, sonra Edge'de `edge://inspect` adresini açın | Arayüz hataları/uyarıları; arayüz tarafındaki bir hata için en faydalı ayrıntı kaynağı |
 
 ## Sorun bildirme
 

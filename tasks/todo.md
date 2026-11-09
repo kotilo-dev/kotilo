@@ -8,6 +8,38 @@ Input: "Kotilo Docs – Modül Spesifikasyonu" (Downloads, 2026-11-05) with five
 - **Watch rules:** policy file of risky patterns (`.env` reads, force push, `rm -rf`, prod URLs) that raise the permission card's risk tag and notify; never blocks.
 - Before 0.6 ships: run the open 0.5.0 manual checks (S-1…S-5, K-1…K-8).
 
+# 0.7 – Docs: find docs that no longer match the code (planned 2026-11-09)
+
+Goal: show which docs name paths that no longer exist and which docs cover code that changed since they were last reviewed, and hand the fix to an agent. Decisions with the user (2026-11-09): config in `.kotilo/docs.toml`, committed (the `info/exclude` block becomes `.kotilo/*` + `!.kotilo/docs.toml`); "Mark reviewed" stores the commit in docs.toml (shared with team and CI); the `kotilo-docs check` CLI ships in 0.7. Logic lives in a Rust crate shared by the app and the CLI, not in the hub (git reads and the file watcher are already in Rust; the CLI must run without the hub). Contract: scratchpad `docs-contract.md`, summarized in D-074.
+
+Order: A ∥ B → C → D.
+
+## A – Rust crate `crates/docs` + CLI + packaging
+- [x] Doc discovery (`git ls-files -co --exclude-standard`, `*.md`/`*.mdx`, caps, agent instruction files first; works without git)
+- [x] Link sources: Markdown links/refs, `file=` code blocks, path-like inline code (missing only), `.kotilo/docs.toml` globs, optional front matter `covers:`
+- [x] Missing findings; staleness over `baseline..HEAD` (reviewed commit or last touch, `--no-merges`), commits + changed files
+- [x] `mark_reviewed` with `toml_edit` (keeps comments, refuses invalid TOML)
+- [x] `agenthub-docs` CLI: `check` (text/`--json`, exit 0/1/2), `reviewed <doc>`
+- [x] `info/exclude` migration to `.kotilo/*` + `!.kotilo/docs.toml` (gitcli); Kotilo repo's own `.gitignore` likewise
+- [x] Sidecar build (`build.rs`), `externalBin`, release scripts, notices, release workflow uploads the standalone CLI
+- [x] Fixture tests on temp repos (Windows + Unix paths)
+
+## B – Webview
+- [x] `docsStore`, ipc wrappers, e2e mocks + fixtures
+- [x] File tree badges (missing/stale) + setting `docs.treeBadges`
+- [x] Docs viewer tab: summary, filter, missing paths, "why stale" (commits, files → diff from baseline), Open doc, Mark reviewed, Update with agent (composer, as D-066)
+- [x] Entry points: workspace context menu, command palette; debounced refresh on `fs:changed` / workspace activation
+- [x] EN + TR strings, design tokens, unit tests, e2e spec + screenshots
+
+## C – Integration
+- [x] Tauri commands `docs_check` / `docs_mark_reviewed`, `invalid_config` error code
+- [x] Try it on this repo (`AGENTS.md`, `docs/hub-api.md`, …) and tune false positives (doc-to-doc links not stale, inline wildcards and git-ignored inline paths dropped: 23 → 12 missing, 7 → 2 stale, the rest are real)
+
+## D – Docs and checks
+- [x] D-074, user guide EN/TR (docs.toml example, CLI in CI), manual tests DC-1…, README CLI note
+- [x] cargo test 708 + docs 32 + clippy ✓, hub unchanged, npm test 1046 + build ✓, docs/review/workspaces/timeline/worktrees e2e ✓, full e2e 119/119 ✓ (--workers=1)
+- [ ] Manual DC-1…DC-10 (user, `tauri dev`)
+
 # 0.6 – Worktrees for parallel agents (planned 2026-11-09)
 
 Goal: run several agents on one repo without them touching each other's files – each in its own git worktree and branch, then compare, merge and clean up from Kotilo. Works for every agent (no agent-specific flags such as Claude Code's `--worktree`). Defaults chosen with the user's go-ahead ("senin önerinle devam"):
