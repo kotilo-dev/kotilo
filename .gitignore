@@ -37,3 +37,7 @@ Thumbs.db
 *.sqlite
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Local Kotilo workspace data and private test notes
+.kotilo/
+docs/test/
