@@ -144,8 +144,9 @@ export const limits: LimitDto[] = [
 
 export const health: HealthDto = { version: "0.1.0", uptime: 3600, status: "ok", issues: [] };
 
-export const dailyUsage: DailyUsage[] = Array.from({ length: 30 }, (_, i) => {
-  const d = 29 - i;
+// 84 days so the Weeks view (D-075) has 12 weeks; the last 30 days are what the Days view always showed.
+export const dailyUsage: DailyUsage[] = Array.from({ length: 84 }, (_, i) => {
+  const d = 83 - i;
   const claude = d % 6 === 0 ? 0 : 400_000 + ((d * 137_000) % 900_000);
   const codex = d % 3 === 0 ? 150_000 + ((d * 53_000) % 300_000) : 0;
   const byAgent: DailyUsage["byAgent"] = {};

@@ -1,6 +1,6 @@
 /**
- * Usage (M2, CCC spec §12.4): 30-day daily bars (tokens or cost, all agents or one), 5-hour
- * block history, breakdown by project / model / agent. Costs are local API-price estimates;
+ * Usage (M2, CCC spec §12.4): 30-day daily or 12-week weekly bars (D-075; tokens or cost, all
+ * agents or one), 5-hour block history, breakdown by project / model / agent. Costs are local API-price estimates;
  * unpriced usage (e.g. Codex) shows "—".
  */
 import { useEffect, useRef, useState } from "react";
@@ -18,21 +18,25 @@ import {
   formatCost,
   formatTokenCount,
   formatCurrencyCompact,
+  toIsoDate,
   useHubQuery,
 } from "../../app/ui";
 import type { BreakdownRow, DailyUsage, UsageBlockDto } from "../../lib/hubTypes";
 import { useHubStore } from "../../stores/hubStore";
 import { BarChart } from "./BarChart";
-import { agentsIn, dailyBars, relativeShares, type UsageMetric } from "./usageLogic";
+import { DAYS_SHOWN, agentsIn, dailyBars, daysToLoad, relativeShares, weekDelta, weeklyBars, type UsageMetric } from "./usageLogic";
 
 type BreakdownBy = "project" | "model" | "agent";
+type View = "days" | "weeks";
 const ALL = "__all__";
 /** Live usage changes reload the lists at most this often. */
 const RELOAD_THROTTLE_MS = 30_000;
 
 export function UsagePage() {
   const s = useStrings();
-  const daily = useHubQuery<DailyUsage[]>("/v1/usage/daily?days=30");
+  // One query covers both views: the Weeks view needs up to 84 days, the Days view the last 30.
+  const [loadDays] = useState(() => daysToLoad(toIsoDate(new Date())));
+  const daily = useHubQuery<DailyUsage[]>(`/v1/usage/daily?days=${loadDays}`);
   const blocks = useHubQuery<UsageBlockDto[]>("/v1/usage/blocks?days=7");
   const [by, setBy] = useState<BreakdownBy>("project");
   const breakdown = useHubQuery<BreakdownRow[]>(`/v1/usage/breakdown?by=${by}&days=30`);
@@ -87,20 +91,34 @@ export function UsagePage() {
 
 function DailyCard({ days, loading, error }: { days: DailyUsage[] | null; loading: boolean; error: string | null }) {
   const s = useStrings();
+  const [view, setView] = useState<View>("days");
   const [metric, setMetric] = useState<UsageMetric>("tokens");
   const [agent, setAgent] = useState<string>(ALL);
-  const list = days ?? [];
+  const all = days ?? [];
+  const list = view === "days" ? all.slice(-DAYS_SHOWN) : all;
   const agents = agentsIn(list);
-  const bars = dailyBars(list, metric, agent === ALL ? null : agent);
+  const filter = agent === ALL ? null : agent;
+  const bars = view === "days" ? dailyBars(list, metric, filter) : weeklyBars(list, metric, filter);
   const metricLabel = metric === "tokens" ? s.usage.metricTokens : s.usage.metricCost;
   const empty = list.every((d) => d.tokens === 0);
+  const delta = view === "weeks" ? weekDelta(list, metric, filter) : null;
 
   return (
     <Card
-      title={s.usage.daily}
+      title={view === "days" ? s.usage.daily : s.usage.weekly}
       labelledBy="usage-daily"
       actions={
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {delta !== null && !empty && <span className="text-small text-muted">{s.usage.weekDelta(formatDelta(delta))}</span>}
+          <Segmented
+            ariaLabel={s.usage.view}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "days", label: s.usage.viewDays },
+              { value: "weeks", label: s.usage.viewWeeks },
+            ]}
+          />
           {agents.length > 1 && (
             <Segmented
               ariaLabel={s.usage.agentFilter}
@@ -130,12 +148,18 @@ function DailyCard({ days, loading, error }: { days: DailyUsage[] | null; loadin
       ) : (
         <BarChart
           data={bars}
-          ariaLabel={s.usage.chartLabel(metricLabel)}
+          ariaLabel={view === "days" ? s.usage.chartLabel(metricLabel) : s.usage.chartLabelWeeks(metricLabel)}
           formatAxis={(v) => (metric === "tokens" ? formatTokenCount(v) : formatCurrencyCompact(v))}
+          labelEvery={view === "days" ? 5 : 2}
         />
       )}
     </Card>
   );
+}
+
+/** `+25%` / `-10%` (TR `+%25`), in the active language. */
+function formatDelta(ratio: number): string {
+  return formatNumber(ratio, { style: "percent", signDisplay: "exceptZero", maximumFractionDigits: 0 });
 }
 
 function BlocksCard({ blocks, loading }: { blocks: UsageBlockDto[] | null; loading: boolean }) {

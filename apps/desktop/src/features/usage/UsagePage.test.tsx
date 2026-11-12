@@ -10,7 +10,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { UsagePage } from "./UsagePage";
 import { useI18nStore } from "../../app/i18n";
 import type { DailyUsage } from "../../lib/hubTypes";
-import { agentsIn, dailyBars, relativeShares } from "./usageLogic";
+import { agentsIn, dailyBars, daysToLoad, relativeShares, weekDelta, weekStart, weeklyBars } from "./usageLogic";
 import { niceMax } from "./BarChart";
 
 const days: DailyUsage[] = [
@@ -63,5 +63,39 @@ describe("UsagePage", () => {
     expect(relativeShares([5, 10, 0])).toEqual([0.5, 1, 0]);
     expect(niceMax(3200)).toBe(5000);
     expect(niceMax(0)).toBe(1);
+  });
+
+  it("switches to the weekly view with a week-over-week change", async () => {
+    render(<UsagePage />);
+    await screen.findByRole("img", { name: "Daily tokens over the last 30 days" });
+    fireEvent.click(screen.getByRole("radio", { name: "Weeks" }));
+    expect(screen.getByRole("img", { name: "Weekly tokens over the last 12 weeks" })).toBeInTheDocument();
+    expect(screen.getByText("Weekly usage · last 12 weeks")).toBeInTheDocument();
+    expect(hubRequest.mock.calls.some(([, path]) => /^\/v1\/usage\/daily\?days=(7[8-9]|8[0-4])$/.test(path as string))).toBe(true);
+  });
+
+  it("logic: Monday weeks, load span, weekly bars, week delta", () => {
+    expect(weekStart("2026-11-12")).toBe("2026-11-09"); // Thursday → Monday
+    expect(weekStart("2026-11-09")).toBe("2026-11-09");
+    expect(weekStart("2026-11-15")).toBe("2026-11-09"); // Sunday belongs to the week before
+    expect(weekStart("2026-03-30")).toBe("2026-03-30"); // DST week in Europe
+    expect(daysToLoad("2026-11-09")).toBe(78); // Monday: 11 full weeks + 1 day
+    expect(daysToLoad("2026-11-15")).toBe(84);
+    expect(daysToLoad("2026-11-12", 2)).toBe(30); // never shorter than the Days view
+
+    const day = (date: string, tokens: number, agent = "claude-code", unpriced = false): DailyUsage => ({
+      date, tokens, costUsd: unpriced ? 0 : tokens / 1000, hasUnpricedEntries: unpriced, sessions: 1,
+      byAgent: { [agent]: { tokens, costUsd: unpriced ? 0 : tokens / 1000, hasUnpricedEntries: unpriced } },
+    });
+    const series = [day("2026-11-02", 100), day("2026-11-03", 200), day("2026-11-05", 50, "codex", true), day("2026-11-09", 300), day("2026-11-10", 0), day("2026-11-11", 60)];
+    const weeks = weeklyBars(series, "tokens", null, 3);
+    expect(weeks.map((b) => [b.key, b.value])).toEqual([["2026-10-26", 0], ["2026-11-02", 350], ["2026-11-09", 360]]);
+    expect(weeklyBars(series, "cost", null, 3)[1].display).toBe("$0.30"); // priced part shown, like the daily bars
+    expect(weeklyBars(series, "cost", "codex", 3)[1].display).toBe("—"); // only unpriced usage that week
+    expect(weeklyBars(series, "tokens", "codex", 3).map((b) => b.value)).toEqual([0, 50, 0]);
+    expect(weeklyBars([], "tokens", null)).toEqual([]);
+    // Mon–Wed this week (360) vs Mon–Wed last week (100 + 200): +20 %; Thursday's codex day is outside the span.
+    expect(weekDelta(series, "tokens", null)).toBeCloseTo(0.2);
+    expect(weekDelta(series, "tokens", "codex")).toBeNull();
   });
 });

@@ -25,8 +25,11 @@ declare global {
     __e2eOpenedUrls: string[];
     /** D-072: what the webview hands the Kotilo Deck client, and keys sent to panes. */
     __e2eCompanion: { agents: unknown[]; usage: unknown[]; sent: unknown[]; keys: { paneId: string; keys: string }[] };
+    /** D-075: the tray menus (item texts, "---" for separators) and tooltips in order. */
+    __e2eTray: { menus: string[][]; tooltips: string[] };
   }
 }
+window.__e2eTray = { menus: [], tooltips: [] };
 window.__e2eClipboard = [];
 window.__e2eOpenedUrls = [];
 window.__e2eCompanion = { agents: [], usage: [], sent: [], keys: [] };
@@ -81,7 +84,7 @@ function hubRoute(method: string, path: string): unknown {
     case "/v1/usage/current":
       return fx.usageCurrent;
     case "/v1/usage/daily":
-      return fx.dailyUsage;
+      return fx.dailyUsage.slice(-Number(q.get("days") ?? 30));
     case "/v1/usage/blocks":
       return fx.blocks;
     case "/v1/usage/breakdown":
@@ -159,6 +162,8 @@ async function runUpdateInstall(): Promise<null> {
 }
 
 mockWindows("main");
+let nextRid = 1000;
+
 mockIPC(
   (cmd, payload) => {
     const args = (payload ?? {}) as Record<string, unknown>;
@@ -302,6 +307,17 @@ mockIPC(
         return hubRoute(String(args.method ?? "GET"), String(args.path ?? ""));
       case "plugin:notification|is_permission_granted":
         return false;
+      // D-075: tray icon and its menu (Tauri resources are `[rid, id]` pairs).
+      case "plugin:tray|new":
+        return [nextRid++, "tray"];
+      case "plugin:menu|new": {
+        const items = ((args.options as { items?: unknown[] } | undefined)?.items ?? []) as ({ text?: string; item?: string } | unknown[])[];
+        if (args.kind === "Menu") window.__e2eTray.menus.push(items.map((i) => (Array.isArray(i) ? "?" : i.item ? "---" : String(i.text ?? ""))));
+        return [nextRid++, `menu-${nextRid}`];
+      }
+      case "plugin:tray|set_tooltip":
+        window.__e2eTray.tooltips.push(String(args.tooltip ?? ""));
+        return null;
       default:
         return null;
     }

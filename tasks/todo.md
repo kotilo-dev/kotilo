@@ -8,6 +8,25 @@ Input: "Kotilo Docs – Modül Spesifikasyonu" (Downloads, 2026-11-05) with five
 - **Watch rules:** policy file of risky patterns (`.env` reads, force push, `rm -rf`, prod URLs) that raise the permission card's risk tag and notify; never blocks.
 - Before 0.6 ships: run the open 0.5.0 manual checks (S-1…S-5, K-1…K-8).
 
+# 0.8 – Usage extras: tray summary, weekly view (planned 2026-11-12)
+
+What exists: Usage page (30-day daily chart tokens/cost with agent filter, 5-hour blocks, breakdown), Overview (active block, today, this week, limits), tray only while "keep running in the tray" is on (Show/Quit). Decisions with the user (2026-11-12): the tray icon is always shown (closing the window still follows `window.closeToTray`); the tray shows today, the active 5-hour block, plan limits and waiting agents; the weekly view is a Days/Weeks switch on the daily card. Webview only, no hub change (`/v1/usage/daily` allows 90 days, 12 weeks need at most 84).
+
+## A – Weekly view
+- [x] `usageLogic`: `weeklyBars` (Monday weeks from the local dates the hub returns, current week partial), `weekDelta` (this week so far vs the same weekdays last week), `daysToLoad`
+- [x] Daily card: Days | Weeks switch, title/aria per mode, one daily query long enough for 12 weeks (days view keeps the last 30)
+- [x] Unit tests (week boundaries, Sunday/Monday, partial week, agent filter, unpriced cost)
+
+## B – Tray summary
+- [x] `traySummary` (pure): tooltip lines + menu lines for today, active block, limits, waiting sessions (max 5, then "+n more"); unit tests
+- [x] `AppTray`: always created; menu = summary (disabled lines) + waiting sessions (click → show window + `goToSession`) + Show/Quit; update only when the text changes (throttled), no rebuild per stream tick
+- [x] Settings hint for `closeToTray` no longer says the icon depends on it; EN + TR strings
+
+## C – Docs and checks
+- [x] D-075, user guide EN/TR, manual tests U8-1…U8-8
+- [x] npm test 1052 + build ✓, `usage.spec.ts` (Weeks screenshots light/dark × en/tr, tray menu via mocked `plugin:menu|new`) ✓, full e2e 124/124 ✓, cargo unchanged (no Rust change)
+- [ ] Manual U8-1…U8-8 (user, `tauri dev`)
+
 # 0.7 – Docs: find docs that no longer match the code (planned 2026-11-09)
 
 Goal: show which docs name paths that no longer exist and which docs cover code that changed since they were last reviewed, and hand the fix to an agent. Decisions with the user (2026-11-09): config in `.kotilo/docs.toml`, committed (the `info/exclude` block becomes `.kotilo/*` + `!.kotilo/docs.toml`); "Mark reviewed" stores the commit in docs.toml (shared with team and CI); the `kotilo-docs check` CLI ships in 0.7. Logic lives in a Rust crate shared by the app and the CLI, not in the hub (git reads and the file watcher are already in Rust; the CLI must run without the hub). Contract: scratchpad `docs-contract.md`, summarized in D-074.

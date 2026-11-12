@@ -789,6 +789,18 @@ Son 30 günün günlük kullanımı token ya da maliyet olarak, ajana göre süz
 Fiyatı olmayan bir model (örneğin Codex modelleri) "—" gösterir; maliyetini tahmin
 etmek için onu `pricing.json`'a ekleyin.
 
+**Gün | Hafta** grafiği son 12 haftaya çevirir (pazartesiden pazara; içinde
+bulunulan hafta yarımdır). Yanındaki değişim, bu haftanın şimdiye kadarki kısmını
+geçen haftanın aynı günleriyle karşılaştırır.
+
+**Tepsi.** Tepsi simgesi her zaman görünür. İpucu ve menüsü bugünkü token ve
+maliyeti, aktif 5 saatlik bloğu ve kalan süresini, plan limitlerinizi ve izin ya da
+yanıt bekleyen ajanları gösterir; birine tıklayınca o ajan açılır. İpucu yalnızca en
+yüksek limiti gösterir (Windows ipuçlarını 127 karakterde keser; Linux tepsilerinde
+ipucu yoktur, menü aynısını gösterir). Pencereyi kapatmak, Ayarlar → Hakkında ve tanılama →
+"Pencere kapatılınca sistem tepsisinde çalışmaya devam et" açık değilse uygulamadan
+çıkar.
+
 ## Raporlar
 
 - **Günlük özet**: günün rakamlarıyla (etkin süre, oturumlar, token, maliyet, bekleme)

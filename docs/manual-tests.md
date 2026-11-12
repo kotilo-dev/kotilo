@@ -316,3 +316,19 @@ Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Use a th
 | DC-8 | In a repo created before 0.7 that has a Kotilo worktree, create a new worktree | `.git/info/exclude` now has `.kotilo/*` and `!.kotilo/docs.toml` instead of `.kotilo/`; no duplicate block |
 | DC-9 | In a terminal: `"%LOCALAPPDATA%\kotilo\kotilo-docs.exe" check` in the repo (dev build: `target\debug\agenthub-docs.exe`) | One line per finding, summary last, exit code 1 (`echo %ERRORLEVEL%`); `--json` prints the report; in a clean repo exit 0 |
 | DC-10 | Turkish UI | The Docs tab, menu entries and confirmation are Turkish |
+
+## Usage extras (0.8, D-075)
+
+Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Have at least one agent with some usage today; for the waiting items start an agent and let it ask for a permission.
+
+| # | Steps | Expected |
+|---|---|---|
+| U8-1 | Start Kotilo with "Keep running in the tray" **off** | The tray icon is there; closing the window still quits the app and removes the icon |
+| U8-2 | Hover the tray icon | Tooltip: app name, today's tokens and cost, the block's time left, the highest limit, "n agents waiting" when any |
+| U8-3 | Right-click the tray icon | Info lines (today, 5-hour block or "No active 5-hour block", one line per limit) are greyed out; Show/Quit at the bottom |
+| U8-4 | Let an agent ask for a permission, then open the tray menu | "Waiting for you" lists it as `project · agent · Needs permission`; clicking it brings the window up on that agent's terminal |
+| U8-5 | Work for a few minutes, reopen the menu | Today's numbers moved; the icon does not flicker or rebuild constantly |
+| U8-6 | Usage page → **Weeks** | 12 weekly bars ending with the current week; the change vs last week shows next to the switch; Cost and the agent filter work in this view too |
+| U8-7 | Turkish UI | Tray lines, tooltip and the Gün/Hafta switch are Turkish; the change reads like `%-14` |
+| U8-8 | Linux (VM) | The tray menu shows the same lines (no tooltip on Linux) |
+

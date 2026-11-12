@@ -780,6 +780,17 @@ blocks of the last 7 days; and a breakdown of the last 30 days by project, model
 agent. A model without a price (for example Codex models) shows "—"; add it to
 `pricing.json` to estimate its cost.
 
+**Days | Weeks** switches the chart to the last 12 weeks (Monday to Sunday; the
+current week is partial). Next to it, the change compares this week so far with the
+same weekdays of last week.
+
+**Tray.** The tray icon is always there. Its tooltip and menu show today's tokens and
+cost, the active 5-hour block and its time left, your plan limits and the agents
+waiting for a permission or an answer; click one to open it. The tooltip keeps only
+the highest limit (Windows cuts tooltips at 127 characters; Linux trays have no
+tooltip, the menu shows the same). Closing the window still quits unless Settings →
+About & diagnostics → "Keep running in the tray when the window is closed" is on.
+
 ## Reports
 
 - **Daily summary**: stored daily summaries with the day's numbers (active time,

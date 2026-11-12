@@ -525,6 +525,12 @@ export const en = {
     metricCost: "Cost",
     agentFilter: "Agent",
     chartLabel: (metric: string) => `Daily ${metric.toLowerCase()} over the last 30 days`,
+    weekly: "Weekly usage · last 12 weeks",
+    chartLabelWeeks: (metric: string) => `Weekly ${metric.toLowerCase()} over the last 12 weeks`,
+    view: "View",
+    viewDays: "Days",
+    viewWeeks: "Weeks",
+    weekDelta: (delta: string) => `${delta} vs same point last week`,
     blocks: "5-hour blocks · last 7 days",
     columns: { block: "Block", tokens: "Tokens", cost: "Cost", entries: "Entries", name: "Name", share: "Share" },
     active: "Active",
@@ -1092,7 +1098,7 @@ export const en = {
       privacyNote: "Logs stay on this computer. Nothing is sent automatically.",
       openHelp: "Open help",
       closeToTray: "Keep running in the tray when the window is closed",
-      closeToTrayHint: "Terminals and agents keep running. Click the tray icon to bring the window back; quit from its menu.",
+      closeToTrayHint: "Terminals and agents keep running. Click the tray icon to bring the window back; quit from its menu. The tray icon with the usage summary is always there.",
     },
     close: "Close",
     invalidNumberRange: (min: number, max: number) => `Enter a whole number between ${min} and ${max}`,
@@ -1214,10 +1220,20 @@ export const en = {
     viewerPrevTab: "Previous tab",
     viewerToggleMarkdownMode: "Toggle markdown edit/preview",
   },
-  /** D-058: tray icon menu (only while "keep running in the tray" is on). */
+  /** D-058 / D-075: tray icon menu and tooltip (always shown). */
   tray: {
     show: `Show ${APP_NAME}`,
     quit: `Quit ${APP_NAME}`,
+    hubDown: "Background service not running",
+    today: (tokens: string, cost: string) => `Today: ${tokens} tokens ≈ ${cost}`,
+    todayShort: (tokens: string, cost: string) => `Today ${tokens} · ${cost}`,
+    block: (tokens: string, left: string) => `5-hour block: ${tokens} tokens · ${left} left`,
+    blockShort: (left: string) => `Block: ${left} left`,
+    noBlock: "No active 5-hour block",
+    limit: (agent: string, window: string, percent: string) => `${agent} · ${window} ${percent}`,
+    waiting: "Waiting for you",
+    waitingCount: (n: number) => (n === 1 ? "1 agent waiting" : `${n} agents waiting`),
+    moreWaiting: (n: number) => `+${n} more – open Mission control`,
   },
 
   mascot: {

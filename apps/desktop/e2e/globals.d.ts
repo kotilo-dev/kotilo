@@ -23,6 +23,8 @@ declare global {
       spawns: { cwdRel: string; agentCommand: string | null }[];
     };
     /** 0.7: docs commands the mocked IPC saw (src/e2e/docsFixtures.ts). */
+    /** D-075: tray menus (item texts, "---" = separator) and tooltips in order. */
+    __e2eTray: { menus: string[][]; tooltips: string[] };
     __e2eDocs: { checks: number; reviewed: string[]; showHead: { path: string; rev: string | null }[] };
   }
 }
