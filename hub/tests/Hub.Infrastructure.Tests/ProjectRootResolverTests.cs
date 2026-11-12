@@ -149,6 +149,24 @@ public sealed class ProjectRootResolverTests : IDisposable
         ProjectRootResolver.WorktreeBranch(sibling).Should().BeNull("detached");
     }
 
+    [Fact]
+    public void Worktree_root_keeps_the_cwd_spelling_when_git_records_a_physical_path()
+    {
+        // Git writes physical paths (macOS /var → /private/var); the agent's cwd uses the other spelling of the same folder.
+        // Two trees stand in for the two spellings: "physical" holds the git data, "seen" is where the cwd lives.
+        var physicalRepo = MainRepo(Path.Combine("physical", "repo"));
+        var physicalWt = Path.Combine(physicalRepo, ".kotilo", "worktrees", "fix");
+        var gitDir = Directory.CreateDirectory(Path.Combine(physicalRepo, ".git", "worktrees", "fix")).FullName;
+        File.WriteAllText(Path.Combine(gitDir, "HEAD"), "ref: refs/heads/kotilo/fix\n");
+        File.WriteAllText(Path.Combine(gitDir, "commondir"), "../..\n");
+        File.WriteAllText(Path.Combine(gitDir, "gitdir"), Path.Combine(physicalWt, ".git") + "\n");
+        var seenRepo = _dir.File(Path.Combine("seen", "repo"));
+        var seenWt = Directory.CreateDirectory(Path.Combine(seenRepo, ".kotilo", "worktrees", "fix")).FullName;
+        File.WriteAllText(Path.Combine(seenWt, ".git"), "gitdir: " + gitDir + "\n");
+
+        _resolver.ResolveLocation(Path.Combine(seenWt, "src")).Should().Be(new ProjectLocation(seenRepo, seenWt));
+    }
+
     private string MainRepo(string name)
     {
         var repo = Directory.CreateDirectory(_dir.File(name)).FullName;

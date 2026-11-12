@@ -7,6 +7,9 @@ const hubRequest = vi.fn(async (..._a: unknown[]) => null);
 vi.mock("../../lib/ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/ipc")>()),
   hubRequest: (...a: unknown[]) => hubRequest(...a),
+  // The worktrees panel subscribes to fs events; jsdom has no Tauri runtime.
+  onFsChanged: async () => () => {},
+  onFsRescan: async () => () => {},
 }));
 
 import { MissionControlPage } from "./MissionControlPage";

@@ -138,7 +138,49 @@ public sealed class ProjectRootResolver
             return null;
         }
 
-        return Path.GetDirectoryName(commonDir) is { Length: > 0 } main ? Path.TrimEndingDirectorySeparator(main) : null;
+        return Path.GetDirectoryName(commonDir) is { Length: > 0 } main
+            ? InCwdSpelling(Path.TrimEndingDirectorySeparator(main), folder, gitDir)
+            : null;
+    }
+
+    /// <summary>
+    /// Git records physical paths (macOS <c>/var</c> → <c>/private/var</c>, symlinked folders), while the agent reports the cwd as the user
+    /// sees it. The worktree's back link (<c>&lt;gitdir&gt;/gitdir</c> = physical <c>&lt;worktree&gt;/.git</c>) shows both spellings of the
+    /// same folder; the prefix that differs is swapped on the main root too, so worktree and main-checkout sessions share one project root.
+    /// </summary>
+    private static string InCwdSpelling(string main, string folder, string gitDir)
+    {
+        var back = Path.Combine(gitDir, "gitdir");
+        var line = File.Exists(back) ? File.ReadLines(back).FirstOrDefault()?.Trim() : null;
+        if (string.IsNullOrEmpty(line) || Path.GetDirectoryName(Path.GetFullPath(line)) is not { } physical)
+        {
+            return main;
+        }
+
+        // Drop the common trailing segments; what remains are the two spellings of the same prefix.
+        string? seen = folder;
+        string? real = Path.TrimEndingDirectorySeparator(physical);
+        while (seen is not null && real is not null && Path.GetFileName(seen) is { Length: > 0 } name
+            && name.Equals(Path.GetFileName(real), StringComparison.OrdinalIgnoreCase))
+        {
+            seen = Path.GetDirectoryName(seen);
+            real = Path.GetDirectoryName(real);
+        }
+
+        if (seen is null || real is null || seen.Equals(real, StringComparison.OrdinalIgnoreCase))
+        {
+            return main;
+        }
+
+        real = Path.TrimEndingDirectorySeparator(real);
+        if (main.Equals(real, StringComparison.OrdinalIgnoreCase))
+        {
+            return seen;
+        }
+
+        return main.StartsWith(real + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(seen, main[(real.Length + 1)..])
+            : main;
     }
 
     /// <summary>The directory a <c>.git</c> file points to (<c>gitdir: &lt;path&gt;</c>, relative to the file's folder); null if malformed or missing.</summary>
