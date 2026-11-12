@@ -274,8 +274,22 @@ fn rel_in_root(root: &Path, path: &str) -> Option<String> {
         return Some(rel);
     }
     let canon_root = dunce::canonicalize(root).ok()?;
-    let canon_path = dunce::canonicalize(path).ok()?;
+    let canon_path = canonicalize_existing_prefix(path)?;
     crate::fsguard::rel_under_ci(&canon_root, &canon_path)
+}
+
+/// Canonicalizes the deepest existing ancestor and re-appends the rest, so a worktree whose
+/// folder was deleted (prunable) still maps through `/private/var` or 8.3 names.
+fn canonicalize_existing_prefix(path: &Path) -> Option<PathBuf> {
+    let mut tail = Vec::new();
+    let mut current = path;
+    loop {
+        if let Ok(canon) = dunce::canonicalize(current) {
+            return Some(tail.iter().rev().fold(canon, |p, s| p.join(s)));
+        }
+        tail.push(current.file_name()?);
+        current = current.parent()?;
+    }
 }
 
 fn is_managed_rel(rel: &str) -> bool {
@@ -911,6 +925,18 @@ worktree /srv/bare.git\nbare\n";
         }
         // Another brand's comment is not ours.
         assert_eq!(exclude_update("# Other worktrees and attachments\n.kotilo/\n", name), None);
+    }
+
+    #[test]
+    fn rel_in_root_maps_a_deleted_folder_through_another_spelling() {
+        // `sub/..` stands in for `/var` vs `/private/var` or an 8.3 name: only the canonical form matches,
+        // and the worktree folder itself no longer exists.
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("sub")).unwrap();
+        std::fs::create_dir_all(tmp.path().join(".kotilo").join("worktrees")).unwrap();
+        let root = tmp.path().join("sub").join("..");
+        let gone = tmp.path().join(".kotilo").join("worktrees").join("gone");
+        assert_eq!(rel_in_root(&root, gone.to_str().unwrap()).as_deref(), Some(".kotilo/worktrees/gone"));
     }
 
     #[test]
