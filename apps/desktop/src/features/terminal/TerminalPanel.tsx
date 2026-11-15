@@ -30,6 +30,7 @@ import { WorktreeBadge, useWorktreeMatch } from "../worktrees/WorktreeBadge";
 import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 import { quickCommandsFor } from "../quickCommands/quickCommandLogic";
 import { agentTabFor, openQuickCommandSettings, runQuickCommand } from "../quickCommands/quickCommandActions";
+import { openAgentContext, paneAgentId } from "../context/contextActions";
 
 const NO_QUICK_COMMANDS: SavedPrompt[] = [];
 
@@ -299,7 +300,12 @@ export function TerminalPanel() {
     if (ws?.splitTabId) {
       items.push({ label: strings.composer.split.closeSplit, onClick: () => useTerminalStore.getState().closeSplit(workspaceId, "left") });
     }
-    const running = ws?.tabs.find((t) => t.id === tabId)?.status === "running";
+    const tab = ws?.tabs.find((t) => t.id === tabId);
+    const running = tab?.status === "running";
+    const agentId = running && tab?.paneId ? paneAgentId(tab.paneId) : null;
+    if (agentId) {
+      items.push({ label: strings.agentContext.paneButton, onClick: () => openAgentContext(workspaceId, agentId), separatorBefore: true });
+    }
     items.push(
       { label: strings.terminal.copyRecentOutput, onClick: () => void copyOutputWithToast(tabId), separatorBefore: true },
       { label: strings.terminal.resetTerminal, onClick: () => resetWithToast(tabId), disabled: !running },

@@ -15,5 +15,28 @@
       "errorOccurred"
     ]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "path": "~/.copilot/copilot-instructions.md" },
+      { "scope": "user", "glob": "~/.copilot/instructions/**/*.instructions.md" },
+      { "scope": "project", "path": ".github/copilot-instructions.md" },
+      { "scope": "project", "names": ["AGENTS.md", "CLAUDE.md", ".claude/CLAUDE.md", "GEMINI.md"], "walk": "repo", "nested": true }
+    ],
+    "rules": [
+      { "scope": "project", "glob": ".github/instructions/**/*.instructions.md" }
+    ],
+    "skills": [
+      { "scope": "project", "dir": ".github/skills" },
+      { "scope": "project", "dir": ".claude/skills" },
+      { "scope": "project", "dir": ".agents/skills" },
+      { "scope": "user", "dir": "~/.copilot/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.copilot/mcp-config.json", "format": "json", "pointer": "/mcpServers" },
+      { "scope": "project", "path": ".mcp.json", "format": "json", "pointer": "/mcpServers", "walk": "repo" },
+      { "scope": "project", "path": ".github/mcp.json", "format": "json", "pointer": "/mcpServers" }
+    ]
+  }
 }

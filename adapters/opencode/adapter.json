@@ -8,5 +8,27 @@
   "launch": { "command": "opencode", "args": [], "resumeArgs": ["--session", "{sessionId}"] },
   "gracefulClose": [{ "keys": "Ctrl+C", "repeat": 2, "gapMs": 400, "waitMs": 3000 }],
   "permissionKeys": { "allowOnce": "Enter", "deny": "Esc" },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "path": "~/.config/opencode/AGENTS.md" },
+      { "scope": "user", "path": "~/.claude/CLAUDE.md", "fallback": true },
+      { "scope": "project", "names": ["AGENTS.md"], "walk": "ancestors", "pick": "nearest" },
+      { "scope": "project", "names": ["CLAUDE.md"], "walk": "ancestors", "pick": "nearest", "fallback": true }
+    ],
+    "skills": [
+      { "scope": "project", "dir": ".opencode/skills" },
+      { "scope": "project", "dir": ".claude/skills" },
+      { "scope": "project", "dir": ".agents/skills" },
+      { "scope": "user", "dir": "~/.config/opencode/skills" },
+      { "scope": "user", "dir": "~/.claude/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.config/opencode/opencode.json", "format": "jsonc", "pointer": ["/mcp/servers", "/mcp"] },
+      { "scope": "user", "path": "~/.config/opencode/opencode.jsonc", "format": "jsonc", "pointer": ["/mcp/servers", "/mcp"] },
+      { "scope": "project", "path": "opencode.json", "format": "jsonc", "pointer": ["/mcp/servers", "/mcp"] },
+      { "scope": "project", "path": "opencode.jsonc", "format": "jsonc", "pointer": ["/mcp/servers", "/mcp"] }
+    ]
+  }
 }

@@ -50,6 +50,7 @@ import { installLeftoverListener } from "../stores/leftoverStore";
 import { WorktreeDialogs } from "../features/worktrees/WorktreeDialogs";
 import { installWorktreeCommands } from "../features/worktrees/worktreeActions";
 import { installDocsCommands } from "../features/docs/docsActions";
+import { installContextCommands } from "../features/context/contextActions";
 
 const WORKSPACE_SHORTCUT_COUNT = 9;
 
@@ -123,6 +124,7 @@ export function App() {
   // 0.6: "Agents: New agent in worktree…".
   useEffect(() => installWorktreeCommands(), []);
   useEffect(() => installDocsCommands(), []);
+  useEffect(() => installContextCommands(), []);
 
   // D-069: "Run: <name>" / "Prompt: <name>" palette commands for the quick commands.
   useEffect(() => installQuickCommands(), []);

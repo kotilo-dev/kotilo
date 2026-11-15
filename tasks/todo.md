@@ -8,6 +8,35 @@ Input: "Kotilo Docs – Modül Spesifikasyonu" (Downloads, 2026-11-05) with five
 - **Watch rules:** policy file of risky patterns (`.env` reads, force push, `rm -rf`, prod URLs) that raise the permission card's risk tag and notify; never blocks.
 - Before 0.6 ships: run the open 0.5.0 manual checks (S-1…S-5, K-1…K-8).
 
+# 0.9 – Context: what an agent gets (planned 2026-11-12)
+
+Goal: a read-only view of the instruction files, rules, skills and MCP servers an agent picks up in a workspace, with a rough token estimate. Decisions with the user (2026-11-12): all built-in agents through a data-only `context` section in adapter.json (paths verified against vendor docs on 2026-11-12, unverified ones left out); a per-workspace viewer tab "Agent context"; files outside the workspace are previewed read-only in the tab; from `~/.claude.json` only `mcpServers` / `projects[<root>].mcpServers` are read and nothing else leaves the parser. MCP secrets: key names only, never values; commands as executable name, URLs as scheme + host. Contract: scratchpad `context-contract.md`, summarized in D-076. Logic in Rust (`src-tauri/src/context/`), not the hub (file reads per workspace, like Docs).
+
+Order: A ∥ B → C → D.
+
+## A – Rust
+- [x] `adapters::ContextDef` + validation (rejects credential-looking paths), schema `adapter.v1.json` `context`, hub still loads files with it
+- [x] `context` module: walks (root / ancestors / repo), pick all/first/nearest, fallback, nested on-demand (capped), `@` imports (4 hops, cycles), rules globs, `maxBytes` over-limit, skills front matter, token estimate
+- [x] MCP: JSON / JSONC / TOML, pointer + `~/.claude.json` project entry, transport, executable basename, URL origin, secret key names, disabled, shadowing by precedence
+- [x] Commands `context_agents`, `context_report`, `context_read` (only listed files, 256 KiB cap)
+- [x] `context` data for the 8 built-in adapters (contract list)
+- [x] Fixture tests in temp dirs (fake home), incl. "never returns a secret value" and "never reads `~/.claude.json` content beyond mcpServers"
+
+## B – Webview
+- [x] ipc wrappers, `contextStore`, e2e mocks + fixtures
+- [x] Viewer tab "Agent context": agent picker (defaults to the agent running in the workspace), sections Always loaded / On demand / Rules / Skills / MCP servers, token totals, over-limit and error badges; file preview (Markdown, read-only) or open in the viewer when inside the workspace
+- [x] Entry points: workspace context menu, palette "Agent: Show context", agent pane menu (opens with that agent)
+- [x] EN + TR strings, design tokens, unit tests, e2e spec + screenshots
+
+## C – Integration
+- [x] Wire commands, run it against this repo and the real home (read-only, `context::tests::real_home_smoke`, ignored test; 12–110 ms per agent) and fix surprises: `~/.claude.json` showed twice in the sources list (user + local) → the list shows the scope
+
+## D – Docs and checks
+- [x] D-076, user guide EN/TR, manual tests CX-1…CX-9
+- [x] cargo test 733 (+ hook latency, docs, proto) + clippy ✓, hub 745 + 262 + 90 ✓ (`GitRunnerTests.Status_of_a_real_repo…` timed out once under load, passes alone), npm test 1071 + build ✓, full e2e 130/130 ✓ (one flaky failure in the first run)
+- [x] Version 0.9.0 (covers 0.6 Worktrees, 0.7 Docs, 0.8 Usage extras, 0.9 Context)
+- [ ] (user) Manual CX-1…CX-9
+
 # 0.8 – Usage extras: tray summary, weekly view (planned 2026-11-12)
 
 What exists: Usage page (30-day daily chart tokens/cost with agent filter, 5-hour blocks, breakdown), Overview (active block, today, this week, limits), tray only while "keep running in the tray" is on (Show/Quit). Decisions with the user (2026-11-12): the tray icon is always shown (closing the window still follows `window.closeToTray`); the tray shows today, the active 5-hour block, plan limits and waiting agents; the weekly view is a Days/Weeks switch on the daily card. Webview only, no hub change (`/v1/usage/daily` allows 90 days, 12 weeks need at most 84).
@@ -177,7 +206,8 @@ Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Koti
 - [x] Turkish user guide and keybindings brought up to date (D-065…D-069)
 - [x] Manual checks R-1…R-14 in `docs/manual-tests.md`
 - [x] Version 0.4.0 (8b4c99c), tag v0.4.0 on 337f3ef, CI + Release green, DRAFT "Kotilo 0.4.0 (beta)" with notes (covers 0.3.5…0.4.0; Windows x64/arm64, Linux, macOS aarch64/x64)
-- [ ] User checks R-1…R-14 on the desktop; publish
+- [x] Published 2026-10-27
+- [ ] (user) Checks R-1…R-14 on the desktop
 
 # U-3 – macOS beta (planned 2026-10-23)
 
@@ -205,12 +235,12 @@ Found in the code (2026-10-23): macOS builds and tests already pass in CI (U-1);
 - [x] `bundle.macOS`: minimum system version, hardened runtime, entitlements (hub needs JIT; check .NET's and Tauri's current docs before choosing)
 - [x] `release.yml` `build-macos` job; `latest.json` `darwin-aarch64` / `darwin-x86_64`; signing + notarization steps that run only when the Apple secrets exist
 - [x] CI smoke test (`scripts/macos-smoke.sh`, CI `macos-smoke` + each release build): the app starts through Launch Services, the hub answers, a hook started with an almost empty environment reaches the hub, nothing is left after quit
-- [ ] Unsigned test build for the tester (manual run of the release workflow, macOS only)
+- [x] Unsigned test build for the tester (done through the 0.4.0 draft's macOS dmgs; the tester's MAC-1…6 passed, 2026-10-27)
 
 ## Docs and trial
 - [x] D-062 (macOS beta scope, data folders, hook command form, signing), README macOS section
 - [x] Tester checklist (`docs/manual-tests.md`, English: the tester is not us): install, open, terminal + agent, permission card, hooks for two agents, update
-- [ ] Tester run on a real Mac; Apple Developer ID signing + notarization once the account is ready
+- [ ] (user / Apple account) Tester run on a real Mac; Apple Developer ID signing + notarization once the account is ready
 
 # 0.3.5 – Performance from the second-machine measurement (planned 2026-10-23)
 
@@ -229,7 +259,7 @@ Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corpo
 - [x] Idle reads remained (0.3.6 measurement: ~3.9 MB of SQLite pages every 60 s): the project activity sweep reads only recent rows via `ix_usage_ts`, full window at start and every 15 min (D-064); HealthMonitor re-reads the agent configs every 30 s (a few KB, left as is)
 - [x] Terminal: WebGL reloads 1 s after a context loss (at most 3 times per terminal); it stayed on the DOM renderer until a tab switch
 - [x] One log line per notification: the source logs it; `AppHost` only logs a quiet-hours/DND drop
-- [ ] Hook latency test (process start + process snapshot + loopback POST per event)
+- [x] Hook latency test (process start + process snapshot + loopback POST per event): `crates/hook/tests/latency.rs`, 20 runs against a fake hub, p95 must stay under the delivery budget (local: p50 29 ms, p95 68 ms)
 - [x] Re-run the measurement (report Annex A) on the second machine and compare with its §6 targets (`kotilo-performans-analizi-2026-10-24-v0.3.5.md`: memory targets met; UI targets only with Windows animations off; idle hub reads 2 KB/s on thin evidence)
 - [x] Third measurement with Windows animations ON (0.3.6, raw samples `docs/test/2026-10-25-v0.3.6-*.zip`): hub fixed (load reads 2,373 → ~110 KB/s, CPU 10.7 → 1.7 %); unfocused WebView2 2–3 % under load; focused, a Working ring alone held WebView2 at ~25 % of a core + 25 % GPU, also with no agent output (a background shell kept the session Working)
 
@@ -237,7 +267,7 @@ Input: `docs/test/kotilo-performans-analizi-2026-10-23.md` (15 min, 0.3.4, corpo
 - [x] Spinner `steps(8)`: Chromium draws a frame per step only (e2e trace, one working agent: 60 → 16 frames/s) (D-064)
 - [x] Working only for background work (`backgroundTasks`): the ring stands still in the header pill, agents list, status bar and Mission Control; Mission Control shows "Background: …" (D-064)
 - [x] Hub: incremental project activity sweep (above)
-- [ ] Fourth measurement: focused idle with a background shell, and A/B/C with Windows animations on; note the times of focus changes
+- [ ] (user, second machine) Fourth measurement: focused idle with a background shell, and A/B/C with Windows animations on; note the times of focus changes
 
 # U-2 – Linux core (planned 2026-10-17)
 
@@ -256,7 +286,7 @@ Goal: Kotilo runs on Linux with its core (terminals, agent status, permission ca
 - [x] Real Linux desktop (Hyper-V VM, Ubuntu 22.04 GNOME, installed .deb): terminal opens, hub starts and connects, hooks install to `/usr/bin/kotilo-hook`, a Claude session stays listed Idle → Working → Blocked (permission card) → Idle
   - Fixed on the way: the hub named its tools and git with `.exe`; no process listing off Windows dropped hook-tracked agents after two ticks (`platform/processes.rs`); stale hook socket on exit
   - WSL Fedora 44 + WSLg: builds, hub starts and connects, state in `~/.config/kotilo`, logs in `~/.local/share/kotilo/logs` (fixed: were written to the working dir). WSLg's compositor (weston `rdp-backend.so`) segfaults ~20 s after start and takes the window down; needs software rendering (`WEBKIT_DISABLE_DMABUF_RENDERER=1`, `LIBGL_ALWAYS_SOFTWARE=1`) and X11 (`GDK_BACKEND=x11`) to start at all
-- [ ] Installed package: install, start, update (install + start done in the VM; update needs the first release with Linux entries)
+- [ ] (user, VM after 0.9.0) Installed package: install, start, update (install + start done in the VM; update needs the first release with Linux entries)
 
 # U-1 – Builds and tests pass on macOS and Linux (planned 2026-10-17)
 
@@ -318,9 +348,10 @@ Verified in the Claude Code docs (hooks, statusline, model-config): `Stop`/`Suba
 ## Integration
 - [x] All checks (dotnet test 1057, cargo test 637+83 + clippy, npm test 935, e2e 84), DECISIONS D-060, manual tests G-1…G-11 in `docs/manual-tests.md`
 - [x] Version 0.3.2: 50e7e9c + 26c048d, tag v0.3.2, CI + Release green, DRAFT release with notes (covers the unpublished 0.3.1 too)
-- [ ] User tests G-1…G-11 (and F-1…F-15; `tasks/manual-test-run.md` §5–6) on the second machine with the 0.3.2 draft installer → "yayınla" → publish 0.3.2, delete the 0.3.1 draft
+- [x] Superseded: 0.3.3 published 2026-10-17, the 0.3.1/0.3.2 drafts deleted
+- [ ] (user) Tests G-1…G-11 (and F-1…F-15; `tasks/manual-test-run.md` §5–6) on the second machine
 
-# 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059)
+# 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059) – DEFERRED to the backlog (user, 2026-11-15)
 
 User: agent states on the phone; ntfy with a generated UUID topic and a "Set up on phone" button that shows a QR the ntfy app can add directly; keep settings simple.
 
@@ -530,7 +561,7 @@ Wave 3 local checks (2026-10-11, after the brand switch): hub 707 + 214 + 61, Ru
 Public release (2026-10-11): repo `kotilo-dev/kotilo` (initial commit 11795a7 + README screenshots 4099704), CI green, tag `v0.1.0`, Release run green (x64 48 MB + ARM64 39 MB, `.sig` + `latest.json`), published as "Kotilo 0.1.0 (beta)" (unsigned, D-050); `releases/latest/download/latest.json` answers 200.
 
 - [x] SignPath readiness (D-051): hook exe version resource, hub product version without commit hash, release script version check, README code signing policy with roles and the required statement
-- [ ] SignPath Foundation application (user submits); after acceptance: GitHub integration, artifact configuration (5 own binaries, metadata enforced), signing step in `release.yml`, first signed release
+- [ ] (waiting on SignPath) SignPath Foundation application (user submits); after acceptance: GitHub integration, artifact configuration (5 own binaries, metadata enforced), signing step in `release.yml`, first signed release
 
 ## Needs the user (outside the repo)
 - Register the `kotilo.dev` domain (GitHub org `kotilo-dev` created 2026-10-11; `kotilo-app` was taken); trademark check done 2026-10-11 (TMview: only an expired 2007 Finnish KOTILO in 20/35/36; TÜRKPATENT: only "Kotiloğulları" food marks, none in 9/42); enable Discussions and create the `bug`, `enhancement`, `new agent` labels
@@ -739,7 +770,7 @@ Wave 1 checks: hub 394 + 103 + 29, Rust 430 + 35 + 10 + 2, UI 476 tests green. O
 - [x] Checks: hub 394 + 103 + 30, Rust 432 + 35 + 10 + 1 + 1 + clippy, UI 571, e2e 6 (34 screenshots, badge visible)
 
 ## Open after M2
-- [ ] Daily summary generation needs the AI provider (M3)
+- [x] Daily summary generation needs the AI provider (M3) – done (`Hub.Core/Insights/DailySummary.cs`, `/v1/reports`)
 
 ## Deferred (recorded)
 - Live dictation – M2b (above)

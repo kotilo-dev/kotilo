@@ -26,5 +26,7 @@ declare global {
     /** D-075: tray menus (item texts, "---" = separator) and tooltips in order. */
     __e2eTray: { menus: string[][]; tooltips: string[] };
     __e2eDocs: { checks: number; reviewed: string[]; showHead: { path: string; rev: string | null }[] };
+    /** 0.9: agent context commands the mocked IPC saw (src/e2e/contextFixtures.ts). */
+    __e2eContext: { reports: { workspaceId: string; agent: string }[]; reads: string[] };
   }
 }

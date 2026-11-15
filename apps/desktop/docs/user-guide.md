@@ -791,6 +791,36 @@ the highest limit (Windows cuts tooltips at 127 characters; Linux trays have no
 tooltip, the menu shows the same). Closing the window still quits unless Settings →
 About & diagnostics → "Keep running in the tray when the window is closed" is on.
 
+## Agent context
+
+Agent context shows what an agent picks up in a workspace before you type anything: its
+instruction files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, …), rule files, skills and MCP
+servers, with a rough token estimate. It only reads; nothing is changed.
+
+**Open it:** **Agent context…** in the workspace's right-click menu, **Agent: Show
+context** in the command palette, or the **Agent context** button of an agent pane (opens
+with that agent). Pick another agent at the top; by default it shows the agent running in
+the workspace.
+
+- **Always loaded** files are read at the start of every session, in the order shown;
+  `@` imports are listed under the file that imports them. **On demand** files (for
+  example a `CLAUDE.md` in a subfolder) are read when the agent works in that folder.
+- **Skills** count only their name and description, since that is all an agent loads until
+  it uses one.
+- **MCP servers** show the transport, the executable name or the server's host, and how
+  many secrets are hidden. Secret values (`env`, `headers`, …), arguments and URL paths
+  never leave the config file; only key names are shown. A server defined twice is marked
+  as shadowed by the one that wins. From `~/.claude.json` only the MCP server lists are
+  read.
+- Click a file to open it; a file outside the workspace (for example `~/.claude/CLAUDE.md`)
+  opens as a read-only preview in the tab.
+- The token numbers are characters ÷ 4: good enough to spot a 20 000-token `AGENTS.md`, not
+  an exact count. MCP tool definitions are not counted. Codex stops reading instructions
+  after 32 KiB; files past that are marked **over limit**.
+
+Which files an agent reads comes from the `context` section of its adapter
+(`adapter.json`); a user adapter without one shows "No context data".
+
 ## Reports
 
 - **Daily summary**: stored daily summaries with the day's numbers (active time,

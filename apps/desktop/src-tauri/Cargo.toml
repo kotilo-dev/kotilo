@@ -40,6 +40,9 @@ uuid = { version = "1.26.1", features = ["v4"] }
 tokio = { version = "1.53.1", features = ["net", "io-util", "rt", "sync", "time", "macros"] }
 dunce = "1.0.5"
 globset = "0.4.20"
+# 0.9 Context: Codex `config.toml` MCP servers (read-only); errors for the context module.
+toml = "1"
+thiserror = "2"
 ignore = "0.4.33"
 trash = "5.2.9"
 # M1: blocking HTTP client for the hub's loopback API (no TLS needed).

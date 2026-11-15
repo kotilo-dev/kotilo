@@ -12,5 +12,21 @@
     "shell": "powershell",
     "events": ["SessionStart", "SessionEnd", "BeforeAgent", "BeforeTool", "AfterTool", "AfterAgent", "Notification"]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "path": "~/.gemini/GEMINI.md", "imports": true },
+      { "scope": "project", "names": ["GEMINI.md"], "walk": "ancestors", "nested": true, "imports": true }
+    ],
+    "skills": [
+      { "scope": "user", "dir": "~/.gemini/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" },
+      { "scope": "project", "dir": ".gemini/skills" },
+      { "scope": "project", "dir": ".agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.gemini/settings.json", "format": "jsonc", "pointer": "/mcpServers" },
+      { "scope": "project", "path": ".gemini/settings.json", "format": "jsonc", "pointer": "/mcpServers" }
+    ]
+  }
 }

@@ -47,6 +47,10 @@ export interface ViewerTab {
   diffRev?: string;
   /** 0.7: the workspace's docs check tab (one per workspace, `rel` is ""); never persisted. */
   docs?: boolean;
+  /** 0.9: the workspace's "Agent context" tab (one per workspace, `rel` is ""); never persisted. */
+  context?: boolean;
+  /** 0.9: the agent the context tab shows (adapter id). */
+  contextAgent?: string;
 }
 
 interface WorkspaceViewerState {
@@ -89,6 +93,8 @@ interface ViewerStore {
   openDiff: (workspaceId: string, rel: string, opts?: { rev?: string }) => void;
   /** 0.7: opens (or activates) the workspace's docs check tab, pinned. */
   openDocs: (workspaceId: string) => void;
+  /** 0.9: opens (or activates) the workspace's agent context tab, pinned; `agent` switches it. */
+  openContext: (workspaceId: string, agent?: string) => void;
   activate: (workspaceId: string, tabId: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
   /** Düzenleme başlaması: önizleme sekmesini kalıcı sekmeye çevirir (no-op zaten pinliyse). */
@@ -112,9 +118,9 @@ function defaultModeFor(rel: string): ViewerMode | undefined {
   return undefined;
 }
 
-/** A tab showing a file of the workspace (not a diff or the docs check). */
+/** A tab showing a file of the workspace (not a diff, the docs check or the agent context). */
 export function isFileTab(tab: ViewerTab): boolean {
-  return !tab.diff && !tab.docs;
+  return !tab.diff && !tab.docs && !tab.context;
 }
 
 function isDocDirty(workspaceId: string, rel: string): boolean {
@@ -375,6 +381,19 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
     });
   },
 
+  openContext: (workspaceId, agent) => {
+    set((s) => {
+      const ws = s.byWorkspace[workspaceId] ?? { tabs: [], activeTabId: null };
+      const existing = ws.tabs.find((t) => t.context);
+      if (existing) {
+        const tabs = agent && agent !== existing.contextAgent ? ws.tabs.map((t) => (t === existing ? { ...t, contextAgent: agent } : t)) : ws.tabs;
+        return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { tabs, activeTabId: existing.id } } };
+      }
+      const tab: ViewerTab = { id: makeTabId(), rel: "", pinned: true, missing: false, context: true, ...(agent ? { contextAgent: agent } : {}) };
+      return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { tabs: [...ws.tabs, tab], activeTabId: tab.id } } };
+    });
+  },
+
   clearReveal: (workspaceId, tabId) => {
     set((s) => {
       const ws = s.byWorkspace[workspaceId];
@@ -426,7 +445,7 @@ export const useViewerStore = create<ViewerStore>((set, get) => ({
       const ws = s.byWorkspace[workspaceId];
       if (!ws) return {};
       const tabs = ws.tabs.map((t) => {
-        if (t.docs || !isSameOrDescendant(t.rel, oldRel)) return t;
+        if (t.docs || t.context || !isSameOrDescendant(t.rel, oldRel)) return t;
         changed = true;
         return { ...t, rel: newRel + t.rel.slice(oldRel.length) };
       });

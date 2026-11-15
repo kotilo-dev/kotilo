@@ -332,3 +332,19 @@ Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Have at 
 | U8-7 | Turkish UI | Tray lines, tooltip and the Gün/Hafta switch are Turkish; the change reads like `%-14` |
 | U8-8 | Linux (VM) | The tray menu shows the same lines (no tooltip on Linux) |
 
+
+## Agent context (0.9, D-076)
+
+Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Use a workspace with a `CLAUDE.md` that imports another file (`@AGENTS.md`), a subfolder with its own `CLAUDE.md`, and a `.mcp.json` with one server that has an `env` token.
+
+| # | Steps | Expected |
+|---|---|---|
+| CX-1 | Right-click the workspace → **Agent context…** | The "Agent context" tab opens in the viewer; agent = the one running in the workspace (else the first supported) |
+| CX-2 | Look at **Always loaded** for Claude Code | `CLAUDE.md` and the imported `AGENTS.md` ("imported by CLAUDE.md"), `~/.claude/CLAUDE.md` if you have one; token totals at the top |
+| CX-3 | Look at **On demand** | The subfolder's `CLAUDE.md` is listed as on demand |
+| CX-4 | **MCP servers** | The `.mcp.json` server shows transport, executable name and "1 hidden secret"; hovering shows only the key name, never the value; the config files looked at list `~/.claude.json` twice with "user" and "local" |
+| CX-5 | Click a file inside the workspace, then `~/.claude/CLAUDE.md` (or another home file) | The workspace file opens in a viewer tab; the home file opens as a read-only preview inside the context tab |
+| CX-6 | Switch the agent to Codex, then to a user adapter without a `context` section | Codex lists `AGENTS.md` and its 32 KiB limit; the user adapter shows "No context data" |
+| CX-7 | Edit `CLAUDE.md`, then **Refresh** | The size and token numbers change |
+| CX-8 | Palette **Agent: Show context**, and the **Agent context** button in an agent pane | Both open the tab; the pane button opens it with that pane's agent |
+| CX-9 | Turkish UI | Tab, sections, badges and menu entries are Turkish |

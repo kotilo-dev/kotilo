@@ -14,5 +14,20 @@
       "PostCompact", "Stop", "Interrupt", "SubagentStart", "SubagentStop"
     ]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "names": ["AGENTS.override.md", "AGENTS.md"], "dir": "~/.codex", "pick": "first" },
+      { "scope": "project", "names": ["AGENTS.override.md", "AGENTS.md"], "walk": "repo", "pick": "first" }
+    ],
+    "skills": [
+      { "scope": "project", "dir": ".agents/skills", "walk": "repo" },
+      { "scope": "user", "dir": "~/.agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.codex/config.toml", "format": "toml", "pointer": "/mcp_servers" },
+      { "scope": "project", "path": ".codex/config.toml", "format": "toml", "pointer": "/mcp_servers" }
+    ],
+    "maxBytes": 32768
+  }
 }

@@ -2,6 +2,7 @@ pub mod agents;
 pub mod assistant;
 pub mod app;
 pub mod clipboard;
+pub mod context;
 pub mod dictation;
 pub mod diagnostics;
 pub mod dialog;

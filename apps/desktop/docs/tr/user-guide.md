@@ -801,6 +801,35 @@ ipucu yoktur, menü aynısını gösterir). Pencereyi kapatmak, Ayarlar → Hakk
 "Pencere kapatılınca sistem tepsisinde çalışmaya devam et" açık değilse uygulamadan
 çıkar.
 
+## Ajan bağlamı
+
+Ajan bağlamı, bir ajanın siz bir şey yazmadan önce workspace'te neleri aldığını gösterir:
+talimat dosyaları (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, …), kural dosyaları, beceriler ve
+MCP sunucuları, kabaca bir token tahminiyle. Yalnızca okur; hiçbir şeyi değiştirmez.
+
+**Açmak için:** workspace'in sağ tık menüsünde **Ajan bağlamı…**, komut paletinde **Ajan:
+Bağlamı göster** ya da bir ajan panelinin **Ajan bağlamı** düğmesi (o ajanla açılır). Üstten
+başka bir ajan seçebilirsiniz; varsayılan olarak workspace'te çalışan ajan gösterilir.
+
+- **Her zaman yüklü** dosyalar her oturumun başında gösterilen sırayla okunur; `@` ile içe
+  aktarılan dosyalar onları aktaran dosyanın altında listelenir. **Gerektiğinde** okunan
+  dosyalar (örneğin bir alt klasördeki `CLAUDE.md`) ajan o klasörde çalışınca okunur.
+- **Beceriler** yalnızca ad ve açıklamalarıyla sayılır; ajan bir beceriyi kullanana kadar
+  yalnızca bunları yükler.
+- **MCP sunucuları** taşıma türünü, çalıştırılan programın adını ya da sunucunun adresini
+  (yalnız host) ve kaç gizli değerin saklandığını gösterir. Gizli değerler (`env`,
+  `headers`, …), argümanlar ve URL yolları yapılandırma dosyasından hiç çıkmaz; yalnızca
+  anahtar adları görünür. İki yerde tanımlı bir sunucu, kazanan tanım tarafından gölgelenmiş
+  olarak işaretlenir. `~/.claude.json`'dan yalnızca MCP sunucu listeleri okunur.
+- Bir dosyaya tıklayınca açılır; workspace dışındaki bir dosya (örneğin
+  `~/.claude/CLAUDE.md`) sekmede salt okunur önizleme olarak açılır.
+- Token sayıları karakter ÷ 4'tür: 20 000 token'lık bir `AGENTS.md`'yi fark etmeye yeter,
+  kesin sayı değildir. MCP araç tanımları sayılmaz. Codex talimatları 32 KiB'den sonra
+  okumayı bırakır; bu sınırı aşan dosyalar **sınır aşıldı** olarak işaretlenir.
+
+Bir ajanın hangi dosyaları okuduğu adaptörünün (`adapter.json`) `context` bölümünden gelir;
+bu bölümü olmayan bir kullanıcı adaptörü "bağlam verisi yok" gösterir.
+
 ## Raporlar
 
 - **Günlük özet**: günün rakamlarıyla (etkin süre, oturumlar, token, maliyet, bekleme)

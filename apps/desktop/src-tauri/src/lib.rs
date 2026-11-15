@@ -5,6 +5,7 @@ pub mod agents;
 pub mod brand;
 pub mod commands;
 pub mod companion;
+pub mod context;
 pub mod diagnostics;
 pub mod dictation;
 pub mod error;
@@ -264,6 +265,9 @@ pub fn run() {
             commands::git::git_show_head,
             commands::docs::docs_check,
             commands::docs::docs_mark_reviewed,
+            commands::context::context_agents,
+            commands::context::context_report,
+            commands::context::context_read,
             commands::git::worktree_list,
             commands::git::worktree_create,
             commands::git::worktree_changes,

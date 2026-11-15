@@ -28,6 +28,7 @@ import { Composer } from "../composer/Composer";
 import { AgentHeaderStrip, type HeaderLimit } from "./AgentHeaderStrip";
 import { matchSession, paneVisualState, statusFamily, type PaneVisualState } from "./paneSession";
 import { LeftoverStrip } from "./LeftoverStrip";
+import { openAgentContext } from "../context/contextActions";
 import { useWorktreeMatch } from "../worktrees/WorktreeBadge";
 import { worktreeFromSession } from "../worktrees/worktreeLogic";
 import { useWorktreeStore } from "../../stores/worktreeStore";
@@ -138,6 +139,25 @@ function SplitButton({ split }: { split: PaneSplit }) {
   );
 }
 
+/** 0.9: opens the workspace's "Agent context" tab for this pane's agent. */
+function ContextButton({ onClick }: { onClick: () => void }) {
+  const label = useStrings().agentContext.paneButton;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className="flex h-[30px] w-[30px] items-center justify-center rounded-control border border-border text-text-3 hover:text-text"
+      onClick={onClick}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M12 3 3 8l9 5 9-5-9-5Z" />
+        <path d="m3 13 9 5 9-5" />
+      </svg>
+    </button>
+  );
+}
+
 export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: string; tab: TerminalTab; visible: boolean; split?: PaneSplit }) {
   const s = useStrings();
   const paneId = tab.paneId ?? null;
@@ -228,7 +248,12 @@ export function AgentPane({ workspaceId, tab, visible, split }: { workspaceId: s
           costUsd={session?.costUsd ?? null}
           limit={limit}
           background={background}
-          actions={split ? <SplitButton split={split} /> : undefined}
+          actions={
+            <>
+              {adapterId && <ContextButton onClick={() => openAgentContext(workspaceId, adapterId)} />}
+              {split && <SplitButton split={split} />}
+            </>
+          }
           worktree={worktree}
         />
       )}

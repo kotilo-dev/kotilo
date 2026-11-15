@@ -25,6 +25,7 @@ const ImageView = lazy(() => import("./renderers/ImageView").then((m) => ({ defa
 const PdfView = lazy(() => import("./renderers/PdfView").then((m) => ({ default: m.PdfView })));
 const DiffView = lazy(() => import("./renderers/DiffView").then((m) => ({ default: m.DiffView })));
 const DocsView = lazy(() => import("../docs/DocsView").then((m) => ({ default: m.DocsView })));
+const ContextView = lazy(() => import("../context/ContextView").then((m) => ({ default: m.ContextView })));
 import { UnsupportedView } from "./renderers/UnsupportedView";
 
 const TEXTUAL_KINDS = new Set<RenderKind>(["text", "markdown", "html", "svg"]);
@@ -92,6 +93,7 @@ function ActiveTabBody({ workspaceId, tab, kind }: { workspaceId: string; tab: V
   const doc = useDocument(workspaceId, tab.rel);
 
   if (tab.docs) return <DocsView workspaceId={workspaceId} />;
+  if (tab.context) return <ContextView workspaceId={workspaceId} agent={tab.contextAgent} />;
   if (tab.diff) return <DiffView workspaceId={workspaceId} rel={tab.rel} rev={tab.diffRev} />;
   if (needsDoc && doc?.status === "error" && doc.error?.code === "binary_file") {
     return <UnsupportedView workspaceId={workspaceId} rel={tab.rel} />;

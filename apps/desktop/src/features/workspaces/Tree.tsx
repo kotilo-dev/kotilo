@@ -23,6 +23,7 @@ import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useDocsStore } from "../../stores/docsStore";
 import { openDocsCheck } from "../docs/docsActions";
+import { openAgentContext } from "../context/contextActions";
 import { DocBadgeDot } from "../docs/DocBadgeDot";
 import { badgeIndex } from "../docs/docsLogic";
 
@@ -331,6 +332,7 @@ export function Tree() {
       },
       { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(ws.id), separatorBefore: true },
       { label: strings.docs.contextMenu, onClick: () => openDocsCheck(ws.id) },
+      { label: strings.agentContext.contextMenu, onClick: () => openAgentContext(ws.id) },
       { label: strings.contextMenu.newFile, onClick: () => startCreate(ws.id, "", "file"), separatorBefore: true },
       { label: strings.contextMenu.newFolder, onClick: () => startCreate(ws.id, "", "dir") },
       {

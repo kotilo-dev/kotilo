@@ -100,6 +100,90 @@
         },
         "additionalProperties": false
       }
+    },
+    "context": {
+      "description": "0.9 (D-076): where the agent's instruction files, rules, skills and MCP servers live, for the read-only Agent context view. Exactly one of path/names/glob per source; paths never point at credential files. Ignored by the hub.",
+      "type": "object",
+      "properties": {
+        "instructions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scope"],
+            "properties": {
+              "scope": { "enum": ["managed", "user", "project"] },
+              "path": { "description": "One file: `~/…` = home, relative = workspace root, absolute allowed.", "type": "string", "minLength": 1 },
+              "names": { "description": "File names looked up in each walked directory, in this order.", "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "glob": { "description": "Files matching a glob relative to the root or `~/…`.", "type": "string", "minLength": 1 },
+              "dir": { "description": "With names: look only in this directory instead of walking.", "type": "string", "minLength": 1 },
+              "walk": { "description": "With names: root = workspace root; ancestors = root and every parent; repo = git toplevel down to the root.", "enum": ["root", "ancestors", "repo"] },
+              "pick": { "description": "With names: all (default), first per directory, or the single nearest match.", "enum": ["all", "first", "nearest"] },
+              "nested": { "description": "With names: also list matches in subdirectories as on-demand.", "type": "boolean" },
+              "os": { "description": "Only on this OS (managed paths).", "enum": ["windows", "macos", "linux"] },
+              "fallback": { "description": "Used only when no regular source of the same kind and scope found a file.", "type": "boolean" },
+              "loaded": { "enum": ["always", "onDemand"] },
+              "imports": { "description": "Resolve `@path` imports (relative to the file, max 4 hops).", "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scope"],
+            "properties": {
+              "scope": { "enum": ["managed", "user", "project"] },
+              "path": { "description": "One file: `~/…` = home, relative = workspace root, absolute allowed.", "type": "string", "minLength": 1 },
+              "names": { "description": "File names looked up in each walked directory, in this order.", "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "glob": { "description": "Files matching a glob relative to the root or `~/…`.", "type": "string", "minLength": 1 },
+              "dir": { "description": "With names: look only in this directory instead of walking.", "type": "string", "minLength": 1 },
+              "walk": { "description": "With names: root = workspace root; ancestors = root and every parent; repo = git toplevel down to the root.", "enum": ["root", "ancestors", "repo"] },
+              "pick": { "description": "With names: all (default), first per directory, or the single nearest match.", "enum": ["all", "first", "nearest"] },
+              "nested": { "description": "With names: also list matches in subdirectories as on-demand.", "type": "boolean" },
+              "os": { "description": "Only on this OS (managed paths).", "enum": ["windows", "macos", "linux"] },
+              "fallback": { "description": "Used only when no regular source of the same kind and scope found a file.", "type": "boolean" },
+              "loaded": { "enum": ["always", "onDemand"] },
+              "imports": { "description": "Resolve `@path` imports (relative to the file, max 4 hops).", "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "skills": {
+          "description": "Folders with `<name>/SKILL.md`.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scope", "dir"],
+            "properties": {
+              "scope": { "enum": ["user", "project"] },
+              "dir": { "type": "string", "minLength": 1 },
+              "walk": { "enum": ["root", "repo"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "mcp": {
+          "description": "MCP config files. Only server names, executable names, URL origins and secret key names are shown.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scope", "path", "format", "pointer"],
+            "properties": {
+              "scope": { "enum": ["user", "project", "local"] },
+              "path": { "type": "string", "minLength": 1 },
+              "format": { "enum": ["json", "jsonc", "toml"] },
+              "pointer": { "description": "JSON pointer to the server map, or several tried in order.", "type": ["string", "array"], "items": { "type": "string" } },
+              "projectPointer": { "description": "Also `/projects/<workspace root>/mcpServers` (scope local).", "type": "boolean" },
+              "walk": { "enum": ["root", "repo"] },
+              "os": { "description": "Only on this OS (managed paths).", "enum": ["windows", "macos", "linux"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "maxBytes": { "description": "The agent stops reading project instructions past this many bytes.", "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

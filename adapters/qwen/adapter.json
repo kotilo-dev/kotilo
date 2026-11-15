@@ -15,5 +15,21 @@
       "Notification", "Stop", "StopFailure"
     ]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "path": "~/.qwen/QWEN.md", "imports": true },
+      { "scope": "project", "names": ["AGENTS.md", "QWEN.md", ".qwen/QWEN.local.md"], "walk": "repo", "imports": true }
+    ],
+    "skills": [
+      { "scope": "user", "dir": "~/.qwen/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" },
+      { "scope": "project", "dir": ".qwen/skills" },
+      { "scope": "project", "dir": ".agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.qwen/settings.json", "format": "jsonc", "pointer": "/mcpServers" },
+      { "scope": "project", "path": ".qwen/settings.json", "format": "jsonc", "pointer": "/mcpServers" }
+    ]
+  }
 }

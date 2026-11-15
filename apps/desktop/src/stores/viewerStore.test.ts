@@ -598,3 +598,37 @@ describe("docs tab (0.7)", () => {
     }
   });
 });
+
+describe("agent context tab (0.9)", () => {
+  it("is one pinned tab per workspace that switches agent, never persisted and kept on file events", async () => {
+    const store = await freshStore();
+    vi.useFakeTimers();
+    try {
+      await store.useViewerStore.getState().init();
+      const v = store.useViewerStore.getState();
+      v.openContext("ws1", "codex");
+      v.openFile("ws1", "a.md", { pinned: true });
+      v.openContext("ws1");
+      expect(tabsOf(store, "ws1").map((t) => [t.rel, t.context ?? false, t.contextAgent ?? null])).toEqual([
+        ["", true, "codex"],
+        ["a.md", false, null],
+      ]);
+      expect(store.useViewerStore.getState().byWorkspace.ws1?.activeTabId).toBe(tabsOf(store, "ws1")[0]!.id);
+      v.openContext("ws1", "claude-code");
+      expect(tabsOf(store, "ws1")[0]!.contextAgent).toBe("claude-code");
+      expect(store.isFileTab(tabsOf(store, "ws1")[0]!)).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(600);
+      const calls = ipc.saveStateSlice.mock.calls;
+      const saved = calls[calls.length - 1]?.[1] as Record<string, { tabs: { rel: string }[] }>;
+      expect(saved.ws1!.tabs.map((t) => t.rel)).toEqual(["a.md"]);
+
+      ipc.fsExists.mockResolvedValue(false);
+      fsRescanHandler?.({ workspaceId: "ws1" });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(tabsOf(store, "ws1").map((t) => t.context ?? false)).toEqual([true]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -106,6 +106,273 @@ pub struct AdapterDefinition {
     pub usage: Option<serde_json::Value>,
     #[serde(default)]
     pub screen_rules: Vec<ScreenRule>,
+    /// 0.9 (D-076): where the agent's instruction files, rules, skills and MCP servers live.
+    /// Read by `crate::context`; the hub ignores it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<ContextDef>,
+}
+
+/// 0.9 `context`: instruction files, rules, skills and MCP configs of one agent.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextDef {
+    #[serde(default)]
+    pub instructions: Vec<ContextSourceDef>,
+    #[serde(default)]
+    pub rules: Vec<ContextSourceDef>,
+    #[serde(default)]
+    pub skills: Vec<SkillDirDef>,
+    #[serde(default)]
+    pub mcp: Vec<McpSourceDef>,
+    /// The agent stops reading project instructions past this many bytes (Codex).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextScope {
+    Managed,
+    User,
+    Project,
+    Local,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextWalk {
+    /// The workspace root only.
+    Root,
+    /// The root and every parent up to the filesystem root.
+    Ancestors,
+    /// The git toplevel down to the root (the root only without git).
+    Repo,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextPick {
+    /// Every name that exists in every directory.
+    #[default]
+    All,
+    /// Per directory only the first name that exists.
+    First,
+    /// Only the single match closest to the workspace root.
+    Nearest,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextLoaded {
+    #[default]
+    Always,
+    OnDemand,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ContextOs {
+    Windows,
+    Macos,
+    Linux,
+}
+
+impl ContextOs {
+    /// Same values as [`crate::platform::os_id`].
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Windows => "windows",
+            Self::Macos => "macos",
+            Self::Linux => "linux",
+        }
+    }
+}
+
+/// One instruction or rule source: exactly one of `path`, `names`, `glob`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSourceDef {
+    pub scope: ContextScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub names: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glob: Option<String>,
+    /// With `names`: look only in this directory (`~/…`, relative to the root, or absolute)
+    /// instead of walking from the workspace root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<ContextWalk>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pick: Option<ContextPick>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nested: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<ContextOs>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fallback: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loaded: Option<ContextLoaded>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub imports: bool,
+}
+
+/// `<dir>/<name>/SKILL.md` folders.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillDirDef {
+    pub scope: ContextScope,
+    pub dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<ContextWalk>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum McpFormat {
+    Json,
+    Jsonc,
+    Toml,
+}
+
+/// A JSON pointer, or several tried in order (the first that resolves wins).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum McpPointer {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl McpPointer {
+    pub fn list(&self) -> Vec<&str> {
+        match self {
+            Self::One(p) => vec![p.as_str()],
+            Self::Many(ps) => ps.iter().map(String::as_str).collect(),
+        }
+    }
+}
+
+/// An MCP config file and where its server map is.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpSourceDef {
+    pub scope: ContextScope,
+    pub path: String,
+    pub format: McpFormat,
+    pub pointer: McpPointer,
+    /// `~/.claude.json`: also `/projects/<workspace root>/mcpServers` (scope local).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub project_pointer: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<ContextWalk>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<ContextOs>,
+}
+
+/// True for a path that looks like a credential or key file (`.credentials.json`,
+/// `auth.json`, any segment containing `token`, `*.key`, `*.pem`). Context sources never
+/// point at these, and the walker never lists one.
+pub fn is_credential_path(path: &str) -> bool {
+    path.split(['/', '\\']).any(|segment| {
+        let s = segment.to_ascii_lowercase();
+        s == ".credentials.json"
+            || s == "credentials.json"
+            || s == "auth.json"
+            || s.contains("token")
+            || s.ends_with(".key")
+            || s.ends_with(".pem")
+    })
+}
+
+fn check_context_path(field: &str, path: &str) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err(format!("{field} is empty"));
+    }
+    if is_credential_path(path) {
+        return Err(format!("{field} '{path}' looks like a credential file"));
+    }
+    Ok(())
+}
+
+fn validate_context_source(field: &str, s: &ContextSourceDef) -> Result<(), String> {
+    if s.scope == ContextScope::Local {
+        return Err(format!("{field}.scope must be managed, user or project"));
+    }
+    let given = [s.path.is_some(), s.names.is_some(), s.glob.is_some()].iter().filter(|b| **b).count();
+    if given != 1 {
+        return Err(format!("{field} needs exactly one of path, names, glob"));
+    }
+    if let Some(path) = &s.path {
+        check_context_path(&format!("{field}.path"), path)?;
+    }
+    if let Some(glob) = &s.glob {
+        check_context_path(&format!("{field}.glob"), glob)?;
+        globset::Glob::new(glob).map_err(|e| format!("{field}.glob: {e}"))?;
+    }
+    match &s.names {
+        Some(names) => {
+            if names.is_empty() {
+                return Err(format!("{field}.names is empty"));
+            }
+            for name in names {
+                check_context_path(&format!("{field}.names"), name)?;
+            }
+            if let Some(dir) = &s.dir {
+                check_context_path(&format!("{field}.dir"), dir)?;
+                if s.walk.is_some() || s.nested {
+                    return Err(format!("{field}: dir cannot be combined with walk or nested"));
+                }
+            }
+        }
+        None => {
+            if s.dir.is_some() || s.walk.is_some() || s.pick.is_some() || s.nested {
+                return Err(format!("{field}: dir, walk, pick and nested need names"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Checks the 0.9 `context` section (D-076).
+pub fn validate_context(ctx: &ContextDef) -> Result<(), String> {
+    for (kind, sources) in [("instructions", &ctx.instructions), ("rules", &ctx.rules)] {
+        for (i, s) in sources.iter().enumerate() {
+            validate_context_source(&format!("context.{kind}[{i}]"), s)?;
+        }
+    }
+    for (i, s) in ctx.skills.iter().enumerate() {
+        let field = format!("context.skills[{i}]");
+        if !matches!(s.scope, ContextScope::User | ContextScope::Project) {
+            return Err(format!("{field}.scope must be user or project"));
+        }
+        if s.walk == Some(ContextWalk::Ancestors) {
+            return Err(format!("{field}.walk must be root or repo"));
+        }
+        check_context_path(&format!("{field}.dir"), &s.dir)?;
+    }
+    for (i, s) in ctx.mcp.iter().enumerate() {
+        let field = format!("context.mcp[{i}]");
+        if s.scope == ContextScope::Managed {
+            return Err(format!("{field}.scope must be user, project or local"));
+        }
+        if s.walk == Some(ContextWalk::Ancestors) {
+            return Err(format!("{field}.walk must be root or repo"));
+        }
+        check_context_path(&format!("{field}.path"), &s.path)?;
+        let pointers = s.pointer.list();
+        if pointers.is_empty() || pointers.iter().any(|p| !p.is_empty() && !p.starts_with('/')) {
+            return Err(format!("{field}.pointer must be a JSON pointer (\"\" or starting with /)"));
+        }
+        if s.project_pointer && s.format == McpFormat::Toml {
+            return Err(format!("{field}.projectPointer needs a JSON file"));
+        }
+    }
+    if ctx.max_bytes == Some(0) {
+        return Err("context.maxBytes must be at least 1".to_string());
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -230,6 +497,9 @@ pub fn validate(def: AdapterDefinition, source: DefinitionSource) -> Result<Load
         }
     }
     let rules = screen::compile_rules(&def.screen_rules)?;
+    if let Some(ctx) = &def.context {
+        validate_context(ctx)?;
+    }
     Ok(LoadedDefinition { def, source, rules, close })
 }
 
@@ -580,6 +850,81 @@ pub(crate) mod tests {
         let empty = Definitions::default();
         assert_eq!(empty.close_plan(Some("claude-code"), AgentKind::Claude), Some(claude_default_close()));
         assert_eq!(empty.close_plan(None, AgentKind::Claude), Some(claude_default_close()));
+    }
+
+    fn with_context(ctx: serde_json::Value) -> Result<LoadedDefinition, String> {
+        let mut d = def("x");
+        d.context = Some(serde_json::from_value(ctx).map_err(|e| e.to_string())?);
+        validate(d, DefinitionSource::User)
+    }
+
+    #[test]
+    fn context_rejects_credential_paths() {
+        use serde_json::json;
+        for bad in [
+            json!({ "instructions": [{ "scope": "user", "path": "~/.claude/.credentials.json" }] }),
+            json!({ "instructions": [{ "scope": "user", "path": "~/.codex/auth.json" }] }),
+            json!({ "instructions": [{ "scope": "project", "names": ["AGENTS.md", "github_token.txt"] }] }),
+            json!({ "rules": [{ "scope": "user", "glob": "~/.ssh/**/*.pem" }] }),
+            json!({ "rules": [{ "scope": "user", "glob": "~/keys/*.key" }] }),
+            json!({ "instructions": [{ "scope": "user", "names": ["A.md"], "dir": "~/.tokens" }] }),
+            json!({ "skills": [{ "scope": "user", "dir": "~/.Token-store" }] }),
+            json!({ "mcp": [{ "scope": "user", "path": "~/.codex/auth.json", "format": "json", "pointer": "/x" }] }),
+        ] {
+            let err = with_context(bad.clone()).unwrap_err();
+            assert!(err.contains("credential"), "{bad}: {err}");
+        }
+        assert!(is_credential_path(r"C:\Users\x\.claude\.credentials.json"));
+        assert!(!is_credential_path("~/.claude.json"));
+        assert!(!is_credential_path("~/.claude/CLAUDE.md"));
+    }
+
+    #[test]
+    fn context_rejects_bad_combinations() {
+        use serde_json::json;
+        for bad in [
+            json!({ "instructions": [{ "scope": "project" }] }),
+            json!({ "instructions": [{ "scope": "project", "path": "A.md", "names": ["A.md"] }] }),
+            json!({ "instructions": [{ "scope": "project", "path": "A.md", "glob": "*.md" }] }),
+            json!({ "instructions": [{ "scope": "project", "names": [] }] }),
+            json!({ "instructions": [{ "scope": "project", "path": "A.md", "walk": "repo" }] }),
+            json!({ "instructions": [{ "scope": "project", "glob": "*.md", "pick": "first" }] }),
+            json!({ "instructions": [{ "scope": "project", "path": "A.md", "nested": true }] }),
+            json!({ "instructions": [{ "scope": "project", "names": ["A.md"], "dir": "~/.a", "walk": "repo" }] }),
+            json!({ "instructions": [{ "scope": "local", "path": "A.md" }] }),
+            json!({ "rules": [{ "scope": "project", "glob": "[" }] }),
+            json!({ "skills": [{ "scope": "managed", "dir": ".s" }] }),
+            json!({ "skills": [{ "scope": "project", "dir": ".s", "walk": "ancestors" }] }),
+            json!({ "mcp": [{ "scope": "managed", "path": ".mcp.json", "format": "json", "pointer": "/m" }] }),
+            json!({ "mcp": [{ "scope": "user", "path": ".mcp.json", "format": "json", "pointer": "mcpServers" }] }),
+            json!({ "mcp": [{ "scope": "user", "path": ".mcp.json", "format": "json", "pointer": [] }] }),
+            json!({ "mcp": [{ "scope": "user", "path": "c.toml", "format": "toml", "pointer": "/m", "projectPointer": true }] }),
+            json!({ "maxBytes": 0 }),
+        ] {
+            assert!(with_context(bad.clone()).is_err(), "{bad} was accepted");
+        }
+        // Unknown enum values fail to parse (reported like any invalid file).
+        assert!(with_context(json!({ "instructions": [{ "scope": "project", "path": "A.md", "walk": "sideways" }] })).is_err());
+        assert!(with_context(json!({
+            "instructions": [{ "scope": "project", "names": ["A.md"], "walk": "repo", "pick": "first", "nested": true, "imports": true }],
+            "mcp": [{ "scope": "user", "path": "~/.x.json", "format": "jsonc", "pointer": ["/a/b", "/a"], "walk": "root" }],
+            "maxBytes": 10
+        }))
+        .is_ok());
+    }
+
+    #[test]
+    fn every_builtin_adapter_has_a_valid_context() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../adapters");
+        let defs = Definitions::load(Some(&dir), None);
+        assert!(defs.errors.is_empty(), "{:?}", defs.errors);
+        for id in ["claude-code", "codex", "copilot", "cursor", "droid", "gemini", "opencode", "qwen"] {
+            let ctx = defs.get(id).and_then(|d| d.def.context.as_ref()).unwrap_or_else(|| panic!("{id}: no context"));
+            assert!(!ctx.instructions.is_empty() && !ctx.skills.is_empty() && !ctx.mcp.is_empty(), "{id}");
+            // Round trip: the serialized context parses back to the same value.
+            let back: ContextDef = serde_json::from_value(serde_json::to_value(ctx).unwrap()).unwrap();
+            assert_eq!(&back, ctx, "{id}");
+        }
     }
 
     #[test]

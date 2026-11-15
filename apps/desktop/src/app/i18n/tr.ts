@@ -17,6 +17,7 @@ import { sessionsTr } from "./sessions.tr";
 import { missionTr } from "./mission.tr";
 import { worktreesTr } from "./worktrees.tr";
 import { docsTr } from "./docs.tr";
+import { contextTr } from "./context.tr";
 import { updateTr } from "./update.tr";
 import { assistantTr } from "./assistant.tr";
 
@@ -624,6 +625,7 @@ export const tr: Strings = {
   mission: missionTr,
   worktrees: worktreesTr,
   docs: docsTr,
+  agentContext: contextTr,
   update: updateTr,
   assistant: assistantTr,
 

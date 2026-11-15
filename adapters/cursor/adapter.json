@@ -20,5 +20,27 @@
       "pattern": "\\(y\\)[\\s\\S]*\\((?:esc or )?n\\)|\\(y/n\\)",
       "lines": 10
     }
-  ]
+  ],
+  "context": {
+    "instructions": [
+      { "scope": "project", "names": ["AGENTS.md", "CLAUDE.md"], "walk": "root" }
+    ],
+    "rules": [
+      { "scope": "project", "glob": ".cursor/rules/**/*.mdc" }
+    ],
+    "skills": [
+      { "scope": "project", "dir": ".agents/skills" },
+      { "scope": "project", "dir": ".cursor/skills" },
+      { "scope": "project", "dir": ".claude/skills" },
+      { "scope": "project", "dir": ".codex/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" },
+      { "scope": "user", "dir": "~/.cursor/skills" },
+      { "scope": "user", "dir": "~/.claude/skills" },
+      { "scope": "user", "dir": "~/.codex/skills" }
+    ],
+    "mcp": [
+      { "scope": "project", "path": ".cursor/mcp.json", "format": "json", "pointer": "/mcpServers" },
+      { "scope": "user", "path": "~/.cursor/mcp.json", "format": "json", "pointer": "/mcpServers" }
+    ]
+  }
 }

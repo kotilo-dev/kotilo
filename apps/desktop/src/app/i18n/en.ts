@@ -17,6 +17,7 @@ import { sessionsEn } from "./sessions.en";
 import { missionEn } from "./mission.en";
 import { worktreesEn } from "./worktrees.en";
 import { docsEn } from "./docs.en";
+import { contextEn } from "./context.en";
 import { updateEn } from "./update.en";
 import { assistantEn } from "./assistant.en";
 
@@ -644,6 +645,7 @@ export const en = {
   mission: missionEn,
   worktrees: worktreesEn,
   docs: docsEn,
+  agentContext: contextEn,
   /** M5: About (license, links, licenses viewer) and app updates (`update.en.ts`). */
   update: updateEn,
   /** M7: assistant chat popup and its settings (`assistant.en.ts`). */

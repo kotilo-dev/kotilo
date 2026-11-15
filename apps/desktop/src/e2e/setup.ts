@@ -16,6 +16,7 @@ import * as assistantFx from "./assistantFixtures";
 import * as themeFx from "./themeFixtures";
 import * as worktreeFx from "./worktreeFixtures";
 import * as docsFx from "./docsFixtures";
+import * as contextFx from "./contextFixtures";
 
 declare global {
   interface Window {
@@ -209,7 +210,7 @@ mockIPC(
       case "git_show_head":
         return worktreeFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? docsFx.showHead(String(args.path ?? ""), typeof args.rev === "string" ? args.rev : null) ?? timelineFx.showHead(String(args.path ?? ""));
       case "fs_read_text":
-        return worktreeFx.readText(String(args.rel ?? "")) ?? docsFx.readText(String(args.rel ?? "")) ?? timelineFx.readText(String(args.rel ?? ""));
+        return worktreeFx.readText(String(args.rel ?? "")) ?? docsFx.readText(String(args.rel ?? "")) ?? contextFx.readText(String(args.rel ?? "")) ?? timelineFx.readText(String(args.rel ?? ""));
       case "worktree_list":
         return worktreeFx.list();
       case "worktree_create":
@@ -224,6 +225,12 @@ mockIPC(
         return docsFx.check();
       case "docs_mark_reviewed":
         return docsFx.markReviewed(String(args.path ?? ""));
+      case "context_agents":
+        return contextFx.agents;
+      case "context_report":
+        return contextFx.report(String(args.workspaceId ?? ""), String(args.agent ?? ""));
+      case "context_read":
+        return contextFx.read(String(args.path ?? ""));
       case "git_head":
         return { kind: "branch", name: "feature/approval-flow" };
       case "update_check":

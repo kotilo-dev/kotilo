@@ -17,5 +17,23 @@
       "SubagentStop", "PreCompact"
     ]
   },
-  "usage": "builtIn"
+  "usage": "builtIn",
+  "context": {
+    "instructions": [
+      { "scope": "user", "path": "~/.factory/AGENTS.md" },
+      { "scope": "user", "path": "~/.agents/AGENTS.md" },
+      { "scope": "user", "path": "~/.agent/AGENTS.md" },
+      { "scope": "project", "names": ["AGENTS.md", ".factory/AGENTS.md", ".agents/AGENTS.md", ".agent/AGENTS.md"], "walk": "repo", "nested": true }
+    ],
+    "skills": [
+      { "scope": "project", "dir": ".factory/skills" },
+      { "scope": "project", "dir": ".agents/skills" },
+      { "scope": "user", "dir": "~/.factory/skills" },
+      { "scope": "user", "dir": "~/.agents/skills" }
+    ],
+    "mcp": [
+      { "scope": "user", "path": "~/.factory/mcp.json", "format": "json", "pointer": "/mcpServers" },
+      { "scope": "project", "path": ".factory/mcp.json", "format": "json", "pointer": "/mcpServers" }
+    ]
+  }
 }

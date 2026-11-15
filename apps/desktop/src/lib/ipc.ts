@@ -1165,6 +1165,114 @@ export async function docsMarkReviewed(workspaceId: string, path: string): Promi
 }
 
 // ---------------------------------------------------------------------------
+// 0.9 — Context: what an agent gets in a workspace (read-only, D-076)
+// ---------------------------------------------------------------------------
+
+export type ContextScope = "managed" | "user" | "project";
+
+/** An adapter and whether it has a `context` section. */
+export interface ContextAgent {
+  id: string;
+  displayName: string;
+  supported: boolean;
+}
+
+/** An instruction or rule file, in load order. */
+export interface ContextFile {
+  kind: "instruction" | "rule";
+  scope: ContextScope;
+  /** Absolute, as found. */
+  path: string;
+  /** `~/…` for home, workspace-relative (forward slashes) inside the root, else absolute. */
+  display: string;
+  /** Workspace-relative when inside the root (opens in the normal viewer). */
+  rel: string | null;
+  bytes: number;
+  /** ceil(chars / 4). */
+  tokens: number;
+  loaded: "always" | "onDemand";
+  /** Display of the importing file (`@path` import). */
+  importedBy: string | null;
+  /** Past `maxBytes`: the agent truncates or ignores it. */
+  overLimit: boolean;
+  /** Unreadable. */
+  error: string | null;
+}
+
+export interface ContextSkill {
+  scope: "user" | "project";
+  name: string;
+  description: string | null;
+  path: string;
+  display: string;
+  rel: string | null;
+  /** Name + description. */
+  tokens: number;
+}
+
+/** An MCP server entry; secrets are key names only, values never leave Rust. */
+export interface McpServer {
+  name: string;
+  scope: "user" | "project" | "local";
+  /** Display of the config file. */
+  source: string;
+  transport: "stdio" | "http" | "sse" | "unknown";
+  /** Executable basename only. */
+  command: string | null;
+  argCount: number;
+  /** scheme://host[:port] only. */
+  url: string | null;
+  /** e.g. `env.GITHUB_TOKEN`, `headers.Authorization`. */
+  secretKeys: string[];
+  disabled: boolean;
+  /** Same name defined in a higher-precedence source (display). */
+  shadowedBy: string | null;
+}
+
+/** An MCP config file that was looked at. */
+export interface ContextSource {
+  scope: ContextScope | "local";
+  path: string;
+  display: string;
+  exists: boolean;
+  error: string | null;
+  serverCount: number;
+}
+
+export interface ContextReport {
+  agent: string;
+  supported: boolean;
+  /** Workspace root (display). */
+  root: string;
+  files: ContextFile[];
+  skills: ContextSkill[];
+  mcp: McpServer[];
+  sources: ContextSource[];
+  maxBytes: number | null;
+  totals: { alwaysTokens: number; onDemandTokens: number; skillTokens: number; alwaysBytes: number };
+}
+
+export interface ContextReadResult {
+  text: string;
+  truncated: boolean;
+}
+
+/** Every adapter with `supported` = has a `context` section. */
+export async function contextAgents(): Promise<ContextAgent[]> {
+  return invoke<ContextAgent[]>("context_agents");
+}
+
+/** What `agent` picks up in the workspace. Errors: `invalid_argument` (unknown agent). */
+export async function contextReport(workspaceId: string, agent: string): Promise<ContextReport> {
+  return invoke<ContextReport>("context_report", { workspaceId, agent });
+}
+
+/** A file or skill the report lists (max 256 KiB). Errors: `invalid_argument` (not in the report). */
+export async function contextRead(workspaceId: string, agent: string, path: string): Promise<ContextReadResult> {
+  return invoke<ContextReadResult>("context_read", { workspaceId, agent, path });
+}
+
+// ---------------------------------------------------------------------------
 // M2 — hub (background service). The token stays in Rust; the webview only names paths.
 // ---------------------------------------------------------------------------
 
