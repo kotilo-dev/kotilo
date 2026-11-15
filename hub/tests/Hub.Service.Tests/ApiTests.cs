@@ -120,19 +120,21 @@ public sealed class ApiTests(HubFixture hub) : IClassFixture<HubFixture>
         create.StatusCode.Should().Be(HttpStatusCode.Created);
         var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt64();
 
-        JsonElement? counts = null;
-        for (var i = 0; i < 10 && counts is null; i++)
+        // Other tests share the hub and change tasks too, so an earlier "tasks" frame can carry
+        // older counts; wait for the one that includes this task.
+        var expected = before.Today + before.Overdue + 1;
+        var seen = new List<int>();
+        for (var i = 0; i < 20 && !seen.Contains(expected); i++)
         {
             var frame = await ReceiveAsync(socket);
             if (frame.GetProperty("type").GetString() == "tasks")
             {
-                counts = frame.GetProperty("data");
+                var data = frame.GetProperty("data");
+                seen.Add(data.GetProperty("today").GetInt32() + data.GetProperty("overdue").GetInt32());
             }
         }
 
-        counts.Should().NotBeNull("adding a task resends the counts");
-        (counts!.Value.GetProperty("today").GetInt32() + counts.Value.GetProperty("overdue").GetInt32())
-            .Should().Be(before.Today + before.Overdue + 1);
+        seen.Should().Contain(expected, "adding a task resends the counts");
         using var _ = await Http.DeleteAsync($"/v1/tasks/{id}");
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }

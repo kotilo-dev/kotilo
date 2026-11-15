@@ -162,7 +162,7 @@ public sealed class UsageService : IAsyncDisposable
         await _stop.CancelAsync();
         if (_worker is not null)
         {
-            await Task.WhenAny(_worker, Task.Delay(TimeSpan.FromSeconds(2)));
+            await _worker.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
         _stop.Dispose();

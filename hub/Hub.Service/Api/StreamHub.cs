@@ -101,7 +101,7 @@ public sealed class StreamHub : IAsyncDisposable
         }
 
         await _stop.CancelAsync();
-        await Task.WhenAny(_loop, Task.Delay(TimeSpan.FromSeconds(1)));
+        await _loop.WaitAsync(TimeSpan.FromSeconds(1)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         _stop.Dispose();
         _signal.Dispose();
     }

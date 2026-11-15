@@ -122,7 +122,7 @@ public sealed class EventPipeline : IAsyncDisposable
         _channel.Writer.TryComplete();
         if (_consumer is not null)
         {
-            await Task.WhenAny(_consumer, Task.Delay(TimeSpan.FromSeconds(2)));
+            await _consumer.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
         await _stop.CancelAsync();

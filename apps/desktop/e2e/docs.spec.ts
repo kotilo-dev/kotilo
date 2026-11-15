@@ -22,8 +22,11 @@ const treeRow = (page: Page, name: string) => page.locator("div.group").filter({
 
 async function expandTree(page: Page) {
   const root = treeRow(page, "orders-service");
-  if (await root.getByText("▶").isVisible()) await root.getByText("▶").click();
-  await expect(page.getByTitle("AGENTS.md", { exact: true })).toBeVisible();
+  // Under load the root row can render after the first check; retry until it is expanded.
+  await expect(async () => {
+    if (await root.getByText("▶").isVisible()) await root.getByText("▶").click();
+    await expect(page.getByTitle("AGENTS.md", { exact: true })).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await treeRow(page, "docs").click();
   await expect(page.getByTitle("api.md", { exact: true })).toBeVisible();
 }
@@ -122,9 +125,12 @@ for (const theme of ["dark", "light"] as const) {
 
 test("docs · palette, empty state with a copyable example, Turkish", async ({ page }) => {
   const errors = await open(page, "theme=dark&lang=tr&docs=empty");
-  await page.keyboard.press("Control+Shift+P");
   const palette = page.getByPlaceholder(/komut/i);
-  await expect(palette).toBeVisible();
+  // The first key press can land before the app has focus under load; press until it opens.
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press("Control+Shift+P");
+    await expect(palette).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await palette.fill(">Denetle");
   await expect(page.getByText("Dokümanlar: Denetle").first()).toBeVisible();
   await page.keyboard.press("Enter");

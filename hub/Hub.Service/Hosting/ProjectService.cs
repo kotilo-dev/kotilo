@@ -119,7 +119,7 @@ public sealed class ProjectService : IAsyncDisposable
         await _stop.CancelAsync();
         if (_worker is not null)
         {
-            await Task.WhenAny(_worker, Task.Delay(TimeSpan.FromSeconds(2)));
+            await _worker.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
         foreach (var w in _todoWatchers.Values.Concat(_taskWatchers.Values))
