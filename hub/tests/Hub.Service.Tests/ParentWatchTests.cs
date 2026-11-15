@@ -19,7 +19,7 @@ public sealed class ParentWatchTests
     {
         var wait = ParentWatch.WaitForExitAsync(() => false, TimeProvider.System, CancellationToken.None);
 
-        (await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).Should().BeSameAs(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
