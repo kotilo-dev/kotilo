@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 
 // M7 assistant popup (`?view=assistant`, 400 × 580). The mocked backend (src/e2e/assistantFixtures.ts)
 // streams canned answers through the Tauri Channel; `assistant=off|unavailable|error|slow`
@@ -163,7 +164,7 @@ for (const { theme, lang } of VARIANTS) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/?theme=${theme}&lang=${lang}`);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await page.waitForTimeout(1200);
+    await waitForApp(page);
     await page.evaluate(() => window.__e2e.pushHubSnapshot());
     // The bridge sends the saved config at startup.
     await expect.poll(async () => (await recorder(page)).configs.at(-1)).toEqual({ enabled: true, hotkey: "Ctrl+Alt+Space" });

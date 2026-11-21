@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -12,7 +13,7 @@ async function open(page: Page, query: string): Promise<string[]> {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?${query}`);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.evaluate(() => window.__e2e.pushHubSnapshot());
   return errors;
 }
@@ -60,6 +61,8 @@ test("context · pane header opens the agent's context; switch agent, preview, o
   await page.keyboard.press("Alt+1");
   await page.getByRole("button", { name: "New terminal" }).first().click();
   await page.waitForTimeout(400);
+  // Push again now that the pane exists: under load the first snapshot can arrive before it.
+  await page.evaluate(() => window.__e2e.pushHubSnapshot());
 
   // The Codex pane's header button opens the tab with Codex.
   await page.locator("[data-agent-pane]").getByRole("button", { name: "Agent context" }).click();

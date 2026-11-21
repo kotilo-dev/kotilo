@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -43,7 +44,7 @@ async function openClaudePane(page: Page, theme: string): Promise<string[]> {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?theme=${theme}&lang=en&panes=pane-claude`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.keyboard.press("Alt+1");
   await page.getByRole("button", { name: "New terminal" }).first().click();
   await page.waitForTimeout(400);

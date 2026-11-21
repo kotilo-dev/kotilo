@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -13,7 +14,7 @@ async function open(page: Page, theme: string, extra = ""): Promise<string[]> {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?theme=${theme}&lang=en&worktrees=demo&panes=pane-wt1,pane-wt2${extra}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.evaluate(() => window.__e2e.pushHubSnapshot());
   return errors;
 }
@@ -160,7 +161,7 @@ test("worktrees · unsupported workspace shows a hint", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/?theme=dark&lang=tr&worktrees=unsupported");
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.getByRole("button", { name: "Görev kontrol" }).click();
   await expect(page.getByTestId("worktrees-unsupported")).toHaveText("Worktree için çalışma alanı deponun en üst klasörü olmalı.");
   await expect(page.getByRole("button", { name: "Worktree'de yeni ajan…" })).toBeDisabled();
@@ -172,7 +173,7 @@ test("worktrees · branch prefix setting in Settings → Terminal", async ({ pag
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/?theme=dark&lang=en");
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.getByRole("navigation").first().getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Terminal", exact: true }).click();
   const field = page.getByLabel("Worktree branch prefix");
@@ -197,7 +198,7 @@ test("worktrees · panel in Turkish", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/?theme=light&lang=tr&worktrees=demo");
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.getByRole("button", { name: "Görev kontrol" }).click();
   await expect(page.locator('[data-worktree="fix-login"]')).toContainText("2 commit edilmemiş");
   await page.getByTestId("worktrees-panel").screenshot({ path: "test-results/screens/worktrees-panel-light-tr.png" });

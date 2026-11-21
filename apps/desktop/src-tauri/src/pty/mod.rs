@@ -3931,8 +3931,10 @@ mod bug1_msix_pwsh_tests {
                 last_busy = decision;
                 break;
             }
+            // 30 s, not 10: alone this takes ~2 s, but under the full parallel suite the
+            // Store pwsh start-up alone can exceed 10 s.
             assert!(
-                started.elapsed() < Duration::from_secs(10),
+                started.elapsed() < Duration::from_secs(30),
                 "pty_busy never saw ping.exe under the Store pwsh profile; last decision: {decision:?}"
             );
             std::thread::sleep(Duration::from_millis(100));

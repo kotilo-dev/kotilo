@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -17,7 +18,7 @@ async function openApp(page: Page, theme: string, lang: string): Promise<string[
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?theme=${theme}&lang=${lang}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.evaluate(() => window.__e2e.pushHubSnapshot());
   await page.waitForTimeout(300);
   return errors;
@@ -114,7 +115,7 @@ for (const { theme, lang } of VARIANTS) {
       await page.setViewportSize({ width: 1440, height: 1400 });
       await page.goto(`/?theme=${theme}&lang=${lang}${ai === "local" ? "&ai=local" : ""}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.waitForTimeout(1200);
+      await waitForApp(page);
       await page.evaluate(() => window.__e2e.pushHubSnapshot());
       await page.waitForTimeout(300);
       await page.getByRole("navigation").first().getByRole("button", { name: lang === "tr" ? "Ayarlar" : "Settings", exact: true }).click();
@@ -149,7 +150,7 @@ for (const { theme, lang } of VARIANTS) {
     await page.setViewportSize({ width: 1440, height: 1900 });
     await page.goto(`/?theme=${theme}&lang=${lang}`);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await page.waitForTimeout(1200);
+    await waitForApp(page);
     await page.evaluate(() => window.__e2e.pushHubSnapshot());
     await page.getByRole("navigation").first().getByRole("button", { name: l.settings, exact: true }).click();
     await page.getByRole("button", { name: l.agents, exact: true }).click();
@@ -188,7 +189,7 @@ for (const theme of ["dark", "light"] as const) {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`/?theme=${theme}&lang=en&panes=pane-cursor`);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await page.waitForTimeout(1200);
+    await waitForApp(page);
     await page.keyboard.press("Alt+1");
     await page.getByRole("button", { name: "New terminal" }).first().click();
     await page.waitForTimeout(400);

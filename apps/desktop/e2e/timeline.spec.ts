@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -16,7 +17,7 @@ async function openWorkspace(page: Page, theme: string, lang: string): Promise<s
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?theme=${theme}&lang=${lang}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.keyboard.press("Alt+1");
   // One terminal: pane `pane-claude`, the working Claude session of the fixtures.
   await page.getByRole("button", { name: lang === "tr" ? "Yeni terminal" : "New terminal" }).first().click();

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -7,7 +8,7 @@ startAtFixtureTime(test);
 // our own page only (Playwright), never to the desktop.
 async function openMac(page: Page, extra = "") {
   await page.goto(`/?theme=dark&lang=en&platform=macos${extra}`);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
 }
 
 async function openTerminal(page: Page) {

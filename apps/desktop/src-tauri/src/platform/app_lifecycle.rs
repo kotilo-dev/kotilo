@@ -54,6 +54,8 @@ pub fn single_instance<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
     }
     #[cfg(debug_assertions)]
     {
+        // Keeps cargo's `unused_dependencies` lint quiet in debug builds, where the plugin is off.
+        use tauri_plugin_single_instance as _;
         builder
     }
 }

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -29,7 +30,7 @@ async function openApp(page: Page, query: string, expectedTheme: string): Promis
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`/?lang=en&${query}`);
   await expect(page.locator("html")).toHaveAttribute("data-color-theme", expectedTheme);
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.evaluate(() => window.__e2e.pushHubSnapshot());
   await page.waitForTimeout(300);
   return errors;

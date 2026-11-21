@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -6,7 +7,7 @@ startAtFixtureTime(test);
 // The mocked clipboard holds "hello" (setup.ts `clipboard_read_text`).
 async function openTerminal(page: Page) {
   await page.goto("/?theme=dark&lang=en");
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await page.keyboard.press("Alt+1");
   await page.getByRole("button", { name: "New terminal" }).first().click();
   await page.waitForTimeout(600);

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -11,10 +12,12 @@ for (const theme of ["dark", "light"] as const) {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`/?theme=${theme}&lang=en&panes=pane-claude`);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await page.waitForTimeout(1200);
+    await waitForApp(page);
     await page.keyboard.press("Alt+1");
     await page.getByRole("button", { name: "New terminal" }).first().click();
     await page.waitForTimeout(400);
+    // Push the hub snapshot now that the pane exists; the setup's timed pushes can land before it.
+    await page.evaluate(() => window.__e2e.pushHubSnapshot());
 
     await page.getByRole("button", { name: "Show changes in src/approval/approval.ts" }).click();
     const modified = page.locator(".monaco-diff-editor .editor.modified");

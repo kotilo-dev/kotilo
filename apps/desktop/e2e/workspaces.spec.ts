@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForApp } from "./app";
 import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
@@ -17,7 +18,7 @@ test("workspace switching · button, double click, context menu", async ({ page 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/?theme=dark&lang=en&workspaces=2");
-  await page.waitForTimeout(1200);
+  await waitForApp(page);
   await expectActive(page, "orders-service");
 
   // The active workspace and its tree come first; the others sit under their own header.
