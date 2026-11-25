@@ -1,7 +1,7 @@
 ## Görev dosyaları
 
 - 2026-11-25 · Workspace grupları, durum gruplu ajanlar, arayüz ölçeği ve fontu · TAMAMLANDI · [dosya](2026-11-25-gruplar-ve-olcek.md)
-- 2026-11-22 · Bu sürümün UI düzeltmeleri (toplu takip, commit öncesi) · DEVAM EDİYOR · [dosya](2026-11-22-ui-surumu.md)
+- 2026-11-22 · Bu sürümün UI düzeltmeleri (0.10.0 olarak yayınlandı) · TAMAMLANDI · [dosya](2026-11-22-ui-surumu.md)
 - 2026-11-22 · Bitmiş turda "Working"de takılan Claude oturumu · TAMAMLANDI · [dosya](2026-11-22-working-stuck.md)
 - 2026-11-22 · Claude Code plan limitleri (status line yardımcısı) · TAMAMLANDI · [dosya](2026-11-22-claude-plan-limits.md)
 - 2026-11-22 · Workspace paneli: sekmeler + seçici (A+B) · TAMAMLANDI · [dosya](2026-11-22-workspace-panel-tabs.md)
