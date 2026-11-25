@@ -9,6 +9,16 @@ const ipc = vi.hoisted(() => ({
 vi.mock("../lib/ipc", () => ipc);
 
 describe("mergeWithDefaults", () => {
+  it("D-080: keeps valid collapsed group lists and drops junk", () => {
+    const out = mergeWithDefaults({
+      collapsedWorkspaceGroups: ["g1", "g1", 3, "", "g2"],
+      collapsedAgentGroups: ["done", "nope", "blocked"],
+    });
+    expect(out.collapsedWorkspaceGroups).toEqual(["g1", "g2"]);
+    expect(out.collapsedAgentGroups).toEqual(["done", "blocked"]);
+    expect(mergeWithDefaults({ collapsedAgentGroups: "done" }).collapsedAgentGroups).toEqual([]);
+  });
+
   it("returns defaults for undefined/empty input", () => {
     expect(mergeWithDefaults(undefined)).toEqual(DEFAULT_LAYOUT);
     expect(mergeWithDefaults({})).toEqual(DEFAULT_LAYOUT);
@@ -30,6 +40,8 @@ describe("mergeWithDefaults", () => {
       timelineVisible: DEFAULT_LAYOUT.timelineVisible,
       timelineWidth: DEFAULT_LAYOUT.timelineWidth,
       timelineSplitSizes: DEFAULT_LAYOUT.timelineSplitSizes,
+      collapsedWorkspaceGroups: [],
+      collapsedAgentGroups: [],
     });
   });
 

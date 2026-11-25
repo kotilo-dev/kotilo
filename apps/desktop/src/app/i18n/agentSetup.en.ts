@@ -27,6 +27,16 @@ export const agentSetupEn = {
     hooksDisabled: "Hooks are disabled in the agent's settings.",
   },
   screenPermission: "Permission prompts are recognized on the terminal screen.",
+  /** D-078: Claude Code plan limits arrive only through its status line command. */
+  statusLine: {
+    label: "Show plan limits (status line)",
+    hint: `Claude Code reports its 5-hour and weekly limits only to its status line. This points the status line at a small ${APP_NAME} helper. It also prints a short summary under the prompt.`,
+    chained: (command: string) => `Your own status line command stays in use and still draws the line: ${command}`,
+    helperMissing: `The ${APP_NAME} status line helper was not found next to the app. Reinstall the app to use this.`,
+    invalid: "Claude's settings.json could not be read, so the status line was left alone. Fix the file first.",
+    outdated: "The status line points at an older helper. Turn this off and on again to repair it.",
+    failed: (message: string) => `Could not change the status line: ${message}`,
+  },
   protocol: "Reports via Agent Integration Protocol",
   protocolHint: `The agent, or a wrapper script, calls ${APP_NAME} itself:`,
   copy: "Copy",

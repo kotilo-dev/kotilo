@@ -146,6 +146,18 @@ başka birine geçince arayüzde kapanır (açık klasörleri hatırlanır, geri
 yeniden açılır). Terminaller ve görüntüleyici sekmeleri çalışma alanına özeldir ve
 başka birine geçtiğinizde arka planda açık kalır.
 
+**Gruplar:** Çalışma alanlarını kendi gruplarınıza ayırabilirsiniz (ör. *İş*,
+*Kişisel*, *Oyunlar*). Alanlar sekmesinde bir çalışma alanına sağ tıklayın → **Gruba
+taşı…** gruplarınızı, **Yeni grup…** ve **Gruptan çıkar** seçeneklerini gösterir; boş
+alana sağ tıklayınca da **Yeni grup…** çıkar. Grup başlığına sağ tıklayarak grubu
+yeniden adlandırabilir, silebilir (içindeki çalışma alanları grupsuz kalır) ya da
+taşıyabilirsiniz. Başlığa tıklayınca (ya da üzerindeyken Enter, ←/→) grup kapanır;
+bu durum hatırlanır ve kapalı bir grupta cevap bekleyen ajan varsa başlıkta kırmızı
+bir sayı görünür. Grubu olmayan çalışma alanları en altta **Grupsuz** başlığı altında
+listelenir. Files başlığındaki hızlı geçiş listesi ve `Ctrl+1`…`Ctrl+9` aynı sırayı
+izler (kapalı gruplar da sayılır). **Yukarı/Aşağı taşı** çalışma alanını kendi grubu
+içinde taşır.
+
 **Dosya ağacı:**
 - Klasörler dosyalardan önce, büyük/küçük harf ayırmadan alfabetik sıralanır.
 - Bir dosyaya tek tıklamak onu seçer (görüntüleyici değişmez); çift tıklamak (ya da
@@ -366,7 +378,9 @@ ona yeni bir istem gönderdiğinizde iş görülmüş sayılır.
 ### Ajanlar paneli
 
 **Ajanlar** paneli (sol sütunun altı) algılanan her ajan işlemini durumuyla listeler.
-Satırlar önce bekleyenler, sonra bitenler, çalışanlar ve boştakiler olarak sıralanır.
+Ajanlar bölümler halinde gösterilir: **Bekleyen**, **Çalışan**, **Biten**, **Boşta**
+(boş bölüm gizlenir; bölüm içinde en eski durum üstte). Bölüm başlığına tıklayınca
+bölüm kapanır, bu seçim hatırlanır.
 Bir satıra tıklamak o çalışma alanına ve terminal sekmesine geçer (`Bitti` satırını
 `Boşta` yapar). Etkin çalışma alanının kökü en acil ajan durumu için küçük bir nokta,
 her terminal sekmesi de buna uyan bir nokta gösterir; durum çubuğu her durumun
@@ -1065,7 +1079,7 @@ Bölüm listesi soldadır.
 
 | Bölüm | Ayarlar |
 |---|---|
-| Görünüm | Tema (Koyu, Açık, Sistem), Koyu tema ve Açık tema (bkz. [Temalar ve dil](#temalar-ve-dil)), Dil (Windows ile aynı, English, Türkçe), Arka plan opaklığı (%30–100: %100'ün altında masaüstü pencere arka planından ve terminallerden görünür, yazılar Windows Terminal'deki gibi net kalır), Arka planı bulanıklaştır (akrilik, yalnızca Windows) |
+| Görünüm | Tema (Koyu, Açık, Sistem), Koyu tema ve Açık tema (bkz. [Temalar ve dil](#temalar-ve-dil)), Dil (Windows ile aynı, English, Türkçe), Arka plan opaklığı (%30–100: %100'ün altında masaüstü pencere arka planından ve terminallerden görünür, yazılar Windows Terminal'deki gibi net kalır), Arka planı bulanıklaştır (akrilik, yalnızca Windows), Arayüz ölçeği (%90–200: paneller, menüler ve sayfalar Windows ekran ölçeklemesi gibi büyür; terminal ve editör kendi font boyutunda kalır; komut paletinde **Arayüzü büyüt / küçült / Arayüz ölçeğini sıfırla** da var), Arayüz fontu (**Yüklü fontlar…** listesinden seçilir ya da kurulu herhangi bir fontun adı yazılır; boş = yerleşik font, ad bulunamazsa da o kullanılır) |
 | Editör | Monaco için editör yazı tipi ailesi ve boyutu (8–32) |
 | Terminal | Terminal yazı tipi ailesi (varsayılan Geist Mono) ve boyutu (8–32), açık tüm terminallere anında uygulanır; varsayılan kabuk ("Otomatik" sırasıyla pwsh → Windows PowerShell → cmd → Git Bash → WSL seçer); seçince kopyala; çok satırlı yapıştırmadan önce uyar; renk şeması (Uygulamayla aynı, bir tema ya da içe aktarılmış bir şema), Windows Terminal'dan içe aktar…; programların panoya kopyalamasına izin ver (OSC 52) |
 | Hızlı komutlar | Her çalışma alanı ya da tek klasör için kayıtlı kabuk komutları ve ajan istemleri (bkz. [Hızlı komutlar](#hızlı-komutlar)) |

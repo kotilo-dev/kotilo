@@ -11,10 +11,11 @@ import { useStrings } from "../../app/strings";
 import { useNow } from "../../app/ui/useNow";
 import { useRouteStore } from "../../stores/routeStore";
 import { useAgentStore } from "../../stores/agentStore";
+import { useLayoutStore } from "../../stores/layoutStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useTerminalStore, findTabByPaneIdInMap } from "../../stores/terminalStore";
 import type { Agent } from "../../lib/ipc";
-import { formatElapsed, sortAgents } from "./agentLogic";
+import { formatElapsed, groupAgents, type AgentGroup } from "./agentLogic";
 import { navigateToAgent } from "./navigate";
 import { ContextMenu, type ContextMenuItem } from "../workspaces/ContextMenu";
 import { PaneStatusDot } from "../workspace/PaneStatus";
@@ -124,6 +125,32 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
   );
 }
 
+function AgentSection({ group, now }: { group: AgentGroup; now: number }) {
+  const strings = useStrings();
+  const collapsed = useLayoutStore((s) => s.layout.collapsedAgentGroups.includes(group.state));
+  const setCollapsed = useLayoutStore((s) => s.setAgentGroupCollapsed);
+  const label = strings.agents.sectionLabel[group.state];
+  return (
+    <section data-testid={`agents-section-${group.state}`} data-collapsed={String(collapsed)}>
+      <button
+        type="button"
+        aria-expanded={!collapsed}
+        onClick={() => setCollapsed(group.state, !collapsed)}
+        className={`flex h-6 w-full cursor-pointer items-center gap-1.5 bg-transparent px-2 text-left text-label uppercase tracking-wide hover:bg-surface-4 ${
+          group.state === "blocked" ? "text-blocked" : "text-muted"
+        }`}
+      >
+        <span aria-hidden className="w-3 shrink-0 text-center">
+          {collapsed ? "▸" : "▾"}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="shrink-0 tabular-nums">{group.agents.length}</span>
+      </button>
+      {!collapsed && group.agents.map((agent) => <AgentRow key={agent.id} agent={agent} now={now} />)}
+    </section>
+  );
+}
+
 export function AgentsPanel() {
   const strings = useStrings();
   const init = useAgentStore((s) => s.init);
@@ -138,19 +165,19 @@ export function AgentsPanel() {
     void init();
   }, [init]);
 
-  const sorted = sortAgents(agents);
+  const groups = groupAgents(agents);
 
   return (
     <div className="flex h-full flex-col">
       <PanelHeader title={strings.panels.agents} actions={ready ? <AgentsMenuButton /> : null} />
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {sorted.length === 0 ? (
+        {groups.length === 0 ? (
           <div className="p-3 text-xs text-muted">
             {strings.empty.agents}
           </div>
         ) : (
-          sorted.map((agent) => <AgentRow key={agent.id} agent={agent} now={now} />)
+          groups.map((group) => <AgentSection key={group.state} group={group} now={now} />)
         )}
       </div>
 

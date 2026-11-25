@@ -11,6 +11,7 @@ import {
   type DirEntry,
   type QuickOpenItem,
   type Workspace,
+  type WorkspaceGroup,
   type WorkspacesState,
   clipboardSaveImage,
   clipboardWriteText,
@@ -26,13 +27,19 @@ import {
   onWorkspacesChanged,
   toAppError,
   workspaceAdd,
+  workspaceGroupCreate,
+  workspaceGroupMove,
+  workspaceGroupRemove,
+  workspaceGroupRename,
   workspaceList,
   workspaceRemove,
   workspaceRename,
   workspaceReorder,
   workspaceSetActive,
   workspaceSetExpanded,
+  workspaceSetGroup,
 } from "../lib/ipc";
+import { groupNeighbour } from "../features/workspaces/groups";
 import { useSettingsStore } from "./settingsStore";
 import type { DirState } from "../features/workspaces/flatten";
 import {
@@ -61,6 +68,8 @@ interface WorkspaceStore {
   ready: boolean;
   workspaces: Workspace[];
   activeId: string | null;
+  /** D-080: user groups in display order. */
+  groups: WorkspaceGroup[];
   dirCache: Record<string, Record<string, DirState>>;
   expanded: Record<string, Set<string>>;
   selected: Selected | null;
@@ -71,9 +80,18 @@ interface WorkspaceStore {
   removeWorkspace: (id: string) => Promise<void>;
   renameWorkspace: (id: string, name: string) => Promise<AppError | null>;
   setActive: (id: string) => Promise<void>;
+  /** Swaps with the neighbour in the same group section (D-080). */
   moveWorkspace: (id: string, direction: "up" | "down") => Promise<void>;
+  /** D-080 groups; the name-taking ones return the error for the inline input. */
+  createGroup: (name: string, workspaceId?: string) => Promise<AppError | null>;
+  renameGroup: (id: string, name: string) => Promise<AppError | null>;
+  removeGroup: (id: string) => Promise<void>;
+  moveGroup: (id: string, direction: "up" | "down") => Promise<void>;
+  setWorkspaceGroup: (workspaceId: string, groupId: string | null) => Promise<void>;
 
   toggleExpanded: (workspaceId: string, rel: string) => void;
+  /** The Files tab always shows the active workspace's top level: make sure it is loaded. */
+  ensureRootLoaded: (workspaceId: string) => Promise<void>;
   expandAncestors: (workspaceId: string, rel: string) => Promise<void>;
   select: (workspaceId: string, rel: string) => void;
 
@@ -113,10 +131,22 @@ function cancelExpandedSave(workspaceId: string) {
 
 let listenersInstalled = false;
 
+/** Runs a group command; the state arrives with `workspaces:changed`. `toast` = report failures here (no inline input to show them). */
+async function groupCall(run: () => Promise<void>, toast = false): Promise<AppError | null> {
+  try {
+    await run();
+    return null;
+  } catch (e) {
+    if (toast) useToastStore.getState().show(strings.toast.genericError);
+    return toAppError(e);
+  }
+}
+
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   ready: false,
   workspaces: [],
   activeId: null,
+  groups: [],
   dirCache: {},
   expanded: {},
   selected: null,
@@ -157,10 +187,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     try {
       const state = await workspaceList();
-      set({ workspaces: state.workspaces, activeId: state.activeId, ready: true });
+      set({ workspaces: state.workspaces, activeId: state.activeId, groups: state.groups ?? [], ready: true });
       await Promise.all(state.workspaces.map((ws) => restoreExpanded(get, set, ws)));
     } catch {
-      set({ workspaces: [], activeId: null, ready: true });
+      set({ workspaces: [], activeId: null, groups: [], ready: true });
     }
   },
 
@@ -204,19 +234,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   moveWorkspace: async (id, direction) => {
-    const ids = get().workspaces.map((w) => w.id);
-    const idx = ids.indexOf(id);
-    if (idx === -1) return;
-    const swapWith = direction === "up" ? idx - 1 : idx + 1;
-    if (swapWith < 0 || swapWith >= ids.length) return;
-    const next = [...ids];
-    [next[idx], next[swapWith]] = [next[swapWith]!, next[idx]!];
+    const { workspaces, groups } = get();
+    const other = groupNeighbour(workspaces, groups, id, direction);
+    if (!other) return;
+    const ids = workspaces.map((w) => w.id);
+    const a = ids.indexOf(id);
+    const b = ids.indexOf(other);
+    [ids[a], ids[b]] = [ids[b]!, ids[a]!];
     try {
-      await workspaceReorder(next);
+      await workspaceReorder(ids);
     } catch {
       useToastStore.getState().show(strings.toast.genericError);
     }
   },
+
+  createGroup: (name, workspaceId) => groupCall(() => workspaceGroupCreate(name, workspaceId)),
+  renameGroup: (id, name) => groupCall(() => workspaceGroupRename(id, name)),
+  removeGroup: async (id) => void (await groupCall(() => workspaceGroupRemove(id), true)),
+  moveGroup: async (id, direction) => void (await groupCall(() => workspaceGroupMove(id, direction), true)),
+  setWorkspaceGroup: async (workspaceId, groupId) => void (await groupCall(() => workspaceSetGroup(workspaceId, groupId), true)),
 
   toggleExpanded: (workspaceId, rel) => {
     const current = get().expanded[workspaceId] ?? new Set<string>();
@@ -231,6 +267,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     scheduleExpandedSave(workspaceId, [...next]);
     if (opening) void ensureLoaded(get, set, workspaceId, rel);
   },
+
+  ensureRootLoaded: (workspaceId) => ensureLoaded(get, set, workspaceId, ""),
 
   expandAncestors: async (workspaceId, rel) => {
     const ancestors = ancestorsOf(rel); // kökten başlar (parent-first)
@@ -508,20 +546,14 @@ function applyWorkspacesChanged(get: Getter, set: Setter, next: WorkspacesState)
       delete expanded[id];
     }
     const selected = s.selected && removedIds.includes(s.selected.workspaceId) ? null : s.selected;
-    return { workspaces: next.workspaces, activeId: next.activeId, dirCache, expanded, selected };
+    return { workspaces: next.workspaces, activeId: next.activeId, groups: next.groups ?? [], dirCache, expanded, selected };
   });
 
-  // Aktif workspace değiştiyse (buton, "Open terminal here", Agents paneli…): yalnız aktifin ağacı
-  // görünür (flattenVisible `activeId`) — yeni aktifin kökü kapalıysa açılır ve yüklenir. Yalnız
-  // gerçek değişimde: kullanıcının kapattığı aktif kök başka bir güncellemede (ör. rename) açılmaz.
+  // Aktif workspace değiştiyse (liste, geçiş listesi, "Open terminal here", Agents paneli…): Files
+  // sekmesi yalnız aktifin içeriğini gösterir ve kök her zaman açıktır — kökün içeriğini yükle.
   const activeId = next.activeId;
-  if (
-    activeId &&
-    activeId !== prevActiveId &&
-    !addedIds.includes(activeId) &&
-    !(get().expanded[activeId]?.has("") ?? false)
-  ) {
-    get().toggleExpanded(activeId, "");
+  if (activeId && activeId !== prevActiveId && !addedIds.includes(activeId)) {
+    void ensureLoaded(get, set, activeId, "");
   }
 
   // Yeni eklenen workspace'ler (dialog/drag-drop ile): kök varsayılan olarak açık ve yüklü.

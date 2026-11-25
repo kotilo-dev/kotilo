@@ -22,6 +22,7 @@
 //! process tree. OS-specific code lives in [`platform`].
 
 pub mod platform;
+pub mod statusline;
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
@@ -611,6 +612,11 @@ pub fn read_port_file(dir: &Path) -> Option<(u16, String)> {
 /// POSTs `body` to the hub's `/v1/events` on loopback. `Ok` only for a 2xx status line
 /// received within `budget`.
 pub fn post_event(port: u16, token: &str, body: &[u8], budget: Duration) -> Result<(), String> {
+    post_json("/v1/events", port, token, body, budget)
+}
+
+/// POSTs `body` to `path` of the hub on loopback (`post_event` and the statusline helper share it).
+pub fn post_json(path: &str, port: u16, token: &str, body: &[u8], budget: Duration) -> Result<(), String> {
     let deadline = Instant::now() + budget;
     let remaining = || {
         deadline
@@ -623,7 +629,7 @@ pub fn post_event(port: u16, token: &str, body: &[u8], budget: Duration) -> Resu
     let mut stream = TcpStream::connect_timeout(&addr, remaining()?).map_err(|e| format!("connect: {e}"))?;
     stream.set_write_timeout(Some(remaining()?)).map_err(|e| e.to_string())?;
     let head = format!(
-        "POST /v1/events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{TOKEN_HEADER}: {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "POST {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{TOKEN_HEADER}: {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream

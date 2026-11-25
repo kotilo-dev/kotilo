@@ -1,34 +1,26 @@
 /**
- * Pure tree flattening: workspace list + directory cache + expanded folders → the flat row list
- * shown in the virtualised list (`@tanstack/react-virtual`, D6). No IPC/DOM calls; tested with
- * Vitest (faz2-spec §6).
+ * Pure tree flattening: directory cache + expanded folders → the flat row list shown in the
+ * virtualised list (`@tanstack/react-virtual`, D6). No IPC/DOM calls; tested with Vitest
+ * (faz2-spec §6).
  */
-import type { AppError, DirEntry, Workspace } from "../../lib/ipc";
+import type { AppError, DirEntry } from "../../lib/ipc";
 
 /** A folder's cache state: not requested yet (`undefined`), loading, loaded or error. */
 export type DirState = DirEntry[] | "loading" | { error: AppError } | undefined;
 
 export type Row =
-  | { kind: "root"; workspaceId: string; workspace: Workspace; depth: 0; expanded: boolean }
-  /** Header above the inactive workspaces when one is active; not selectable. */
-  | { kind: "group"; workspaceId: ""; count: number; depth: 0 }
   | { kind: "dir"; workspaceId: string; rel: string; name: string; depth: number; expanded: boolean }
   | { kind: "file"; workspaceId: string; rel: string; name: string; depth: number }
   | { kind: "loading"; workspaceId: string; rel: string; depth: number }
   | { kind: "error"; workspaceId: string; rel: string; depth: number; error: AppError };
 
 export interface FlattenInputs {
-  workspaces: Workspace[];
   /** `dirCache[workspaceId][rel]` */
   dirCache: Record<string, Record<string, DirState>>;
-  /** `expanded[workspaceId]` is a `Set<rel>`; the root itself is `rel=""`. */
+  /** `expanded[workspaceId]` is a `Set<rel>` of open sub-folders (the root, `rel=""`, is always open). */
   expanded: Record<string, Set<string>>;
-  /**
-   * When given, only this workspace's tree can expand; other roots look collapsed even if saved as
-   * expanded (user request 2026-09-27: only the active workspace's files are visible).
-   * `null` = none active → all roots collapsed. `undefined` = no filter.
-   */
-  activeId?: string | null;
+  /** The workspace whose files are shown; `null`/`undefined` = none → no rows. */
+  workspaceId: string | null | undefined;
 }
 
 function pushChildren(
@@ -63,23 +55,12 @@ function pushChildren(
 }
 
 /**
- * Workspace order = display order (roots in `workspaces` array order). With an active workspace,
- * it and its tree come first and the others follow under a "group" header, so a closed workspace
- * never reads as a folder of the open one's tree.
+ * The Files tab shows only the active workspace's contents (no root row): its top level starts at
+ * depth 0 and is treated as always expanded.
  */
-export function flattenVisible({ workspaces, dirCache, expanded, activeId }: FlattenInputs): Row[] {
+export function flattenVisible({ dirCache, expanded, workspaceId }: FlattenInputs): Row[] {
   const rows: Row[] = [];
-  const active = activeId ? workspaces.find((w) => w.id === activeId) : undefined;
-  const others = active ? workspaces.filter((w) => w !== active) : workspaces;
-  for (const workspace of active ? [active, ...others] : workspaces) {
-    if (active && workspace === others[0]) rows.push({ kind: "group", workspaceId: "", count: others.length, depth: 0 });
-    const expandedSet = expanded[workspace.id] ?? new Set<string>();
-    const canExpand = activeId === undefined || activeId === workspace.id;
-    const rootExpanded = canExpand && expandedSet.has("");
-    rows.push({ kind: "root", workspaceId: workspace.id, workspace, depth: 0, expanded: rootExpanded });
-    if (rootExpanded) {
-      pushChildren(rows, workspace.id, "", 1, dirCache, expandedSet);
-    }
-  }
+  if (!workspaceId) return rows;
+  pushChildren(rows, workspaceId, "", 0, dirCache, expanded[workspaceId] ?? new Set<string>());
   return rows;
 }

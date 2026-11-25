@@ -21,13 +21,17 @@ async function open(page: Page, query: string): Promise<string[]> {
 /** A tree row by its title (file or folder name). */
 const treeRow = (page: Page, name: string) => page.locator("div.group").filter({ has: page.getByTitle(name, { exact: true }) });
 
+/** The workspace's row on the Workspaces tab (its context menu holds the workspace actions). */
+const workspaceRow = (page: Page, name: string) => page.getByRole("option").filter({ has: page.getByTitle(name, { exact: true }) });
+
+async function openWorkspaceMenu(page: Page, name: string) {
+  await page.getByTestId("workspace-panel-tabs").getByRole("tab").first().click();
+  await workspaceRow(page, name).click({ button: "right" });
+}
+
 async function expandTree(page: Page) {
-  const root = treeRow(page, "orders-service");
-  // Under load the root row can render after the first check; retry until it is expanded.
-  await expect(async () => {
-    if (await root.getByText("▶").isVisible()) await root.getByText("▶").click();
-    await expect(page.getByTitle("AGENTS.md", { exact: true })).toBeVisible({ timeout: 1000 });
-  }).toPass();
+  // The Files tab shows the active workspace's top level without a root row.
+  await expect(page.getByTitle("AGENTS.md", { exact: true })).toBeVisible();
   await treeRow(page, "docs").click();
   await expect(page.getByTitle("api.md", { exact: true })).toBeVisible();
 }
@@ -56,7 +60,7 @@ for (const theme of ["dark", "light"] as const) {
     await page.screenshot({ path: `test-results/screens/docs-tree-badges-${theme}.png` });
 
     // Workspace context menu → Check docs.
-    await treeRow(page, "orders-service").click({ button: "right" });
+    await openWorkspaceMenu(page, "orders-service");
     await page.getByRole("button", { name: "Check docs" }).click();
     const view = page.getByTestId("docs-view");
     await expect(view).toBeVisible();
@@ -108,6 +112,8 @@ for (const theme of ["dark", "light"] as const) {
     await expect(docRow(page, "docs/setup.md")).toHaveCount(0);
     expect(await page.evaluate(() => window.__e2eDocs.reviewed)).toEqual(["docs/setup.md"]);
     await expect(page.getByText("Marked docs/setup.md as reviewed")).toBeVisible();
+    await page.getByTestId("workspace-panel-tabs").getByRole("tab").nth(1).click();
+    await expect(treeRow(page, "setup.md")).toBeVisible();
     await expect(treeRow(page, "setup.md").getByTestId("doc-badge")).toHaveCount(0);
 
     // Update with agent: the prompt lands in the Claude pane's composer, nothing is sent.
@@ -149,7 +155,7 @@ test("docs · palette, empty state with a copyable example, Turkish", async ({ p
 
 test("docs · tab in Turkish", async ({ page }) => {
   const errors = await open(page, "theme=light&lang=tr&docs=demo");
-  await treeRow(page, "orders-service").click({ button: "right" });
+  await openWorkspaceMenu(page, "orders-service");
   await page.getByRole("button", { name: "Dokümanları denetle" }).click();
   const view = page.getByTestId("docs-view");
   await expect(view.getByTestId("docs-summary")).toHaveText("6 doküman tarandı · 2 dokümanda eksik yol · 2 doküman güncel değil");

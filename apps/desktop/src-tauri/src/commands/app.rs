@@ -218,6 +218,13 @@ pub fn terminal_font_suggestion() -> Option<String> {
     crate::platform::fonts::nerd_font_suggestion()
 }
 
+/// Installed font families for the font pickers in Settings (empty where the platform
+/// layer has no list yet; the fields stay free text).
+#[tauri::command(async)]
+pub fn fonts_installed() -> Vec<String> {
+    crate::platform::fonts::installed_families()
+}
+
 /// D-057: every colour scheme in Windows Terminal's settings, fragments and built-in
 /// defaults (read-only), for "Import from Windows Terminal…".
 #[tauri::command(async)]

@@ -1,0 +1,19 @@
+{
+  "receivedAt": "2026-11-22T14:09:23Z",
+  "hookPid": 1101,
+  "parentPid": 900,
+  "payload": {
+    "session_id": "abc123",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\C--src-alpha\\abc123.jsonl",
+    "cwd": "C:\\src\\alpha",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "background_tasks": [
+      { "id": "w1", "type": "artifact subscription", "status": "running", "description": "live updates for artifact https://claude.ai/artifact/x" },
+      { "id": "m1", "type": "monitor", "status": "running", "description": "watch the build log", "command": "tail -f build.log" },
+      { "id": "p1", "type": "MCP task", "status": "running", "server": "s", "tool": "t" },
+      { "id": "n1", "status": "running" }
+    ],
+    "session_crons": []
+  }
+}

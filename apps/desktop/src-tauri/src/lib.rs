@@ -226,6 +226,7 @@ pub fn run() {
             commands::assistant::assistant_stop,
             commands::app::app_info,
             commands::app::terminal_font_suggestion,
+            commands::app::fonts_installed,
             commands::app::terminal_wt_schemes,
             commands::app::taskbar_set_badge,
             commands::update::update_check,
@@ -235,6 +236,11 @@ pub fn run() {
             commands::workspace::workspace_remove,
             commands::workspace::workspace_rename,
             commands::workspace::workspace_reorder,
+            commands::workspace::workspace_group_create,
+            commands::workspace::workspace_group_rename,
+            commands::workspace::workspace_group_remove,
+            commands::workspace::workspace_group_move,
+            commands::workspace::workspace_set_group,
             commands::workspace::workspace_set_active,
             commands::workspace::workspace_set_expanded,
             commands::fs::fs_read_dir,
@@ -319,6 +325,10 @@ pub fn run() {
                 }
                 // D-065: the page paints the translucent background itself (`main.tsx`).
                 platform::window_backdrop::apply(&window, appearance.acrylic && appearance.is_translucent());
+                // D-081: interface scale, before the first paint.
+                if let Err(err) = window.set_zoom(appearance.zoom_factor()) {
+                    log::warn!("interface scale could not be applied: {err}");
+                }
             }
 
             // M1: the hub background service (ingest, adapters, usage). Hooks still reach

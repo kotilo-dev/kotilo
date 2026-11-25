@@ -7,6 +7,8 @@ export const timelineEn = {
   region: "Agent timeline",
   show: "Show timeline",
   hide: "Hide timeline",
+  showViewer: "Show viewer",
+  hideViewer: "Hide viewer",
   resize: "Resize timeline",
   commandToggle: "Toggle Timeline",
   noWorkspace: "Open a workspace to see its timeline.",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Agent } from "../../lib/ipc";
 import {
+  groupAgents,
   computeVisiblePaneId,
   countsByState,
   decideNotifications,
@@ -46,6 +47,22 @@ describe("sortAgents", () => {
     const copy = [...agents];
     sortAgents(agents);
     expect(agents).toEqual(copy);
+  });
+});
+
+describe("groupAgents", () => {
+  it("waiting, working, done, idle; empty sections left out; oldest first inside", () => {
+    const agents = [
+      agent({ id: "d", paneId: "p4", state: "done", sinceMs: 1 }),
+      agent({ id: "w2", paneId: "p3", state: "working", sinceMs: 20 }),
+      agent({ id: "w1", paneId: "p2", state: "working", sinceMs: 10 }),
+      agent({ id: "b", paneId: "p1", state: "blocked", sinceMs: 30 }),
+    ];
+    expect(groupAgents(agents).map((g) => [g.state, g.agents.map((a) => a.id)])).toEqual([
+      ["blocked", ["b"]],
+      ["working", ["w1", "w2"]],
+      ["done", ["d"]],
+    ]);
   });
 });
 

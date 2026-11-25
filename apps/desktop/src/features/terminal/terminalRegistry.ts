@@ -14,6 +14,7 @@ import { Channel, clipboardWriteText } from "../../lib/ipc";
 import { parseOsc52, RECENT_OUTPUT_ROWS, recentOutputText, RESET_MODES_SEQUENCE } from "./terminalExtras";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { unscaledFontSize } from "../../app/ui/uiScale";
 import type { TerminalColors } from "../../app/theme/catalogue";
 import { resolveTerminalColors } from "../../app/theme/terminalScheme";
 import { isWindowTranslucent } from "../../app/theme/applyTheme";
@@ -120,7 +121,7 @@ function defaultCreateTerminal(): TermLike {
   return new Terminal({
     scrollback: SCROLLBACK,
     fontFamily: effectiveTerminalFont(settings.terminal.fontFamily),
-    fontSize: settings.terminal.fontSize || FONT_SIZE,
+    fontSize: unscaledFontSize(settings.terminal.fontSize || FONT_SIZE, settings.appearance?.uiScale),
     cursorBlink: true,
     cursorStyle: "bar",
     allowProposedApi: true,

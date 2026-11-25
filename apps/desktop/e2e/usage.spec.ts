@@ -32,7 +32,7 @@ test("tray menu · usage summary and waiting sessions", async ({ page }) => {
   await page.goto("/?theme=dark&lang=en");
   await expect
     .poll(async () => (await page.evaluate(() => window.__e2eTray.menus.at(-1) ?? [])).join("|"), { timeout: 10_000 })
-    .toMatch(/^Today: .+ tokens ≈ .+\|5-hour block: .+ left\|Codex CLI · 5-hour 62%\|Codex CLI · Weekly 31%\|---\|Waiting for you\|gateway · Codex CLI · Needs permission\|---\|Show .+\|Quit .+$/);
+    .toMatch(/^Today: .+ tokens ≈ .+\|5-hour block: .+ left\|Claude Code · 5-hour 42%\|Claude Code · Weekly 18%\|Codex CLI · 5-hour 62%\|Codex CLI · Weekly 31%\|---\|Waiting for you\|gateway · Codex CLI · Needs permission\|---\|Show .+\|Quit .+$/);
   const tooltip = await page.evaluate(() => window.__e2eTray.tooltips.at(-1) ?? "");
   expect(tooltip.split("\n")[0]).not.toBe("");
   expect(tooltip).toContain("1 agent waiting");

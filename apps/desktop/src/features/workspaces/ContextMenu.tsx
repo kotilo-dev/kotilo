@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 export interface ContextMenuItem {
   label: string;
@@ -6,6 +6,8 @@ export interface ContextMenuItem {
   disabled?: boolean;
   /** Draws a separator line before this item. */
   separatorBefore?: boolean;
+  /** Runs onClick but leaves the menu open (the caller swaps the items in place). */
+  keepOpen?: boolean;
 }
 
 export interface ContextMenuState {
@@ -44,11 +46,16 @@ export function ContextMenu({ state, onClose }: ContextMenuProps) {
     };
   }, [onClose]);
 
-  // Roughly keep the menu on screen.
+  // Keep the menu on screen; re-measure whenever the items change (a swapped submenu has another height).
+  const [size, setSize] = useState({ w: 220, h: state.items.length * 26 + 16 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) setSize({ w: el.offsetWidth, h: el.offsetHeight });
+  }, [state.items]);
   const style: CSSProperties = {
     position: "fixed",
-    left: Math.min(state.x, window.innerWidth - 220),
-    top: Math.min(state.y, window.innerHeight - state.items.length * 26 - 16),
+    left: Math.max(0, Math.min(state.x, window.innerWidth - size.w - 8)),
+    top: Math.max(0, Math.min(state.y, window.innerHeight - size.h - 8)),
   };
 
   return (
@@ -62,7 +69,7 @@ export function ContextMenu({ state, onClose }: ContextMenuProps) {
             onClick={() => {
               if (item.disabled) return;
               item.onClick();
-              onClose();
+              if (!item.keepOpen) onClose();
             }}
             className="block w-full bg-transparent px-3 py-1 text-left enabled:hover:bg-surface-4 disabled:opacity-40"
           >

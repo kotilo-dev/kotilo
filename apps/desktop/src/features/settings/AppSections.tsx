@@ -14,8 +14,10 @@ import { platformFeatures } from "../../lib/platform";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
 import { applyWindowOpacity } from "../../app/theme/applyTheme";
+import { DEFAULT_UI_SCALE, snapUiScale, UI_SCALES } from "../../app/ui/uiScale";
 import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, RangeSlider, Select } from "./controls";
 import { EditableList } from "./EditableList";
+import { FontField } from "./FontField";
 import { TerminalSchemePicker, ThemePicker, WtSchemeImport } from "./ThemeSettings";
 import { DEFAULT_BRANCH_PREFIX } from "../worktrees/worktreeLogic";
 
@@ -60,6 +62,35 @@ export function AppearanceSection() {
                 { value: "tr", label: s.settings.appearance.languageTurkish },
               ]}
             />
+          )}
+        </Field>
+        <Field label={s.settings.appearance.uiScale} hint={s.settings.appearance.uiScaleHint}>
+          {(ids) => (
+            <Select<string>
+              {...ids}
+              value={String(snapUiScale(appearance?.uiScale ?? DEFAULT_UI_SCALE))}
+              onChange={(v) => update({ appearance: { uiScale: Number(v) } })}
+              options={UI_SCALES.map((p) => ({ value: String(p), label: `${p}%` }))}
+            />
+          )}
+        </Field>
+        <Field label={s.settings.appearance.uiFontFamily}>
+          {({ id }) => (
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <FontField
+                  id={id}
+                  value={appearance?.uiFontFamily ?? ""}
+                  placeholder={s.settings.appearance.uiFontFamilyPlaceholder}
+                  onCommit={(v) => update({ appearance: { uiFontFamily: v.trim() } })}
+                />
+              </div>
+              {(appearance?.uiFontFamily ?? "") !== "" && (
+                <Button small onClick={() => update({ appearance: { uiFontFamily: "" } })}>
+                  {s.settings.appearance.uiFontFamilyReset}
+                </Button>
+              )}
+            </div>
           )}
         </Field>
         <Field label={s.settings.appearance.windowOpacity} hint={s.settings.appearance.windowOpacityHint}>
@@ -111,7 +142,7 @@ export function EditorSection() {
   return (
     <div className="flex max-w-md flex-col gap-5">
       <Field label={s.settings.appearance.editorFontFamily}>
-        {({ id }) => <DebouncedText id={id} value={editor.fontFamily} onCommit={(v) => update({ editor: { fontFamily: v } })} />}
+        {({ id }) => <FontField id={id} value={editor.fontFamily} fallback="monospace" onCommit={(v) => update({ editor: { fontFamily: v } })} />}
       </Field>
       <Field label={s.settings.appearance.editorFontSize}>
         {({ id }) => <DebouncedNumber id={id} value={editor.fontSize} onCommit={(v) => update({ editor: { fontSize: v } })} />}
@@ -134,7 +165,7 @@ export function TerminalSection() {
   return (
     <div className="flex max-w-md flex-col gap-5">
       <Field label={s.settings.terminal.fontFamily} hint={usesDetected ? s.settings.terminal.fontDetected(detected) : undefined}>
-        {({ id }) => <DebouncedText id={id} value={terminal.fontFamily} onCommit={(v) => update({ terminal: { fontFamily: v } })} />}
+        {({ id }) => <FontField id={id} value={terminal.fontFamily} fallback="monospace" onCommit={(v) => update({ terminal: { fontFamily: v } })} />}
       </Field>
       <Field label={s.settings.terminal.fontSize}>
         {({ id }) => <DebouncedNumber id={id} value={terminal.fontSize} onCommit={(v) => update({ terminal: { fontSize: v } })} />}

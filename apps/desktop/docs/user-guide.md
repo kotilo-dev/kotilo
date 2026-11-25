@@ -148,6 +148,16 @@ the UI (its expanded-folder state is remembered and restored when you switch bac
 Terminals and viewer tabs are per-workspace and keep running/open in the background
 when you switch away.
 
+**Groups:** sort workspaces into your own groups (for example *Work*, *Personal*,
+*Games*) on the Workspaces tab. Right-click a workspace → **Move to group…** lists your
+groups, **New group…** and **Remove from group**; right-click empty space for **New
+group…**. Right-click a group header to rename, delete (its workspaces become
+ungrouped) or move it. Click a header (or press Enter, ←/→ on it) to collapse it; the
+collapsed state is remembered, and a collapsed group shows a red count when one of its
+agents is waiting. Workspaces without a group are listed last under **Ungrouped**. The
+quick switcher in the Files header and `Ctrl+1`…`Ctrl+9` follow the same order
+(collapsed groups count too). **Move up/down** moves a workspace inside its group.
+
 **The file tree:**
 - Folders sort before files, alphabetically, case-insensitively.
 - Single-click a file to select it (viewer stays as-is); double-click (or Enter) opens
@@ -361,7 +371,9 @@ new prompt.
 ### The Agents panel
 
 The **Agents** panel (bottom of the left column) lists every detected agent process
-with its state. Rows are sorted blocked first, then done, working, idle. Clicking a
+with its state, in sections: **Waiting**, **Working**, **Done**, **Idle** (empty
+sections are hidden; inside a section the oldest state comes first). Click a section
+header to collapse it; the choice is remembered. Clicking a
 row jumps to that workspace and terminal tab (and turns a `done` row into `idle`).
 The active workspace's root shows a small dot for its most urgent agent state, each
 terminal tab shows a matching dot, and the status bar shows a count per state (idle
@@ -1050,7 +1062,7 @@ command palette. The section list is on the left.
 
 | Section | Settings |
 |---|---|
-| Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe), Background opacity (30–100 %: below 100 % the desktop shows through the window background and terminals while text stays solid, like Windows Terminal), Blur the background (acrylic, Windows only) |
+| Appearance | Theme (Dark, Light, System), Dark theme and Light theme (see [Themes and language](#themes-and-language)), Language (Same as Windows, English, Türkçe), Background opacity (30–100 %: below 100 % the desktop shows through the window background and terminals while text stays solid, like Windows Terminal), Blur the background (acrylic, Windows only), Interface scale (90–200 %: panels, menus and pages grow like Windows display scaling; the terminal and the editor keep their own font size; also **Increase/Decrease/Reset interface scale** in the command palette), Interface font (pick from **Installed fonts…** or type any installed font; empty = the built-in font, which is also used when the name is not found) |
 | Editor | Editor font family and size (8–32) for Monaco |
 | Terminal | Terminal font family (default Geist Mono) and size (8–32), applied live to every open terminal; default shell ("Automatic" picks pwsh → Windows PowerShell → cmd → Git Bash → WSL); copy on select; warn before pasting multiple lines; color scheme (Same as app, a theme, or an imported one), Import from Windows Terminal…; let programs copy to the clipboard (OSC 52) |
 | Quick commands | Saved shell commands and agent prompts, for every workspace or one folder (see [Quick commands](#quick-commands)) |

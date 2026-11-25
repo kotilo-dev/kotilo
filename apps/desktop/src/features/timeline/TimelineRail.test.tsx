@@ -115,6 +115,25 @@ describe("TimelineRail", () => {
     expect(await screen.findByTestId("timeline-rail")).toBeInTheDocument();
   });
 
+  it("toggles the viewer from the collapsed rail", () => {
+    useLayoutStore.setState({ layout: { ...DEFAULT_LAYOUT, timelineVisible: false, viewerVisible: true } });
+    render(<TimelineRail />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide viewer" }));
+    expect(useLayoutStore.getState().layout.viewerVisible).toBe(false);
+    const show = screen.getByRole("button", { name: "Show viewer" });
+    expect(show).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(show);
+    expect(useLayoutStore.getState().layout.viewerVisible).toBe(true);
+  });
+
+  it("toggles the viewer from the open rail's header", () => {
+    useLayoutStore.setState({ layout: { ...DEFAULT_LAYOUT, timelineVisible: true, viewerVisible: true } });
+    render(<TimelineRail />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide viewer" }));
+    expect(useLayoutStore.getState().layout.viewerVisible).toBe(false);
+    expect(screen.getByTestId("timeline-rail")).toBeInTheDocument();
+  });
+
   it("says when the workspace has no agent session", async () => {
     useHubStore.setState({ sessions: [] });
     render(<TimelineRail />);

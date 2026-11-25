@@ -2,6 +2,8 @@ import { useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import { useStrings } from "../../app/strings";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
+import { unscaledFontSize } from "../../app/ui/uiScale";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { fsReadText } from "../../lib/ipc";
 import { useDocument, useDocumentStore } from "../../stores/documentStore";
 import { languageForRel, monacoThemeFor } from "./renderers/TextEditor";
@@ -23,6 +25,8 @@ export function ExternalChangeBanner({ workspaceId, rel }: ExternalChangeBannerP
   const [diskText, setDiskText] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const theme = useResolvedTheme((s) => s.theme);
+  const editorFont = useSettingsStore((s) => s.settings.editor);
+  const uiScale = useSettingsStore((s) => s.settings.appearance?.uiScale);
 
   if (!doc || doc.status !== "ready" || !doc.external) return null;
 
@@ -73,7 +77,12 @@ export function ExternalChangeBanner({ workspaceId, rel }: ExternalChangeBannerP
               // with "/" (finding #1), so these path spaces never collide.
               originalModelPath={`compare-disk:${workspaceId}/${rel}`}
               modifiedModelPath={`compare-mine:${workspaceId}/${rel}`}
-              options={{ readOnly: true, renderSideBySide: true }}
+              options={{
+                readOnly: true,
+                renderSideBySide: true,
+                fontFamily: editorFont.fontFamily,
+                fontSize: unscaledFontSize(editorFont.fontSize, uiScale),
+              }}
             />
           </div>
         </div>

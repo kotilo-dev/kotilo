@@ -149,7 +149,7 @@ if ($Sign) {
 
 # --- 4. Tauri build ---------------------------------------------------------------------------
 $bundle = [ordered]@{
-    externalBin = @("binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-hub")
+    externalBin = @("binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-statusline", "binaries/$prefix-hub")
     # JSON merge patch: null drops the dev mapping (adapters incl. fixtures).
     resources   = [ordered]@{
         '../../../adapters/'          = $null

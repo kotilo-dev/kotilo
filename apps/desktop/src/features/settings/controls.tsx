@@ -205,10 +205,22 @@ export function Select<T extends string>({
   );
 }
 
-export function Checkbox({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
+export function Checkbox({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
   return (
     <label className="flex items-start gap-2.5 text-ui text-text">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-accent" />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-accent disabled:opacity-60" />
       <span className="flex flex-col gap-0.5">
         {label}
         {hint && <span className="text-meta text-muted">{hint}</span>}

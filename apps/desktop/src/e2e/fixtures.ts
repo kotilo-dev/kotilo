@@ -137,7 +137,9 @@ export const usageCurrent: UsageCurrent = {
 };
 
 export const limits: LimitDto[] = [
-  // Codex only: Claude Code plan limits need the status line helper, which is not built yet.
+  // Claude Code limits come from the status line helper (D-078), Codex from its rollout files.
+  { agent: "claude-code", window: "fiveHour", usedPercent: 42, resetsAt: iso(-130) },
+  { agent: "claude-code", window: "weekly", usedPercent: 18, resetsAt: iso(-4000) },
   { agent: "codex", window: "fiveHour", usedPercent: 62, resetsAt: iso(-120) },
   { agent: "codex", window: "weekly", usedPercent: 31, resetsAt: iso(-3000) },
 ];

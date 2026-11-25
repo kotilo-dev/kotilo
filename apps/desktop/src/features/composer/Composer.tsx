@@ -2,7 +2,8 @@
  * Per-pane composer (DESIGN_SYSTEM §7.6, M4): `❯` · a growing message field with `@` file
  * suggestions · attachment chips · saved prompts · mic · send. Send = one bracketed paste of
  * the message into the pane's PTY, then Enter. Every key handler is on the composer's own
- * elements, so the terminal keeps all of its keys; the composer never takes focus by itself.
+ * elements, so the terminal keeps all of its keys; the composer never takes focus by itself,
+ * and a successful send hands focus back to the terminal.
  * Dictated text arrives as `dictation:composer` for this pane – never through the OS.
  */
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
@@ -260,6 +261,8 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
       setText("");
       setAttachments([]);
       setMention(null);
+      // The agent answers in the terminal: hand focus over so the next keys (y/n, Esc) go there.
+      focusTerminal(tabId);
     } catch (e) {
       setNotice(c.sendFailed(toAppError(e).message));
     }

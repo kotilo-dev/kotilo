@@ -10,7 +10,7 @@ import { useStrings } from "../../app/i18n";
 import { AgentAvatar } from "../../app/ui/AgentAvatar";
 import { ConfirmModal } from "../../app/ConfirmModal";
 import { agentsDeleteUserDefinition, hooksInstall, hooksStatus, hooksUninstall, hubRequest, type UserAdapterDefinition } from "../../lib/ipc";
-import type { AdapterDto } from "../../lib/hubTypes";
+import type { AdapterDto, StatusLineStatusDto } from "../../lib/hubTypes";
 import { useAgentStore } from "../../stores/agentStore";
 import { useDefinitionsStore } from "../../stores/definitionsStore";
 import { platformFeatures } from "../../lib/platform";
@@ -115,7 +115,52 @@ function HookCard({ adapter, installed, onChanged }: { adapter: AdapterDto; inst
           )}
         </div>
       )}
+      {adapter.id === "claude-code" && <StatusLineControl />}
     </Card>
+  );
+}
+
+const STATUS_LINE_ROUTE = "/v1/adapters/claude-code/statusline";
+
+/** Claude Code: opt-in status line helper that feeds the 5-hour / weekly plan limits (D-078). */
+function StatusLineControl() {
+  const t = useStrings().agentSetup.statusLine;
+  const status = useHubResource<StatusLineStatusDto>(STATUS_LINE_ROUTE);
+  const [busy, setBusy] = useState(false);
+  const data = status.data;
+  if (!data) return null;
+  const on = data.state === "installed" || data.state === "outdated";
+
+  async function toggle(enable: boolean) {
+    setBusy(true);
+    try {
+      await hubRequest("POST", `${STATUS_LINE_ROUTE}/${enable ? "install" : "uninstall"}`);
+      await status.reload();
+    } catch (e) {
+      useToastStore.getState().show(t.failed(asAppError(e).message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+      <Checkbox
+        checked={on}
+        onChange={(v) => void toggle(v)}
+        label={t.label}
+        hint={t.hint}
+        disabled={busy || data.state === "invalidConfig" || (!on && !data.helperAvailable)}
+      />
+      {on && data.wrappedCommand && (
+        <span className="break-words font-mono text-meta text-muted" title={data.wrappedCommand}>
+          {t.chained(data.wrappedCommand)}
+        </span>
+      )}
+      {data.state === "outdated" && <Notice tone="warning">{t.outdated}</Notice>}
+      {data.state === "invalidConfig" && <Notice tone="warning">{t.invalid}</Notice>}
+      {!on && !data.helperAvailable && data.state !== "invalidConfig" && <Notice tone="warning">{t.helperMissing}</Notice>}
+    </div>
   );
 }
 

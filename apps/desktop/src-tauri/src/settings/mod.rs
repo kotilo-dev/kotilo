@@ -182,6 +182,22 @@ fn default_window_opacity() -> u32 {
     MAX_WINDOW_OPACITY
 }
 
+/// D-081: the interface scales the main window offers, in percent.
+pub const UI_SCALES: [u32; 7] = [90, 100, 110, 125, 150, 175, 200];
+
+fn default_ui_scale() -> u32 {
+    100
+}
+
+/// D-081: an unknown value snaps to the nearest offered scale.
+fn nearest_ui_scale(value: u32) -> u32 {
+    UI_SCALES
+        .iter()
+        .copied()
+        .min_by_key(|s| s.abs_diff(value))
+        .unwrap_or(100)
+}
+
 /// D-057: the colour theme used in dark and in light mode (`theme` picks the mode). Ids come
 /// from the UI's built-in catalogue; an unknown id falls back to Kotilo there.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -198,6 +214,13 @@ pub struct AppearanceSettings {
     /// D-065: blur what shows through a translucent window (Windows acrylic).
     #[serde(default)]
     pub acrylic: bool,
+    /// D-081: zoom of the main window in percent (one of [`UI_SCALES`]); the terminal and
+    /// the editor divide their font size by it, so they keep the size the user set.
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: u32,
+    /// D-081: interface font family; empty = the bundled default. Only the UI reads it.
+    #[serde(default)]
+    pub ui_font_family: String,
 }
 
 impl Default for AppearanceSettings {
@@ -207,6 +230,8 @@ impl Default for AppearanceSettings {
             light_theme: default_light_theme(),
             window_opacity: default_window_opacity(),
             acrylic: false,
+            ui_scale: default_ui_scale(),
+            ui_font_family: String::new(),
         }
     }
 }
@@ -215,6 +240,11 @@ impl AppearanceSettings {
     /// Whether anything behind the window shows through (then the window effect applies).
     pub fn is_translucent(&self) -> bool {
         self.window_opacity < MAX_WINDOW_OPACITY
+    }
+
+    /// D-081: the main window's webview zoom factor.
+    pub fn zoom_factor(&self) -> f64 {
+        f64::from(self.ui_scale) / 100.0
     }
 }
 
@@ -670,6 +700,8 @@ pub fn validate_and_normalize(mut settings: Settings) -> AppResult<Settings> {
         .appearance
         .window_opacity
         .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
+    settings.appearance.ui_scale = nearest_ui_scale(settings.appearance.ui_scale);
+    settings.appearance.ui_font_family = settings.appearance.ui_font_family.trim().to_string();
     settings.agents.away_summary_minutes = settings
         .agents
         .away_summary_minutes
@@ -1096,6 +1128,19 @@ mod tests {
         let out = validate_and_normalize(s).unwrap();
         assert_eq!(out.appearance.window_opacity, MAX_WINDOW_OPACITY);
         assert!(!out.appearance.is_translucent());
+    }
+
+    #[test]
+    fn validate_snaps_ui_scale_and_trims_ui_font() {
+        assert_eq!(Settings::default().appearance.ui_scale, 100);
+        for (input, expected) in [(130, 125), (10, 90), (999, 200), (150, 150)] {
+            let mut s = Settings::default();
+            s.appearance.ui_scale = input;
+            assert_eq!(validate_and_normalize(s).unwrap().appearance.ui_scale, expected);
+        }
+        let mut s = Settings::default();
+        s.appearance.ui_font_family = "  Inter ".into();
+        assert_eq!(validate_and_normalize(s).unwrap().appearance.ui_font_family, "Inter");
     }
 
     #[test]

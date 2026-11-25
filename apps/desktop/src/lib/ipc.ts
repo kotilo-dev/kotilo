@@ -263,11 +263,21 @@ export interface Workspace {
   /** `dunce::canonicalize` çıktısı (faz2-spec §8.4) — gösterim ve "Yolu kopyala" bunu kullanır. */
   path: string;
   expandedDirs: string[];
+  /** D-080: id of the user group it is listed under; absent = ungrouped. */
+  group?: string;
+}
+
+/** D-080: a user-defined section of the Workspaces list. */
+export interface WorkspaceGroup {
+  id: string;
+  name: string;
 }
 
 export interface WorkspacesState {
   workspaces: Workspace[];
   activeId: string | null;
+  /** D-080: display order of the group sections. Missing from older backends/fixtures. */
+  groups?: WorkspaceGroup[];
 }
 
 /** Sıralı: klasör önce, case-insensitive ad (backend garantisi). */
@@ -320,6 +330,29 @@ export async function workspaceRename(id: string, name: string): Promise<void> {
 /** `ids` mevcut kümenin permütasyonu olmalı. */
 export async function workspaceReorder(ids: string[]): Promise<void> {
   await invoke<void>("workspace_reorder", { ids });
+}
+
+/** D-080: creates a group (empty/duplicate name → `invalid_name`/`already_exists`); with `workspaceId` it also moves that workspace in, in one step. */
+export async function workspaceGroupCreate(name: string, workspaceId?: string): Promise<void> {
+  await invoke<void>("workspace_group_create", { name, workspaceId: workspaceId ?? null });
+}
+
+export async function workspaceGroupRename(id: string, name: string): Promise<void> {
+  await invoke<void>("workspace_group_rename", { id, name });
+}
+
+/** D-080: the group's workspaces become ungrouped. */
+export async function workspaceGroupRemove(id: string): Promise<void> {
+  await invoke<void>("workspace_group_remove", { id });
+}
+
+export async function workspaceGroupMove(id: string, direction: "up" | "down"): Promise<void> {
+  await invoke<void>("workspace_group_move", { id, direction });
+}
+
+/** D-080: `groupId` null = ungrouped; the workspace goes to the end of that section. */
+export async function workspaceSetGroup(workspaceId: string, groupId: string | null): Promise<void> {
+  await invoke<void>("workspace_set_group", { workspaceId, groupId });
 }
 
 export async function workspaceSetActive(id: string): Promise<void> {
@@ -560,6 +593,11 @@ export async function appInfo(): Promise<AppInfo> {
 /** D-055: an installed Nerd Font family (Windows Terminal's choice first) for the default terminal font, or null. */
 export async function terminalFontSuggestion(): Promise<string | null> {
   return invoke<string | null>("terminal_font_suggestion");
+}
+
+/** Installed font families for the Settings font pickers (empty when the platform has no list). */
+export async function fontsInstalled(): Promise<string[]> {
+  return invoke<string[]>("fonts_installed");
 }
 
 /** D-057: colour schemes found in Windows Terminal's settings (read only; empty when none). */
@@ -870,7 +908,8 @@ export interface Settings {
   theme: ThemeName;
   /** D-057: colour theme ids (built-in catalogue in `app/theme`); unknown ids fall back to Kotilo. */
   /** D-065: `windowOpacity` is the background's opacity in percent (30–100, text stays opaque). */
-  appearance: { darkTheme: string; lightTheme: string; windowOpacity: number; acrylic: boolean };
+  /** D-081: `uiScale` = main window zoom in percent (90…200); `uiFontFamily` "" = bundled default. Optional for older fixtures. */
+  appearance: { darkTheme: string; lightTheme: string; windowOpacity: number; acrylic: boolean; uiScale?: number; uiFontFamily?: string };
   editor: { fontFamily: string; fontSize: number };
   terminal: {
     fontFamily: string;

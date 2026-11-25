@@ -4,13 +4,14 @@
  * with Open terminal / Compare / Merge / Remove. Unmanaged worktrees (made by another tool
  * inside the workspace) get no Merge/Remove. Lists refresh on file events while shown.
  */
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useStrings } from "../../app/i18n";
 import { AgentAvatar, Button, SectionLabel } from "../../app/ui";
 import type { Agent, Workspace, WorktreeInfo } from "../../lib/ipc";
 import { useAgentStore } from "../../stores/agentStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { displayOrder } from "../workspaces/groups";
 import { useWorktreeStore } from "../../stores/worktreeStore";
 import { AgentBadge } from "../agents/AgentBadge";
 import { navigateToAgent } from "../agents/navigate";
@@ -23,7 +24,9 @@ const ROW_BUTTON = "h-7 whitespace-nowrap px-2 text-small";
 
 export function WorktreesPanel() {
   const s = useStrings();
-  const workspaces = useWorkspaceStore((st) => st.workspaces);
+  const rawWorkspaces = useWorkspaceStore((st) => st.workspaces);
+  const groups = useWorkspaceStore((st) => st.groups);
+  const workspaces = useMemo(() => displayOrder(rawWorkspaces, groups), [rawWorkspaces, groups]);
   if (workspaces.length === 0) return null;
   return (
     <section aria-labelledby="worktrees-title" className="flex flex-col gap-2.5" data-testid="worktrees-panel">

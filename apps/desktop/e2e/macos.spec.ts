@@ -60,8 +60,9 @@ test("macOS · Cmd shortcuts and labels in the palette and nav rail", async ({ p
   await expect(page.locator('[data-route="settings"]')).toHaveAttribute("aria-current", "page");
 });
 
-test("macOS · the tree's context menu names Finder", async ({ page }) => {
+test("macOS · the workspace context menu names Finder", async ({ page }) => {
   await openMac(page, "&workspaces=2");
+  await page.getByTestId("workspace-panel-tabs").getByRole("tab").first().click();
   await page.getByTitle("billing-api", { exact: true }).click({ button: "right" });
   await expect(page.getByRole("button", { name: "Open in Finder" })).toBeVisible();
   await page.screenshot({ path: "test-results/screens/macos-context-menu.png" });

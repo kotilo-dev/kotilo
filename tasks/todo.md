@@ -1,3 +1,12 @@
+## Görev dosyaları
+
+- 2026-11-25 · Workspace grupları, durum gruplu ajanlar, arayüz ölçeği ve fontu · TAMAMLANDI · [dosya](2026-11-25-gruplar-ve-olcek.md)
+- 2026-11-22 · Bu sürümün UI düzeltmeleri (toplu takip, commit öncesi) · DEVAM EDİYOR · [dosya](2026-11-22-ui-surumu.md)
+- 2026-11-22 · Bitmiş turda "Working"de takılan Claude oturumu · TAMAMLANDI · [dosya](2026-11-22-working-stuck.md)
+- 2026-11-22 · Claude Code plan limitleri (status line yardımcısı) · TAMAMLANDI · [dosya](2026-11-22-claude-plan-limits.md)
+- 2026-11-22 · Workspace paneli: sekmeler + seçici (A+B) · TAMAMLANDI · [dosya](2026-11-22-workspace-panel-tabs.md)
+- 2026-11-22 · Siteye "Other apps" sayfası · TAMAMLANDI · [dosya](2026-11-22-site-other-apps.md)
+
 # Roadmap after 0.5 (agreed 2026-11-09)
 
 Input: "Kotilo Docs – Modül Spesifikasyonu" (Downloads, 2026-11-05) with five more module ideas. Taken in this order: **0.6 Worktrees → 0.7 Docs (narrowed) → Usage extras → Context (read-only) → watch rules (Guard without blocking)**. Left out: the `KotiloModule` loader and moving Usage into it (no code plugins, PRD §5.5), a Node core (`@kotilo/docs-core`, ts-morph, better-sqlite3 – logic goes into the hub), a separate MIT repo, ABAP/abapGit/RAP, an MCP server for now (new surface that writes agent configs; its own phase later), blocking Guard (the hook always exits 0 and prints nothing, so a down Kotilo never breaks an agent), storing prompts for Review (rule 5).

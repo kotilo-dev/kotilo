@@ -17,6 +17,7 @@ import { useViewerStore, type RevealTarget } from "../../../stores/viewerStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { strings, useStrings } from "../../../app/strings";
 import { useResolvedTheme } from "../../../app/theme/resolvedTheme";
+import { unscaledFontSize } from "../../../app/ui/uiScale";
 
 loader.config({ monaco });
 
@@ -70,6 +71,7 @@ export function TextEditor({ workspaceId, rel, language }: TextEditorProps) {
   const editorRef = useRef<MonacoEditorNs.IStandaloneCodeEditor | null>(null);
   const theme = useResolvedTheme((s) => s.theme);
   const editorFont = useSettingsStore((s) => s.settings.editor);
+  const uiScale = useSettingsStore((s) => s.settings.appearance?.uiScale);
 
   // faz4-spec §2.6: `RendererProps` has a fixed shape (see `types.ts`), so the reveal request
   // doesn't flow as a prop — TextEditor finds its tab in viewerStore by (workspaceId, rel). It
@@ -150,7 +152,7 @@ export function TextEditor({ workspaceId, rel, language }: TextEditorProps) {
           options={{
             readOnly: doc.readOnly,
             fontFamily: editorFont.fontFamily,
-            fontSize: editorFont.fontSize,
+            fontSize: unscaledFontSize(editorFont.fontSize, uiScale),
             minimap: { enabled: false },
             automaticLayout: true,
           }}

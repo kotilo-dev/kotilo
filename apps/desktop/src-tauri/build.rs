@@ -1,5 +1,5 @@
 //! Faz 5 §1.2 / §4 item 2: builds the `agenthub-hook` sidecar (and, since 0.7, the
-//! `agenthub-docs` CLI) *before* `tauri_build::build()` runs, so `bundle.externalBin` in
+//! `agenthub-docs` CLI, and, per D-078, the `agenthub-statusline` helper) *before* `tauri_build::build()` runs, so `bundle.externalBin` in
 //! `tauri.conf.json` always finds `src-tauri/binaries/<exePrefix>-hook-<TARGET>.exe` and
 //! `<exePrefix>-docs-<TARGET>.exe` — both for `npm run tauri dev` (Tauri copies the sidecars
 //! into the dev target dir) and `npm run tauri build` (Tauri bundles them), from a clean clone
@@ -188,9 +188,14 @@ const SCRUBBED_ENV_VARS: [&str; 4] = [
     "RUSTC_WORKSPACE_WRAPPER",
 ];
 
-/// The sidecars Tauri bundles: (cargo package = binary, suffix after `<exePrefix>-`). The cargo
+/// The sidecars Tauri bundles: (cargo package, binary, suffix after `<exePrefix>-`). The cargo
 /// names stay internal (`agenthub-*`); the bundled copies are named after the brand's exe prefix.
-const SIDECARS: [(&str, &str); 2] = [("agenthub-hook", "hook"), ("agenthub-docs", "docs")];
+/// `agenthub-statusline` (D-078) is a second binary of the hook package.
+const SIDECARS: [(&str, &str, &str); 3] = [
+    ("agenthub-hook", "agenthub-hook", "hook"),
+    ("agenthub-hook", "agenthub-statusline", "statusline"),
+    ("agenthub-docs", "agenthub-docs", "docs"),
+];
 
 fn build_sidecars(exe_prefix: &str) {
     let manifest_dir = PathBuf::from(
@@ -207,6 +212,8 @@ fn build_sidecars(exe_prefix: &str) {
     for path in [
         agenthub_hook_dir.join("src").join("main.rs"),
         agenthub_hook_dir.join("src").join("lib.rs"),
+        agenthub_hook_dir.join("src").join("statusline.rs"),
+        agenthub_hook_dir.join("src").join("statusline_main.rs"),
         agenthub_hook_dir.join("Cargo.toml"),
         docs_dir.join("Cargo.toml"),
         docs_dir.join("build.rs"),
@@ -239,7 +246,7 @@ fn build_sidecars(exe_prefix: &str) {
     let dest_dir = manifest_dir.join("binaries");
     let dests: Vec<PathBuf> = SIDECARS
         .iter()
-        .map(|(_, suffix)| dest_dir.join(format!("{exe_prefix}-{suffix}-{target}{exe_suffix}")))
+        .map(|(_, _, suffix)| dest_dir.join(format!("{exe_prefix}-{suffix}-{target}{exe_suffix}")))
         .collect();
 
     // Also rerun if a produced binary itself was deleted by hand (e.g. the clean-state
@@ -258,8 +265,8 @@ fn build_sidecars(exe_prefix: &str) {
     let mut cmd = Command::new(&cargo);
     cmd.current_dir(&workspace_root);
     cmd.arg("build");
-    for (package, _) in SIDECARS {
-        cmd.args(["-p", package, "--bin", package]);
+    for (package, bin, _) in SIDECARS {
+        cmd.args(["-p", package, "--bin", bin]);
     }
     cmd.args(["--release", "--target", &target, "--target-dir"]);
     cmd.arg(&sidecar_target_dir);
@@ -274,11 +281,11 @@ fn build_sidecars(exe_prefix: &str) {
         panic!("`cargo build --release` of the sidecars ({SIDECARS:?}) failed with {status}");
     }
 
-    for ((package, _), dest) in SIDECARS.iter().zip(&dests) {
+    for ((_, bin, _), dest) in SIDECARS.iter().zip(&dests) {
         let built_exe = sidecar_target_dir
             .join(&target)
             .join("release")
-            .join(format!("{package}{exe_suffix}"));
+            .join(format!("{bin}{exe_suffix}"));
         copy_sidecar(&built_exe, dest);
     }
 }
@@ -325,6 +332,7 @@ fn check_tauri_config(manifest_dir: &Path, brand: &serde_json::Value) {
     let name = brand_str(brand, "name");
     let expected_bin = format!("binaries/{}-hook", brand_str(brand, "exePrefix"));
     let expected_docs_bin = format!("binaries/{}-docs", brand_str(brand, "exePrefix"));
+    let expected_statusline_bin = format!("binaries/{}-statusline", brand_str(brand, "exePrefix"));
     let checks = [
         ("productName", conf.pointer("/productName"), name),
         (
@@ -336,6 +344,7 @@ fn check_tauri_config(manifest_dir: &Path, brand: &serde_json::Value) {
         ("app.windows[0].title", conf.pointer("/app/windows/0/title"), name),
         ("bundle.externalBin[0]", conf.pointer("/bundle/externalBin/0"), expected_bin.as_str()),
         ("bundle.externalBin[1]", conf.pointer("/bundle/externalBin/1"), expected_docs_bin.as_str()),
+        ("bundle.externalBin[2]", conf.pointer("/bundle/externalBin/2"), expected_statusline_bin.as_str()),
     ];
     let mismatches: Vec<String> = checks
         .iter()

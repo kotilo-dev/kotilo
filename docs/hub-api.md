@@ -46,6 +46,10 @@ Fields:
 | `GET /v1/adapters` | `AdapterDto[]`: built-in adapters first (display order), then user adapters by id |
 | `POST /v1/adapters/reload` | Re-reads the built-in and user `adapter.json` files → `200 AdapterDto[]` |
 | `POST /v1/adapters/{id}/hooks/install` / `…/uninstall` | `200 HookActionResult`; `404 unknownAdapter` (no usable adapter with that id); `409 noHooks` (protocol adapter); `422 invalidConfig`; `500 io` |
+| `GET /v1/adapters/claude-code/statusline` | `StatusLineStatus` (below) |
+| `POST /v1/adapters/claude-code/statusline/install` / `…/uninstall` | `200 StatusLineActionResult`; `409 helperMissing` (install: the `kotilo-statusline` exe is not next to the app); `422 invalidConfig` (settings.json is not valid JSON, left untouched); `500 io` |
+
+Claude Code status line (D-078): the only way Claude Code reports its 5-hour and weekly plan limits. `StatusLineStatus`: `{ state, configPath, wrappedCommand, helperAvailable }`. `state` is `missing` (no `statusLine`, or the user's own) | `installed` | `outdated` (ours, but pointing at another exe) | `invalidConfig` (settings.json unreadable). `wrappedCommand` is the user's own previous command that the helper chains, or `null`; `helperAvailable` says whether the helper exe exists in the tools folder. `StatusLineActionResult`: `{ state, backupPath, wrappedCommand }`. Install is backup-first, keeps other `statusLine` keys (`padding`, `refreshInterval`, …) and stores the user's command in `statusline.json` (read by the helper); uninstall restores it. The helper posts Claude's JSON to `POST /v1/statusline`.
 
 `AdapterDto`: `{ id, displayName, source: "builtIn" | "user", definition, hooks, error }`.
 - `definition` is the `adapter.json` object as written ([`schema/adapter.v1.json`](../schema/adapter.v1.json): avatar, detect, launch, gracefulClose, permissionKeys, hooks, usage, screenRules), or `null` when the file is missing or invalid.

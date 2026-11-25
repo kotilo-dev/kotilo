@@ -78,7 +78,36 @@ function RefreshIcon() {
   );
 }
 
-const SECTION_LABEL = "text-label font-semibold uppercase tracking-[0.08em] text-faint";
+function ViewerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+/** Shows or hides the viewer column; sits below the timeline's own toggle (pressed = visible). */
+function ViewerToggle() {
+  const strings = useStrings();
+  const viewerVisible = useLayoutStore((s) => s.layout.viewerVisible);
+  const label = viewerVisible ? strings.timeline.hideViewer : strings.timeline.showViewer;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={viewerVisible}
+      title={label}
+      onClick={() => useLayoutStore.getState().toggleViewer()}
+      className={`flex size-6 items-center justify-center rounded-control hover:bg-surface-4 hover:text-text ${viewerVisible ? "text-accent" : "text-muted"}`}
+    >
+      <ViewerIcon />
+    </button>
+  );
+}
+
+const SECTION_LABEL ="text-label font-semibold uppercase tracking-[0.08em] text-faint";
 
 export function TimelineRail() {
   const strings = useStrings();
@@ -88,7 +117,7 @@ export function TimelineRail() {
 
   if (!visible) {
     return (
-      <div className="flex h-full w-7 shrink-0 flex-col items-center border-l border-border bg-surface-1 pt-1.5">
+      <div className="flex h-full w-7 shrink-0 flex-col items-center gap-1 border-l border-border bg-surface-1 pt-1.5">
         <button
           type="button"
           aria-label={strings.timeline.show}
@@ -98,6 +127,7 @@ export function TimelineRail() {
         >
           <ChevronIcon direction="left" />
         </button>
+        <ViewerToggle />
       </div>
     );
   }
@@ -112,6 +142,8 @@ export function TimelineRail() {
       <ResizeHandle width={width} />
       <div className="flex h-8 shrink-0 items-center justify-between border-b border-border bg-surface-3 pl-3 pr-1.5 text-xs font-semibold tracking-wide text-muted">
         <span>{strings.timeline.title.toUpperCase()}</span>
+        <span className="flex-1" />
+        <ViewerToggle />
         <button
           type="button"
           aria-label={strings.timeline.hide}

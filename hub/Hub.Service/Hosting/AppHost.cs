@@ -50,6 +50,7 @@ public sealed class AppHost : IAsyncDisposable
         Usage.AddSources(integrations.SelectMany(i => i.UsageSources));
         Pipeline.UsageReported += Usage.RecordReported;
         Ingest.Modules.Add(app => Api.AdapterEndpoints.Map(app, Adapters));
+        Ingest.Modules.Add(app => Api.StatusLineEndpoints.Map(app, this));
         Usage.EntriesReloaded += PushSessionUsage;
         Projects.SessionTasksChanged += (id, tasks) => Pipeline.Post((tracker, _) => tracker.ApplyTasks(id, tasks));
         Insights = new InsightsService(db, Repository, Usage.Repository, () => Tracker.Snapshot) { GitEnabled = settings.Insights.GitEnabled };

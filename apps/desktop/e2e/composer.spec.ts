@@ -84,11 +84,13 @@ test("composer · mentions, image chip, dictation, saved prompts, send", async (
   await page.screenshot({ path: "test-results/screens/composer-saved-prompts-dark.png" });
   await page.keyboard.press("Escape");
 
-  // Send: the text goes into the PTY, then Enter.
+  // Send with Enter: the text goes into the PTY, then Enter, and focus moves to the terminal.
   await page.evaluate(() => window.__e2ePtyWrites.splice(0));
   await input.fill("run the approval tests");
-  await page.getByRole("button", { name: "Send (Enter)" }).click();
+  await input.press("Enter");
   await expect(input).toHaveValue("");
+  await expect(page.locator(".xterm-helper-textarea:focus")).toHaveCount(1);
+  await expect(input).not.toBeFocused();
   await expect.poll(() => page.evaluate(() => window.__e2ePtyWrites.slice(-2))).toEqual([
     expect.stringContaining("run the approval tests @.kotilo/attachments/screenshot-20261008-101500.png"),
     "\r",

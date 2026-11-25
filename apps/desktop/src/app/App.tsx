@@ -7,6 +7,7 @@ import { RoutePage } from "./RoutePage";
 import { registerRouteCommands } from "./routeCommands";
 import { installThemeSync } from "./theme/themeSync";
 import { installMotionPause } from "./ui/motionPause";
+import { registerUiScaleCommands } from "./ui/uiScaleCommands";
 import { useResolvedTheme } from "./theme/resolvedTheme";
 import { initHubStore } from "../stores/hubStore";
 import { useRouteStore } from "../stores/routeStore";
@@ -18,6 +19,7 @@ import { HelpModal } from "../features/help/HelpModal";
 import { openHelpFromF1, useHelpStore } from "../features/help/helpStore";
 import { WorkspacesPanel } from "../features/workspaces/WorkspacesPanel";
 import { openAddWorkspaceDialog } from "../features/workspaces/addWorkspaceDialog";
+import { displayOrder } from "../features/workspaces/groups";
 import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { TerminalPanel } from "../features/terminal/TerminalPanel";
 import { focusTerminal } from "../features/terminal/terminalRegistry";
@@ -228,11 +230,13 @@ export function App() {
           category: () => strings.commandCategories.workspaces,
           keybinding: `Mod+${i + 1}`,
           run: () => {
-            const ws = useWorkspaceStore.getState().workspaces[i];
+            const { workspaces, groups } = useWorkspaceStore.getState();
+            const ws = displayOrder(workspaces, groups)[i];
             if (ws) void useWorkspaceStore.getState().setActive(ws.id);
           },
         }),
       ),
+      ...registerUiScaleCommands(),
       // M2 shell: one command per route, Alt+1…Alt+9 (Ctrl+1…9 already switch workspaces).
       ...registerRouteCommands(),
       // faz6-spec §5: QuickPick. File mode goes to the terminal while it has focus

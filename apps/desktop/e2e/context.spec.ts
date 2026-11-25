@@ -18,7 +18,8 @@ async function open(page: Page, query: string): Promise<string[]> {
   return errors;
 }
 
-const treeRow = (page: Page, name: string) => page.locator("div.group").filter({ has: page.getByTitle(name, { exact: true }) });
+/** The workspace's row on the Workspaces tab. */
+const workspaceRow = (page: Page, name: string) => page.getByRole("option").filter({ has: page.getByTitle(name, { exact: true }) });
 const fileRow = (page: Page, display: string) => page.locator(`[data-testid="context-file"][data-path="${display}"]`);
 
 const LABELS = {
@@ -31,7 +32,8 @@ for (const theme of ["dark", "light"] as const) {
     test(`context · tab from the workspace menu · ${theme} · ${lang}`, async ({ page }) => {
       const l = LABELS[lang];
       const errors = await open(page, `theme=${theme}&lang=${lang}&context=demo`);
-      await treeRow(page, "orders-service").click({ button: "right" });
+      await page.getByTestId("workspace-panel-tabs").getByRole("tab").first().click();
+      await workspaceRow(page, "orders-service").click({ button: "right" });
       await page.getByRole("button", { name: l.menu }).click();
       const view = page.getByTestId("context-view");
       await expect(view).toHaveAttribute("data-agent", "claude-code");

@@ -45,9 +45,16 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
     private static readonly string[] BackgroundLabelFields = ["description", "agent_type", "name", "type"];
 
     /// <summary>
-    /// <c>background_tasks</c> (shell, subagent, monitor, workflow, teammate, …): one short label per entry, taken from the
-    /// first of <c>description</c>, <c>agent_type</c>, <c>name</c>, <c>type</c>. The element shape is not documented in
-    /// detail, so anything else is ignored; an entry without a label still counts. Null when the field is missing.
+    /// D-079: the <c>background_tasks</c> types that are work a paused turn waits for. Anything else (an artifact's
+    /// live-update subscription, <c>monitor</c>, <c>MCP task</c>, unknown types) can stay open for the whole session and
+    /// must not keep it Working.
+    /// </summary>
+    private static readonly string[] WorkTaskTypes = ["shell", "subagent", "workflow", "teammate", "cloud session"];
+
+    /// <summary>
+    /// <c>background_tasks</c>: one short label per work entry (D-079), taken from the first of <c>description</c>,
+    /// <c>agent_type</c>, <c>name</c>, <c>type</c>; a bare string entry is its type. An empty list when nothing is work,
+    /// null when the field is missing.
     /// </summary>
     internal static IReadOnlyList<string>? BackgroundTasks(JsonElement payload)
     {
@@ -59,7 +66,7 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
         }
 
         return v.EnumerateArray()
-            .Where(x => x.ValueKind is JsonValueKind.Object or JsonValueKind.String)
+            .Where(IsWorkTask)
             .Take(MaxBackgroundTasks)
             .Select(Label)
             .ToList();
@@ -74,6 +81,17 @@ public sealed class ClaudeCodeAdapter : IAgentAdapter
             label = string.IsNullOrWhiteSpace(label) ? "task" : label.Trim().ReplaceLineEndings(" ");
             return AdapterMapping.Clip(label, MaxBackgroundLabelLength)!;
         }
+    }
+
+    private static bool IsWorkTask(JsonElement task)
+    {
+        var kind = task.ValueKind switch
+        {
+            JsonValueKind.String => task.GetString(),
+            JsonValueKind.Object => JsonFields.GetString(task, "type"),
+            _ => null,
+        };
+        return kind is not null && WorkTaskTypes.Contains(kind.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private static HookEventKind Kind(string name) =>

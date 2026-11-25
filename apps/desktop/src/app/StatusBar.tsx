@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStrings } from "./strings";
 import { useHelpStore } from "../features/help/helpStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
@@ -7,12 +5,10 @@ import { useViewerStore } from "../stores/viewerStore";
 import { useDocument } from "../stores/documentStore";
 import { useAgentStore } from "../stores/agentStore";
 import { countsByState } from "../features/agents/agentLogic";
-import { gitHead, type GitHead } from "../lib/ipc";
+import { useGitHead } from "../features/workspaces/useGitHead";
 import { PaneStatusDot } from "../features/workspace/PaneStatus";
 import { visualStateForAgent } from "../features/workspace/paneSession";
 import { PomodoroChip } from "../features/companion/PomodoroChip";
-
-const GIT_HEAD_POLL_MS = 5000;
 
 /**
  * Git branch/detached SHA (faz6-spec §6). Refreshed immediately when the active workspace
@@ -20,59 +16,7 @@ const GIT_HEAD_POLL_MS = 5000;
  * Shows nothing without a repo (`null`).
  */
 function GitBranch({ workspaceId }: { workspaceId: string }) {
-  const [head, setHead] = useState<GitHead | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let interval: ReturnType<typeof setInterval> | undefined;
-
-    async function refresh() {
-      try {
-        const result = await gitHead(workspaceId);
-        if (!cancelled) setHead(result);
-      } catch {
-        if (!cancelled) setHead(null);
-      }
-    }
-
-    function startPolling() {
-      if (interval) return;
-      interval = setInterval(() => void refresh(), GIT_HEAD_POLL_MS);
-    }
-    function stopPolling() {
-      if (interval) {
-        clearInterval(interval);
-        interval = undefined;
-      }
-    }
-
-    void refresh();
-
-    let unlistenFocus: (() => void) | undefined;
-    const win = getCurrentWindow();
-    void win.isFocused().then((focused) => {
-      if (!cancelled && focused) startPolling();
-    });
-    void win
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) {
-          void refresh();
-          startPolling();
-        } else {
-          stopPolling();
-        }
-      })
-      .then((fn) => {
-        if (cancelled) fn();
-        else unlistenFocus = fn;
-      });
-
-    return () => {
-      cancelled = true;
-      stopPolling();
-      unlistenFocus?.();
-    };
-  }, [workspaceId]);
+  const head = useGitHead(workspaceId);
 
   if (!head) return null;
   return <span> {head.kind === "branch" ? head.name : head.sha}</span>;

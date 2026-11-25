@@ -141,6 +141,19 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(useSettingsStore.getState().settings.theme).toBe("light"));
   });
 
+  it("interface scale and font apply to the settings (D-081)", async () => {
+    render(<SettingsPage />);
+    fireEvent.change(screen.getByLabelText(strings.settings.appearance.uiScale), { target: { value: "125" } });
+    await waitFor(() => expect(useSettingsStore.getState().settings.appearance.uiScale).toBe(125));
+    expect(screen.queryByRole("button", { name: strings.settings.appearance.uiFontFamilyReset })).not.toBeInTheDocument();
+    const font = screen.getByLabelText(strings.settings.appearance.uiFontFamily);
+    fireEvent.change(font, { target: { value: "Inter" } });
+    fireEvent.blur(font);
+    await waitFor(() => expect(useSettingsStore.getState().settings.appearance.uiFontFamily).toBe("Inter"));
+    fireEvent.click(screen.getByRole("button", { name: strings.settings.appearance.uiFontFamilyReset }));
+    await waitFor(() => expect(useSettingsStore.getState().settings.appearance.uiFontFamily).toBe(""));
+  });
+
   describe("About (moved from the Settings dialog)", () => {
     beforeEach(() => useSettingsPageStore.setState({ section: "about" }));
 

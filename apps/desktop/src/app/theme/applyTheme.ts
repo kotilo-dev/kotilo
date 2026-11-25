@@ -34,6 +34,29 @@ export function applyWindowOpacity(percent: number | undefined, root: HTMLElemen
   }
 }
 
+const UI_FONT_FALLBACK = '"Geist", "Segoe UI", system-ui, sans-serif';
+
+const GENERIC_FAMILIES = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-sans-serif", "ui-serif", "ui-monospace"]);
+
+/**
+ * D-081: the `--font-ui` value for a user-typed family list ("Inter, Segoe UI"), or null when
+ * empty (stylesheet default). Each name is sanitized and quoted, generic names stay bare.
+ */
+export function uiFontStack(family: string | undefined): string | null {
+  const names = (family ?? "")
+    .split(",")
+    .map((n) => n.replace(/["'`;{}\\<>]/g, "").replace(/\s+/g, " ").trim())
+    .filter((n) => n !== "")
+    .map((n) => (GENERIC_FAMILIES.has(n.toLowerCase()) ? n.toLowerCase() : `"${n}"`));
+  return names.length > 0 ? `${names.join(", ")}, ${UI_FONT_FALLBACK}` : null;
+}
+
+export function applyUiFont(family: string | undefined, root: HTMLElement = document.documentElement): void {
+  const stack = uiFontStack(family);
+  if (stack) root.style.setProperty("--font-ui", stack);
+  else root.style.removeProperty("--font-ui");
+}
+
 /** Resolves the theme from the settings, applies it and publishes it in `useResolvedTheme`. */
 export function applyAppearance(
   settings: Pick<Settings, "theme"> & { appearance?: Partial<Settings["appearance"]> },
@@ -43,6 +66,7 @@ export function applyAppearance(
   const theme = resolveAppTheme(settings, prefersDark);
   applyAppTheme(theme, root);
   applyWindowOpacity(settings.appearance?.windowOpacity, root);
+  applyUiFont(settings.appearance?.uiFontFamily, root);
   const current = useResolvedTheme.getState();
   if (current.theme !== theme.kind || current.id !== theme.id) useResolvedTheme.setState({ theme: theme.kind, id: theme.id });
   return theme;

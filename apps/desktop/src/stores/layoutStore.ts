@@ -16,7 +16,7 @@
  * `StateStore`'unda).
  */
 import { create } from "zustand";
-import { loadState, saveStateSlice } from "../lib/ipc";
+import { loadState, saveStateSlice, type AgentState } from "../lib/ipc";
 
 export interface ColumnSizes {
   left: number;
@@ -45,6 +45,10 @@ export interface LayoutSlice {
   timelineVisible: boolean;
   timelineWidth: number;
   timelineSplitSizes: TimelineSplitSizes;
+  /** D-080: ids of collapsed workspace groups (view state, so it lives here, not in Rust). */
+  collapsedWorkspaceGroups: string[];
+  /** D-080: collapsed state sections of the Agents panel. */
+  collapsedAgentGroups: AgentState[];
 }
 
 export const DEFAULT_LAYOUT: LayoutSlice = {
@@ -56,7 +60,15 @@ export const DEFAULT_LAYOUT: LayoutSlice = {
   timelineVisible: true,
   timelineWidth: 300,
   timelineSplitSizes: { activity: 60, changes: 40 },
+  collapsedWorkspaceGroups: [],
+  collapsedAgentGroups: [],
 };
+
+const AGENT_STATES: readonly AgentState[] = ["blocked", "working", "done", "idle"];
+
+function stringList(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && x !== ""))] : [];
+}
 
 export const TIMELINE_MIN_WIDTH = 220;
 export const TIMELINE_MAX_WIDTH = 560;
@@ -117,7 +129,15 @@ export function mergeWithDefaults(partial: unknown): LayoutSlice {
     timelineVisible: typeof p.timelineVisible === "boolean" ? p.timelineVisible : DEFAULT_LAYOUT.timelineVisible,
     timelineWidth: isFiniteNumber(p.timelineWidth) ? clampTimelineWidth(p.timelineWidth) : DEFAULT_LAYOUT.timelineWidth,
     timelineSplitSizes,
+    collapsedWorkspaceGroups: stringList(p.collapsedWorkspaceGroups),
+    collapsedAgentGroups: stringList(p.collapsedAgentGroups).filter((x): x is AgentState => AGENT_STATES.includes(x as AgentState)),
   };
+}
+
+/** `list` with `item` added (`on`) or removed. */
+function toggled<T>(list: T[], item: T, on: boolean): T[] {
+  const rest = list.filter((x) => x !== item);
+  return on ? [...rest, item] : rest;
 }
 
 interface LayoutStore {
@@ -137,6 +157,9 @@ interface LayoutStore {
   toggleTimeline: () => void;
   /** Clamped to `TIMELINE_MIN_WIDTH`…`TIMELINE_MAX_WIDTH`. */
   setTimelineWidth: (width: number) => void;
+  /** D-080: collapse/expand a workspace group or an Agents panel state section. */
+  setWorkspaceGroupCollapsed: (groupId: string, collapsed: boolean) => void;
+  setAgentGroupCollapsed: (state: AgentState, collapsed: boolean) => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -225,6 +248,22 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     const timelineWidth = clampTimelineWidth(width);
     if (get().layout.timelineWidth === timelineWidth) return;
     const layout = { ...get().layout, timelineWidth };
+    set({ layout });
+    scheduleSave(layout);
+  },
+
+  setWorkspaceGroupCollapsed: (groupId, collapsed) => {
+    const current = get().layout.collapsedWorkspaceGroups;
+    if (current.includes(groupId) === collapsed) return;
+    const layout = { ...get().layout, collapsedWorkspaceGroups: toggled(current, groupId, collapsed) };
+    set({ layout });
+    scheduleSave(layout);
+  },
+
+  setAgentGroupCollapsed: (state, collapsed) => {
+    const current = get().layout.collapsedAgentGroups;
+    if (current.includes(state) === collapsed) return;
+    const layout = { ...get().layout, collapsedAgentGroups: toggled(current, state, collapsed) };
     set({ layout });
     scheduleSave(layout);
   },

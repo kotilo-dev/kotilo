@@ -1,80 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { flattenVisible } from "./flatten";
-import type { Workspace } from "../../lib/ipc";
-
-function ws(id: string, name: string): Workspace {
-  return { id, name, path: `C:\\dev\\${name}`, expandedDirs: [] };
-}
 
 describe("flattenVisible", () => {
-  it("kapalı kökler yalnızca kök satırı üretir", () => {
-    const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
-      dirCache: {},
-      expanded: {},
-    });
-    expect(rows).toEqual([{ kind: "root", workspaceId: "a", workspace: ws("a", "a-ws"), depth: 0, expanded: false }]);
+  it("no active workspace → no rows", () => {
+    expect(flattenVisible({ dirCache: {}, expanded: {}, workspaceId: null })).toEqual([]);
+    expect(flattenVisible({ dirCache: {}, expanded: {}, workspaceId: undefined })).toEqual([]);
   });
 
-  it("activeId verilince yalnızca aktif workspace'in ağacı açılır", () => {
+  it("only the given workspace's contents, no root or group rows, depth starts at 0", () => {
     const dirCache = {
       a: { "": [{ name: "x.ts", rel: "x.ts", isDir: false }] },
       b: { "": [{ name: "y.ts", rel: "y.ts", isDir: false }] },
     } as never;
-    const expanded = { a: new Set([""]), b: new Set([""]) };
-    const rows = flattenVisible({ workspaces: [ws("a", "a-ws"), ws("b", "b-ws")], dirCache, expanded, activeId: "b" });
-    expect(rows.map((r) => [r.kind, r.workspaceId, r.kind === "root" ? r.expanded : null])).toEqual([
-      ["root", "b", true],
-      ["file", "b", null],
-      ["group", "", null],
-      ["root", "a", false],
-    ]);
-    const none = flattenVisible({ workspaces: [ws("a", "a-ws")], dirCache, expanded, activeId: null });
-    expect(none).toHaveLength(1);
+    const rows = flattenVisible({ dirCache, expanded: { a: new Set([""]), b: new Set([""]) }, workspaceId: "b" });
+    expect(rows).toEqual([{ kind: "file", workspaceId: "b", rel: "y.ts", name: "y.ts", depth: 0 }]);
   });
 
-  it("aktif workspace en üstte; diğerleri kendi sıralarıyla grup başlığının altında", () => {
-    const list = [ws("a", "a-ws"), ws("b", "b-ws"), ws("c", "c-ws")];
-    const rows = flattenVisible({ workspaces: list, dirCache: {}, expanded: {}, activeId: "b" });
-    expect(rows.map((r) => (r.kind === "group" ? `group:${r.count}` : r.workspaceId))).toEqual(["b", "group:2", "a", "c"]);
-    const alone = flattenVisible({ workspaces: [ws("a", "a-ws")], dirCache: {}, expanded: {}, activeId: "a" });
-    expect(alone.map((r) => r.kind)).toEqual(["root"]);
-    const none = flattenVisible({ workspaces: list, dirCache: {}, expanded: {}, activeId: null });
-    expect(none.map((r) => r.kind)).toEqual(["root", "root", "root"]);
-  });
-
-  it("workspace sırası korunur", () => {
+  it("the root counts as expanded even when it is not in the expanded set", () => {
     const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws"), ws("b", "b-ws")],
-      dirCache: {},
+      dirCache: { a: { "": [{ name: "src", rel: "src", isDir: true }, { name: "README.md", rel: "README.md", isDir: false }] } },
       expanded: {},
-    });
-    expect(rows.map((r) => r.workspaceId)).toEqual(["a", "b"]);
-  });
-
-  it("açık kök klasör önce, sonra dosyalar sırayla listelenir (backend sırası korunur)", () => {
-    const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
-      dirCache: {
-        a: {
-          "": [
-            { name: "src", rel: "src", isDir: true },
-            { name: "README.md", rel: "README.md", isDir: false },
-          ],
-        },
-      },
-      expanded: { a: new Set([""]) },
+      workspaceId: "a",
     });
     expect(rows).toEqual([
-      { kind: "root", workspaceId: "a", workspace: ws("a", "a-ws"), depth: 0, expanded: true },
-      { kind: "dir", workspaceId: "a", rel: "src", name: "src", depth: 1, expanded: false },
-      { kind: "file", workspaceId: "a", rel: "README.md", name: "README.md", depth: 1 },
+      { kind: "dir", workspaceId: "a", rel: "src", name: "src", depth: 0, expanded: false },
+      { kind: "file", workspaceId: "a", rel: "README.md", name: "README.md", depth: 0 },
     ]);
   });
 
-  it("iç içe açık klasörler doğru derinlikte özyinelemeli genişler", () => {
+  it("nested open folders expand recursively at the right depth", () => {
     const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
       dirCache: {
         a: {
           "": [{ name: "src", rel: "src", isDir: true }],
@@ -82,57 +37,46 @@ describe("flattenVisible", () => {
           "src/app": [{ name: "App.tsx", rel: "src/app/App.tsx", isDir: false }],
         },
       },
-      expanded: { a: new Set(["", "src", "src/app"]) },
+      expanded: { a: new Set(["src", "src/app"]) },
+      workspaceId: "a",
     });
-    expect(rows.map((r) => [r.kind, "rel" in r ? r.rel : "<root>", r.depth])).toEqual([
-      ["root", "<root>", 0],
-      ["dir", "src", 1],
-      ["dir", "src/app", 2],
-      ["file", "src/app/App.tsx", 3],
+    expect(rows.map((r) => [r.kind, "rel" in r ? r.rel : "", r.depth])).toEqual([
+      ["dir", "src", 0],
+      ["dir", "src/app", 1],
+      ["file", "src/app/App.tsx", 2],
     ]);
   });
 
-  it("açık ama içeriği henüz yüklenmemiş klasör hiçbir çocuk satırı üretmez", () => {
+  it("an open folder whose contents are not loaded yet yields no child rows", () => {
     const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
       dirCache: { a: { "": [{ name: "src", rel: "src", isDir: true }] } },
-      expanded: { a: new Set(["", "src"]) }, // "src" açık ama dirCache["a"]["src"] yok
+      expanded: { a: new Set(["src"]) },
+      workspaceId: "a",
     });
-    expect(rows).toEqual([
-      { kind: "root", workspaceId: "a", workspace: ws("a", "a-ws"), depth: 0, expanded: true },
-      { kind: "dir", workspaceId: "a", rel: "src", name: "src", depth: 1, expanded: true },
-    ]);
+    expect(rows).toEqual([{ kind: "dir", workspaceId: "a", rel: "src", name: "src", depth: 0, expanded: true }]);
   });
 
-  it("yükleniyor durumu için loading satırı", () => {
-    const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
-      dirCache: { a: { "": "loading" } },
-      expanded: { a: new Set([""]) },
-    });
-    expect(rows[1]).toEqual({ kind: "loading", workspaceId: "a", rel: "", depth: 1 });
+  it("loading state yields a loading row", () => {
+    const rows = flattenVisible({ dirCache: { a: { "": "loading" } }, expanded: {}, workspaceId: "a" });
+    expect(rows).toEqual([{ kind: "loading", workspaceId: "a", rel: "", depth: 0 }]);
   });
 
-  it("hata durumu için error satırı", () => {
-    const error = { code: "not_found" as const, message: "yok" };
-    const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
-      dirCache: { a: { "": { error } } },
-      expanded: { a: new Set([""]) },
-    });
-    expect(rows[1]).toEqual({ kind: "error", workspaceId: "a", rel: "", depth: 1, error });
+  it("error state yields an error row", () => {
+    const error = { code: "not_found" as const, message: "gone" };
+    const rows = flattenVisible({ dirCache: { a: { "": { error } } }, expanded: {}, workspaceId: "a" });
+    expect(rows).toEqual([{ kind: "error", workspaceId: "a", rel: "", depth: 0, error }]);
   });
 
-  it("kapalı alt klasörün içeriği hiç düzleştirilmez (performans)", () => {
+  it("a collapsed sub-folder's contents are never flattened (performance)", () => {
     const rows = flattenVisible({
-      workspaces: [ws("a", "a-ws")],
       dirCache: {
         a: {
           "": [{ name: "src", rel: "src", isDir: true }],
           src: [{ name: "hidden.ts", rel: "src/hidden.ts", isDir: false }],
         },
       },
-      expanded: { a: new Set([""]) }, // "src" kapalı
+      expanded: {},
+      workspaceId: "a",
     });
     expect(rows.some((r) => "rel" in r && r.rel === "src/hidden.ts")).toBe(false);
   });

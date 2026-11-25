@@ -37,6 +37,7 @@ import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
 import { countPastedLines, shouldWarnMultilinePaste } from "./pasteWarning";
 import { PasteWarningModal } from "./PasteWarningModal";
+import { unscaledFontSize } from "../../app/ui/uiScale";
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from "../workspaces/ContextMenu";
 
 const RESIZE_DEBOUNCE_MS = 50;
@@ -300,7 +301,13 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const observer = new ResizeObserver(() => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+      timer = setTimeout(function refit() {
+        // While a panel divider is being dragged, wait for the release: every intermediate fit
+        // is a pty_resize and a full shell redraw (the terminal blinked and re-flowed per step).
+        if (document.querySelector("[data-resize-handle-active]")) {
+          timer = setTimeout(refit, RESIZE_DEBOUNCE_MS);
+          return;
+        }
         if (host.clientWidth === 0 || host.clientHeight === 0) return;
         if (!entry.opened) {
           // §4.9 fix: if the panel started at size 0 the mount effect bailed out – the column
@@ -376,7 +383,7 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   useEffect(() => {
     function apply(s: ReturnType<typeof useSettingsStore.getState>["settings"]) {
       term.options.fontFamily = effectiveTerminalFont(s.terminal.fontFamily);
-      term.options.fontSize = s.terminal.fontSize;
+      term.options.fontSize = unscaledFontSize(s.terminal.fontSize, s.appearance?.uiScale);
       const colors = currentTerminalColors();
       term.options.theme = xtermThemeFor(colors, windowTranslucent());
       // D-057: the host (and its box) show the terminal background, not `--bg`, around the cells.
@@ -397,7 +404,8 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
         s.terminal.fontSize !== prev.terminal.fontSize ||
         s.terminal.colorScheme !== prev.terminal.colorScheme ||
         s.terminal.importedSchemes !== prev.terminal.importedSchemes ||
-        s.appearance?.windowOpacity !== prev.appearance?.windowOpacity
+        s.appearance?.windowOpacity !== prev.appearance?.windowOpacity ||
+        s.appearance?.uiScale !== prev.appearance?.uiScale
       ) {
         apply(s);
       }
@@ -468,6 +476,10 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
     if (!visible || !entry.opened || tab.status !== "idle") return;
     if (tab.agentCommand !== null && !tab.autoStart) return;
     void useTerminalStore.getState().start(workspaceId, tab.id);
+    // A tab the user just created (New agent ▶, +, a shell profile) gets the keyboard, so the
+    // agent can be typed to at once; restored tabs (no `autoStart`) never steal focus. rAF: after
+    // the launching menu has closed and handed focus back to its button.
+    if (tab.autoStart) requestAnimationFrame(() => term.focus());
   }, [visible, entry.opened, tab.status, tab.agentCommand, tab.autoStart, workspaceId, tab.id, openTick]);
 
   // --- xterm -> pty: only while "running" (§4.8) ----------------------------------------------
@@ -532,7 +544,10 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   const showExitBar = tab.status === "exited";
 
   return (
-    <div className="relative min-h-0 flex-1">
+    // min-w-0 + overflow-hidden: as a flex item this box would otherwise keep the xterm canvas's
+    // old width (min-width: auto), so `fit` read the stale width and shrank one column per
+    // debounce tick – a slow slide and a redraw per step when the column narrowed.
+    <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
       <div ref={containerRef} className="h-full min-h-0 w-full" />
 
       {showAgentPrompt && (

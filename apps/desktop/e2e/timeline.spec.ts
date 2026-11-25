@@ -88,6 +88,10 @@ for (const { theme, lang } of VARIANTS) {
       await rail.getByRole("button", { name: "Hide timeline" }).click();
       await expect(rail).toHaveCount(0);
       await page.screenshot({ path: `test-results/screens/timeline-collapsed-${theme}-${lang}.png` });
+      await page.getByRole("button", { name: "Hide viewer" }).click();
+      await expect(page.getByRole("button", { name: "Show viewer" })).toHaveAttribute("aria-pressed", "false");
+      await page.screenshot({ path: `test-results/screens/timeline-collapsed-viewer-hidden-${theme}-${lang}.png` });
+      await page.getByRole("button", { name: "Show viewer" }).click();
       await page.getByRole("button", { name: "Show timeline" }).click();
       await expect(page.getByTestId("timeline-rail")).toBeVisible();
     }

@@ -32,7 +32,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "externalBin": ["binaries/kotilo-hook", "binaries/kotilo-docs"],
+    "externalBin": ["binaries/kotilo-hook", "binaries/kotilo-docs", "binaries/kotilo-statusline"],
     "resources": { "../../../adapters/": "adapters/" },
     "icon": [
       "icons/32x32.png",

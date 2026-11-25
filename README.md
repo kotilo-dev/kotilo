@@ -67,7 +67,7 @@ Kotilo does not replace or wrap the agents. It does not include them, does not t
 
 | Agent | Status source | Usage data | Notes |
 |---|---|---|---|
-| Claude Code | Hooks (`~/.claude/settings.json`) | Yes, from its transcripts | Plan limits not shown yet (needs a status line helper, planned) |
+| Claude Code | Hooks (`~/.claude/settings.json`) | Yes, from its transcripts | Plan limits (5-hour, weekly) through an optional status line helper: Settings → Agents → Claude Code → "Show plan limits"; Pro/Max plans only |
 | Codex CLI | Hooks (`~/.codex/hooks.json`) | Yes, from its session files | Plan limits from its session files; approve the hooks once in `/hooks` |
 | GitHub Copilot CLI | Hooks (`~/.copilot/hooks/`, its own file) | Partial: tokens only after a clean `/exit`, no cost | No plan limits |
 | Gemini CLI | Hooks (`~/.gemini/settings.json`) | Yes, from its chat recordings | Hooks run only in trusted folders |

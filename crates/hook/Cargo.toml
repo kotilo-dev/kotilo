@@ -12,6 +12,11 @@ path = "src/lib.rs"
 name = "agenthub-hook"
 path = "src/main.rs"
 
+# Claude Code's statusLine command (shipped as `<exePrefix>-statusline`, D-078).
+[[bin]]
+name = "agenthub-statusline"
+path = "src/statusline_main.rs"
+
 [dependencies]
 agenthub-proto = { path = "../proto" }
 serde = { version = "1", features = ["derive"] }

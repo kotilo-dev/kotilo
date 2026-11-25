@@ -13,7 +13,7 @@ use crate::error::{AppError, AppResult};
 use crate::fsguard;
 use crate::persistence::StateStore;
 
-use super::model::{Workspace, WorkspacesState};
+use super::model::{Workspace, WorkspaceGroup, WorkspacesState};
 
 pub struct WorkspaceStore {
     inner: Mutex<WorkspacesState>,
@@ -31,7 +31,11 @@ impl WorkspaceStore {
     pub fn load_from_state_store(state_store: &StateStore) -> Self {
         let initial = state_store
             .get_slice("workspaces")
-            .and_then(|v| serde_json::from_value(v).ok())
+            .and_then(|v| serde_json::from_value::<WorkspacesState>(v).ok())
+            .map(|mut state| {
+                state.normalize();
+                state
+            })
             .unwrap_or_default();
         Self::new(initial)
     }
@@ -103,6 +107,7 @@ impl WorkspaceStore {
             name,
             path: display_path,
             expanded_dirs: Vec::new(),
+            group: None,
         });
         guard.active_id = Some(id);
 
@@ -120,7 +125,7 @@ impl WorkspaceStore {
             return Err(AppError::not_found("workspace not found"));
         }
         if guard.active_id.as_deref() == Some(id) {
-            guard.active_id = guard.workspaces.first().map(|w| w.id.clone());
+            guard.active_id = guard.display_order().into_iter().next();
         }
 
         let snapshot = guard.clone();
@@ -204,6 +209,149 @@ impl WorkspaceStore {
         drop(guard);
         self.persist(state_store, &snapshot)
     }
+
+    // ---- D-080: user groups. Each method is one atomic change (one persist, one event).
+
+    /// Applies `change` to a copy under the lock and adopts it only after it was persisted;
+    /// nothing is kept when `change` or the write fails.
+    fn commit(
+        &self,
+        state_store: &StateStore,
+        change: impl FnOnce(&mut WorkspacesState) -> AppResult<()>,
+    ) -> AppResult<WorkspacesState> {
+        let mut guard = self.lock();
+        let mut next = guard.clone();
+        change(&mut next)?;
+        // Persist before adopting: a failed write leaves memory and disk on the old state.
+        self.persist(state_store, &next)?;
+        *guard = next.clone();
+        Ok(next)
+    }
+
+    /// Creates a group at the end of the list and, when `workspace_id` is given, moves
+    /// that workspace into it in the same step (the "New group…" menu item).
+    pub fn create_group(
+        &self,
+        state_store: &StateStore,
+        name: &str,
+        workspace_id: Option<&str>,
+    ) -> AppResult<WorkspacesState> {
+        self.commit(state_store, |state| {
+            let name = valid_group_name(state, name, None)?;
+            if let Some(ws_id) = workspace_id {
+                if !state.workspaces.iter().any(|w| w.id == ws_id) {
+                    return Err(AppError::not_found("workspace not found"));
+                }
+            }
+            let id = uuid::Uuid::new_v4().to_string();
+            state.groups.push(WorkspaceGroup { id: id.clone(), name });
+            if let Some(ws) = workspace_id.and_then(|ws_id| state.workspaces.iter_mut().find(|w| w.id == ws_id)) {
+                ws.group = Some(id);
+            }
+            Ok(())
+        })
+    }
+
+    pub fn rename_group(&self, state_store: &StateStore, id: &str, name: &str) -> AppResult<WorkspacesState> {
+        self.commit(state_store, |state| {
+            let name = valid_group_name(state, name, Some(id))?;
+            let group = state
+                .groups
+                .iter_mut()
+                .find(|g| g.id == id)
+                .ok_or_else(|| AppError::not_found("group not found"))?;
+            group.name = name;
+            Ok(())
+        })
+    }
+
+    /// Removes the group; its workspaces become ungrouped (never removed).
+    pub fn remove_group(&self, state_store: &StateStore, id: &str) -> AppResult<WorkspacesState> {
+        self.commit(state_store, |state| {
+            let before = state.groups.len();
+            state.groups.retain(|g| g.id != id);
+            if state.groups.len() == before {
+                return Err(AppError::not_found("group not found"));
+            }
+            for ws in &mut state.workspaces {
+                if ws.group.as_deref() == Some(id) {
+                    ws.group = None;
+                }
+            }
+            Ok(())
+        })
+    }
+
+    /// Moves the group one place up (`delta < 0`) or down; at either end a no-op.
+    pub fn move_group(&self, state_store: &StateStore, id: &str, delta: i32) -> AppResult<WorkspacesState> {
+        self.commit(state_store, |state| {
+            let idx = state
+                .groups
+                .iter()
+                .position(|g| g.id == id)
+                .ok_or_else(|| AppError::not_found("group not found"))?;
+            let target = if delta < 0 { idx.checked_sub(1) } else { Some(idx + 1) };
+            if let Some(t) = target.filter(|t| *t < state.groups.len()) {
+                state.groups.swap(idx, t);
+            }
+            Ok(())
+        })
+    }
+
+    /// Puts a workspace into a group (`None` = ungrouped). It goes to the end of the
+    /// target section, so it shows up where the user looks for it.
+    pub fn set_group(
+        &self,
+        state_store: &StateStore,
+        workspace_id: &str,
+        group_id: Option<&str>,
+    ) -> AppResult<WorkspacesState> {
+        self.commit(state_store, |state| {
+            if let Some(gid) = group_id {
+                if !state.groups.iter().any(|g| g.id == gid) {
+                    return Err(AppError::not_found("group not found"));
+                }
+            }
+            let pos = state
+                .workspaces
+                .iter()
+                .position(|w| w.id == workspace_id)
+                .ok_or_else(|| AppError::not_found("workspace not found"))?;
+            let mut ws = state.workspaces.remove(pos);
+            ws.group = group_id.map(str::to_string);
+            state.workspaces.push(ws);
+            Ok(())
+        })
+    }
+}
+
+/// Trimmed, non-empty and unique (ignoring case) among the other groups.
+fn valid_group_name(state: &WorkspacesState, name: &str, except_id: Option<&str>) -> AppResult<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_name("group name must not be empty"));
+    }
+    let folded = fold_name(trimmed);
+    if state
+        .groups
+        .iter()
+        .any(|g| Some(g.id.as_str()) != except_id && fold_name(&g.name) == folded)
+    {
+        return Err(AppError::already_exists("a group with this name already exists"));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Case-insensitive key for duplicate group names. Plain `to_lowercase` maps "İ" to "i" plus a
+/// combining dot, so "İş" and "iş" never matched; the dotted/dotless i variants fold to one letter.
+fn fold_name(name: &str) -> String {
+    name.chars()
+        .flat_map(|c| match c {
+            'İ' | 'I' | 'ı' => 'i'.to_lowercase(),
+            other => other.to_lowercase(),
+        })
+        .filter(|&c| c != '\u{307}')
+        .collect()
 }
 
 #[cfg(test)]
@@ -334,5 +482,157 @@ mod tests {
             listed.workspaces[0].expanded_dirs,
             vec!["src".to_string(), "src/lib".to_string()]
         );
+    }
+
+    // ---- D-080 groups
+
+    fn three(store: &WorkspaceStore, state_store: &StateStore) -> (Vec<String>, Vec<tempfile::TempDir>) {
+        let dirs: Vec<_> = (0..3).map(|_| tempfile::tempdir().unwrap()).collect();
+        for d in &dirs {
+            store.add(state_store, &d.path().to_string_lossy()).unwrap();
+        }
+        let ids = store.list().workspaces.iter().map(|w| w.id.clone()).collect();
+        (ids, dirs)
+    }
+
+    #[test]
+    fn old_state_without_groups_loads() {
+        let json = serde_json::json!({
+            "workspaces": [{ "id": "a", "name": "a", "path": "C:\\a", "expandedDirs": [] }],
+            "activeId": "a"
+        });
+        let state: WorkspacesState = serde_json::from_value(json).unwrap();
+        assert!(state.groups.is_empty());
+        assert_eq!(state.workspaces[0].group, None);
+    }
+
+    #[test]
+    fn load_drops_broken_groups_but_keeps_every_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_store = StateStore::load_from(dir.path().to_path_buf());
+        state_store
+            .set_slice(
+                "workspaces",
+                serde_json::json!({
+                    "workspaces": [
+                        { "id": "a", "name": "a", "path": "C:\\a", "expandedDirs": [], "group": "gone" },
+                        { "id": "b", "name": "b", "path": "C:\\b", "expandedDirs": [], "group": "g1" }
+                    ],
+                    "activeId": "a",
+                    "groups": [{ "id": "g1", "name": "Work" }, { "name": "no id" }, { "id": "g1", "name": "dup" }, 42]
+                }),
+            )
+            .unwrap();
+        let state = WorkspaceStore::load_from_state_store(&state_store).list();
+        assert_eq!(state.workspaces.len(), 2);
+        assert_eq!(state.groups, vec![WorkspaceGroup { id: "g1".into(), name: "Work".into() }]);
+        assert_eq!(state.workspaces[0].group, None);
+        assert_eq!(state.workspaces[1].group.as_deref(), Some("g1"));
+    }
+
+    #[test]
+    fn a_non_string_group_reads_as_ungrouped() {
+        let json = serde_json::json!({
+            "workspaces": [{ "id": "a", "name": "a", "path": "C:\\a", "expandedDirs": [], "group": 42 }],
+            "activeId": "a"
+        });
+        let state: WorkspacesState = serde_json::from_value(json).unwrap();
+        assert_eq!(state.workspaces.len(), 1);
+        assert_eq!(state.workspaces[0].group, None);
+    }
+
+    #[test]
+    fn create_group_with_workspace_is_one_step() {
+        let (store, state_store, _guard) = store_and_state();
+        let (ids, _dirs) = three(&store, &state_store);
+        let state = store.create_group(&state_store, "  Work ", Some(&ids[1])).unwrap();
+        assert_eq!(state.groups.len(), 1);
+        assert_eq!(state.groups[0].name, "Work");
+        let moved = state.workspaces.iter().find(|w| w.id == ids[1]).unwrap();
+        assert_eq!(moved.group.as_deref(), Some(state.groups[0].id.as_str()));
+        // Grouped first, then the ungrouped in their order.
+        assert_eq!(state.display_order(), vec![ids[1].clone(), ids[0].clone(), ids[2].clone()]);
+    }
+
+    #[test]
+    fn group_names_are_trimmed_unique_and_not_empty() {
+        let (store, state_store, _guard) = store_and_state();
+        store.create_group(&state_store, "Work", None).unwrap();
+        let err = store.create_group(&state_store, "work", None).unwrap_err();
+        assert_eq!(err.code, crate::error::ErrorCode::AlreadyExists);
+        let err = store.create_group(&state_store, "   ", None).unwrap_err();
+        assert_eq!(err.code, crate::error::ErrorCode::InvalidName);
+        let state = store.create_group(&state_store, "Games", None).unwrap();
+        let games = state.groups[1].id.clone();
+        // Renaming to its own name in another case is fine; to another group's is not.
+        assert!(store.rename_group(&state_store, &games, "GAMES").is_ok());
+        let err = store.rename_group(&state_store, &games, "WORK").unwrap_err();
+        assert_eq!(err.code, crate::error::ErrorCode::AlreadyExists);
+    }
+
+    #[test]
+    fn turkish_dotted_and_dotless_i_count_as_the_same_name() {
+        let (store, state_store, _guard) = store_and_state();
+        store.create_group(&state_store, "İş", None).unwrap();
+        for dup in ["iş", "IŞ", "İŞ", " iş "] {
+            let err = store.create_group(&state_store, dup, None).unwrap_err();
+            assert_eq!(err.code, crate::error::ErrorCode::AlreadyExists, "{dup}");
+        }
+    }
+
+    #[test]
+    fn create_group_with_unknown_workspace_changes_nothing() {
+        let (store, state_store, _guard) = store_and_state();
+        let err = store.create_group(&state_store, "Work", Some("nope")).unwrap_err();
+        assert_eq!(err.code, crate::error::ErrorCode::NotFound);
+        assert!(store.list().groups.is_empty());
+    }
+
+    #[test]
+    fn remove_group_ungroups_its_workspaces() {
+        let (store, state_store, _guard) = store_and_state();
+        let (ids, _dirs) = three(&store, &state_store);
+        let state = store.create_group(&state_store, "Work", Some(&ids[0])).unwrap();
+        let gid = state.groups[0].id.clone();
+        let state = store.remove_group(&state_store, &gid).unwrap();
+        assert!(state.groups.is_empty());
+        assert_eq!(state.workspaces.len(), 3);
+        assert!(state.workspaces.iter().all(|w| w.group.is_none()));
+    }
+
+    #[test]
+    fn move_group_swaps_and_stops_at_the_ends() {
+        let (store, state_store, _guard) = store_and_state();
+        store.create_group(&state_store, "A", None).unwrap();
+        let state = store.create_group(&state_store, "B", None).unwrap();
+        let b = state.groups[1].id.clone();
+        let state = store.move_group(&state_store, &b, -1).unwrap();
+        assert_eq!(state.groups[0].name, "B");
+        let state = store.move_group(&state_store, &b, -1).unwrap();
+        assert_eq!(state.groups[0].name, "B");
+    }
+
+    #[test]
+    fn set_group_validates_and_moves_to_the_section_end() {
+        let (store, state_store, _guard) = store_and_state();
+        let (ids, _dirs) = three(&store, &state_store);
+        let state = store.create_group(&state_store, "Work", Some(&ids[2])).unwrap();
+        let gid = state.groups[0].id.clone();
+        let err = store.set_group(&state_store, &ids[0], Some("nope")).unwrap_err();
+        assert_eq!(err.code, crate::error::ErrorCode::NotFound);
+        let state = store.set_group(&state_store, &ids[0], Some(&gid)).unwrap();
+        assert_eq!(state.display_order(), vec![ids[2].clone(), ids[0].clone(), ids[1].clone()]);
+        let state = store.set_group(&state_store, &ids[2], None).unwrap();
+        assert_eq!(state.display_order(), vec![ids[0].clone(), ids[1].clone(), ids[2].clone()]);
+    }
+
+    #[test]
+    fn remove_picks_the_first_workspace_in_display_order() {
+        let (store, state_store, _guard) = store_and_state();
+        let (ids, _dirs) = three(&store, &state_store);
+        store.create_group(&state_store, "Work", Some(&ids[1])).unwrap();
+        store.set_active(&state_store, &ids[2]).unwrap();
+        let state = store.remove(&state_store, &ids[2]).unwrap();
+        assert_eq!(state.active_id.as_deref(), Some(ids[1].as_str()));
     }
 }

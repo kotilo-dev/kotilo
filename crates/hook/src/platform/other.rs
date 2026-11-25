@@ -12,6 +12,13 @@ pub fn process_chain(self_pid: u32, max_depth: usize) -> Vec<ProcessRef> {
     chain_from_parents(&parents(self_pid, max_depth), self_pid, max_depth)
 }
 
+/// The platform shell running a user's statusLine command line: `sh -c "<command>"`.
+pub fn shell_command(command: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new("/bin/sh");
+    cmd.arg("-c").arg(command);
+    cmd
+}
+
 /// Linux: walks up through `/proc/<pid>/stat`, reading only the processes on the chain.
 #[cfg(target_os = "linux")]
 fn parents(self_pid: u32, max_depth: usize) -> HashMap<u32, (u32, String)> {

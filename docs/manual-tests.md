@@ -156,7 +156,7 @@ Preparation: a build that contains the fixes (0.3.1 installer, or `npm --prefix 
 | F-11 | Click into the terminal, let Claude ask for a real permission (e.g. a Bash command) | The card's **Allow once** has focus; Tab moves to the other buttons; Enter/Esc pressed in the same instant the card appears do nothing |
 | F-12 | Switch to another app while Claude works; come back after the card appeared | The card gets focus when the window is active again (within a second); text typed in the composer is never moved to the card |
 | F-13 | Allow a request from the card | A small note ("Allowed once…") shows in the top-right corner for ~2 s; the agent's prompt rows at the bottom stay readable |
-| F-14 | Add a second workspace; hover its name, then use **Switch**; double-click the other one; right-click → **Make active** | Arrow cursor over names (no text cursor); each of the three switches the active workspace (● moves, its files show) |
+| F-14 | Add a second workspace; on the **Workspaces** tab click the other one; on **Files** open the "name ▾ branch" switcher, search and pick; Ctrl+1 / Ctrl+2 | Each switches the active workspace (● moves); a click on the list jumps to **Files**, the switcher stays on it; the **Workspaces** tab shows a red number while an agent in another workspace waits for permission |
 | F-15 | Copy a line of text; right-click into Claude's prompt, then into a plain PowerShell prompt; in Claude also try Shift+right click | Each pastes the text exactly once; selecting text and right-clicking still copies it |
 
 ## Performance and second-machine fixes (0.3.2, D-060)
@@ -306,7 +306,7 @@ Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Use a th
 
 | # | Steps | Expected |
 |---|---|---|
-| DC-1 | Right-click the workspace → **Check docs** | The Docs tab opens with a summary; agent files (`AGENTS.md`, `CLAUDE.md`) come first; doc files with findings get red/amber dots in the file tree |
+| DC-1 | **Workspaces** tab → right-click the workspace → **Check docs** | The Docs tab opens with a summary; agent files (`AGENTS.md`, `CLAUDE.md`) come first; doc files with findings get red/amber dots in the file tree |
 | DC-2 | In a doc, add `` `src/does-not-exist.ts` `` and a link `[x](src/gone.ts)`, save | Within ~2 s the doc shows both as missing paths with their lines; clicking one opens the doc at that line |
 | DC-3 | Add `.kotilo/docs.toml` with a `[[doc]]` that covers a code file, commit, then change and commit that code file | The doc turns stale; "why stale" lists the commit and the file; clicking the file opens its diff since the baseline |
 | DC-4 | **Mark reviewed** on the stale doc | Confirmation mentions `.kotilo/docs.toml`; afterwards the doc is no longer stale; docs.toml has `reviewed = "<HEAD>"` and keeps its comments; `git status` shows docs.toml (not other `.kotilo/` files) |
@@ -348,3 +348,47 @@ Preparation: `npm --prefix apps/desktop run tauri dev` (no hub change). Use a wo
 | CX-7 | Edit `CLAUDE.md`, then **Refresh** | The size and token numbers change |
 | CX-8 | Palette **Agent: Show context**, and the **Agent context** button in an agent pane | Both open the tab; the pane button opens it with that pane's agent |
 | CX-9 | Turkish UI | Tab, sections, badges and menu entries are Turkish |
+
+
+## Claude Code plan limits (D-078)
+
+Preparation: a real Claude Pro or Max login (API-key users get no limit data), Kotilo running with a working Claude Code hook install. Back up `~/.claude/settings.json` first; Kotilo also writes a timestamped backup next to it.
+
+| # | Steps | Expected |
+|---|---|---|
+| PL-1 | Settings → Agents → Claude Code | A "Show plan limits (status line)" switch, off |
+| PL-2 | Without your own `statusLine`: turn it on, start `claude`, send one prompt | `settings.json` has `statusLine.command` pointing at `kotilo-statusline.exe` in `%LOCALAPPDATA%\kotilo\hub\bin`; under the prompt a line like `5h 42% (2h10m) · wk 18% · ctx 37%` |
+| PL-3 | Overview, Mission control, the Claude pane's header strip, tray menu | "Claude Code · 5-hour" and "Weekly" meters with the same percentages (within one render) |
+| PL-4 | Turn the switch off | The `statusLine` key is gone, the line under the prompt is empty again; the other settings are untouched |
+| PL-5 | With your own `statusLine` (for example `{"type":"command","command":"bash ~/sl.sh","padding":1}`): turn it on | An info line shows your command; Claude's line is yours followed by `· 5h … · wk … · cache …`; limits show in Kotilo; `padding` is kept |
+| PL-6 | Turn it off again | Your original command is back in `settings.json`, `padding` included |
+| PL-7 | Quit Kotilo, keep Claude running | The status line keeps working (summary or your own line) with no delay |
+| PL-8 | Break `settings.json` (invalid JSON), open the settings page | The switch is disabled with a note; the file is not modified |
+| PL-9 | Send a prompt, wait; leave the session idle past the cache TTL (5 min or 1 h) | `cache NN% (Xm)` after the reply (the minutes refresh only when Claude re-renders), then `cache NN% cold` at expiry without a new prompt |
+
+## Workspace groups and agent sections (D-080)
+
+Preparation: at least four workspaces, two agents in different states (one waiting for permission helps).
+
+| # | Steps | Expected |
+|---|---|---|
+| WG-1 | Workspaces tab with no groups | The list looks as before, no headers |
+| WG-2 | Right-click a workspace → Move to group… → New group…, type "Work", Enter | A "Work" header with that workspace; the others under "Ungrouped" at the bottom |
+| WG-3 | Move a second workspace into "Work"; try a second group named "work" | It joins the group; the duplicate name shows an error in the input |
+| WG-4 | Click the "Work" header; restart Kotilo | The group collapses and is still collapsed after the restart |
+| WG-5 | With "Work" collapsed, let an agent in it wait for permission | A red count on the header |
+| WG-6 | Keyboard on the list: ↑/↓, Enter/Space/←/→ on a header, F2 and Delete on a header | The cursor never lands on a hidden row; F2 renames the group, Delete on a header does nothing (groups are deleted from the header menu; its workspaces become ungrouped) |
+| WG-7 | `Ctrl+1`…`Ctrl+4`, quick switcher in the Files header, Mission control | All follow the grouped order |
+| WG-8 | Agents panel with agents in several states; collapse "Working"; restart | Sections Waiting, Working, Done, Idle with counts, empty ones hidden; "Working" stays collapsed |
+
+## Interface scale and font (D-081)
+
+| # | Steps | Expected |
+|---|---|---|
+| UI-1 | Settings → Appearance → Interface scale 125 % | Panels, menus, tabs and pages grow at once, no restart; the terminal and the editor text keep their size |
+| UI-2 | Restart Kotilo | It opens at 125 % without a visible jump from 100 % |
+| UI-3 | 150 % and 175 %: look at the terminal and an editor tab | Text is sharp, columns/rows refit, no clipped panel headers |
+| UI-4 | Palette: Increase / Decrease / Reset interface scale | Steps through 90…200 % and back to 100 % |
+| UI-5 | Interface font "Segoe UI", then a made-up name, then empty | Segoe UI applies at once; the made-up name falls back to the default font; empty restores the default |
+| UI-6 | Settings → Appearance, Editor and Terminal: open "Installed fonts…" and pick a font | The list shows the installed families; the pick applies at once and shows in the text field |
+

@@ -719,6 +719,18 @@ export interface AdapterDto {
   error: string | null;
 }
 
+/** `GET /v1/adapters/claude-code/statusline` (D-078). */
+export type StatusLineState = "missing" | "installed" | "outdated" | "invalidConfig";
+
+export interface StatusLineStatusDto {
+  state: StatusLineState;
+  configPath: string | null;
+  /** The user's own previous status line command that the helper chains, or null. */
+  wrappedCommand: string | null;
+  /** The helper exe exists next to the app (install needs it). */
+  helperAvailable: boolean;
+}
+
 export interface HookActionResult {
   state: HookState;
   backupPath: string | null;

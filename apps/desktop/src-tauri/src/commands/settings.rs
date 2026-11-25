@@ -49,6 +49,14 @@ pub fn settings_set(
             crate::platform::window_backdrop::apply(&window, blur(&saved));
         }
     }
+    if before.appearance.ui_scale != saved.appearance.ui_scale {
+        // D-081: interface scale, live.
+        if let Some(window) = app.get_webview_window("main") {
+            if let Err(err) = window.set_zoom(saved.appearance.zoom_factor()) {
+                log::warn!("interface scale could not be applied: {err}");
+            }
+        }
+    }
     if before.companion != saved.companion {
         if let Some(companion) = app.try_state::<crate::companion::Companion>() {
             companion.set_enabled(saved.companion.enabled);

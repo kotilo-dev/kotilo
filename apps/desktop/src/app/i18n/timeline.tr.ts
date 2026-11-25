@@ -6,6 +6,8 @@ export const timelineTr: typeof timelineEn = {
   region: "Ajan zaman akışı",
   show: "Zaman akışını göster",
   hide: "Zaman akışını gizle",
+  showViewer: "Görüntüleyiciyi göster",
+  hideViewer: "Görüntüleyiciyi gizle",
   resize: "Zaman akışını boyutlandır",
   commandToggle: "Zaman Akışını Aç/Kapat",
   noWorkspace: "Zaman akışını görmek için bir çalışma alanı açın.",

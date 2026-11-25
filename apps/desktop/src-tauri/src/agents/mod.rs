@@ -165,15 +165,27 @@ const MAX_BACKGROUND_LABEL_CHARS: usize = 60;
 /// Label of a background task without any of the label fields.
 const BACKGROUND_TASK_FALLBACK_LABEL: &str = "background task";
 
+/// D-079: the `background_tasks` types that are work the paused turn waits for. Anything else
+/// (an artifact's live-update subscription, `monitor`, `MCP task`, unknown types) can stay open
+/// for the whole session and must not keep it Working.
+const WORK_TASK_TYPES: &[&str] = &["shell", "subagent", "workflow", "teammate", "cloud session"];
+
+/// One `background_tasks` entry is work (D-079); a bare string entry is its type.
+fn is_work_task(task: &serde_json::Value) -> bool {
+    let kind = task.as_str().or_else(|| task.get("type").and_then(|v| v.as_str())).unwrap_or("");
+    WORK_TASK_TYPES.iter().any(|t| t.eq_ignore_ascii_case(kind.trim()))
+}
+
 /// 0.3.2: Claude Code's `Stop`/`SubagentStop` `background_tasks` (non-empty = the turn
 /// paused waiting for background work) as short labels — per task the first present of
-/// `description`, `agent_type`, `name`, `type`. `None` when the field is absent or not an
-/// array; an empty array gives `Some(vec![])`.
+/// `description`, `agent_type`, `name`, `type`; only work types count (D-079). `None` when the
+/// field is absent or not an array; an empty array (or one without work) gives `Some(vec![])`.
 pub fn background_task_labels(payload: &serde_json::Value) -> Option<Vec<String>> {
     let tasks = payload.get("background_tasks")?.as_array()?;
     Some(
         tasks
             .iter()
+            .filter(|task| is_work_task(task))
             .take(MAX_BACKGROUND_TASKS)
             .map(|task| {
                 ["description", "agent_type", "name", "type"]
@@ -184,6 +196,28 @@ pub fn background_task_labels(payload: &serde_json::Value) -> Option<Vec<String>
             })
             .collect(),
     )
+}
+
+/// Short, content-free picture of `background_tasks` for the log: per task its `type`, its `status`
+/// (when present) and the sorted key names, e.g. `[subagent status=completed {agent_type,status,type}]`.
+/// Values other than `type`/`status` are never included; both are capped.
+fn background_task_shape(payload: &serde_json::Value) -> Option<String> {
+    const MAX_ENUM_CHARS: usize = 24;
+    let tasks = payload.get("background_tasks")?.as_array()?;
+    let short = |v: Option<&serde_json::Value>| -> String {
+        v.and_then(|v| v.as_str()).unwrap_or("?").chars().take(MAX_ENUM_CHARS).collect()
+    };
+    let parts: Vec<String> = tasks
+        .iter()
+        .take(MAX_BACKGROUND_TASKS)
+        .map(|task| {
+            let mut keys: Vec<&str> = task.as_object().map(|o| o.keys().map(String::as_str).collect()).unwrap_or_default();
+            keys.sort_unstable();
+            let status = task.get("status").map(|s| format!(" status={}", short(Some(s)))).unwrap_or_default();
+            format!("{}{} {{{}}}", short(task.get("type")), status, keys.join(","))
+        })
+        .collect();
+    Some(format!("[{}]", parts.join("; ")))
 }
 
 /// `background_tasks` lists a `shell` task (D-071).
@@ -820,6 +854,11 @@ impl AgentTracker {
                 removed
             }
             HookOutcome::Upsert(agent) => {
+                if let Some(shape) = background_task_shape(&msg.payload) {
+                    // Diagnostics for sessions that stay Working after their background work ended:
+                    // only each task's type, status and key names, never descriptions (rule 5).
+                    log::info!("agent pane={} hook={} background_tasks={}", short_pane_id(&msg.pane_id), msg.event, shape);
+                }
                 let changed = prev.as_ref() != Some(&agent);
                 if changed {
                     let prev_state = prev
@@ -1615,11 +1654,24 @@ mod tests {
             "hook_event_name": "Stop",
             "stop_hook_active": false,
             "background_tasks": [
-                {"id": "t1", "type": "agent", "agent_type": "backend-expert", "status": "running"},
-                {"id": "t2", "type": "bash", "description": "  npm run build -- --watch and a very long tail that goes past sixty chars  "},
-                {"id": "t3"}
+                {"id": "t1", "type": "subagent", "agent_type": "backend-expert", "status": "running"},
+                {"id": "t2", "type": "shell", "description": "  npm run build -- --watch and a very long tail that goes past sixty chars  "},
+                {"id": "t3", "type": "workflow"}
             ]
         })
+    }
+
+    #[test]
+    fn background_task_shape_keeps_only_type_status_and_key_names() {
+        let payload = json!({"background_tasks": [
+            {"type": "subagent", "status": "completed", "description": "SECRET prompt text", "agent_type": "x"},
+            {"type": "shell", "description": "npm run dev"}
+        ]});
+        let shape = background_task_shape(&payload).unwrap();
+        assert_eq!(shape, "[subagent status=completed {agent_type,description,status,type}; shell {description,type}]");
+        assert!(!shape.contains("SECRET"));
+        assert_eq!(background_task_shape(&json!({"background_tasks": []})).as_deref(), Some("[]"));
+        assert_eq!(background_task_shape(&json!({})), None);
     }
 
     #[test]
@@ -1628,10 +1680,12 @@ mod tests {
         assert_eq!(labels[0], "backend-expert");
         assert!(labels[1].starts_with("npm run build -- --watch"));
         assert_eq!(labels[1].chars().count(), MAX_BACKGROUND_LABEL_CHARS);
-        assert_eq!(labels[2], BACKGROUND_TASK_FALLBACK_LABEL);
+        assert_eq!(labels[2], "workflow");
+        // A bare string entry is its type and has no label field.
+        assert_eq!(background_task_labels(&json!({"background_tasks": ["shell"]})), Some(vec![BACKGROUND_TASK_FALLBACK_LABEL.to_string()]));
         assert_eq!(background_task_labels(&json!({"background_tasks": []})), Some(vec![]));
         assert_eq!(background_task_labels(&json!({})), None);
-        let many: Vec<serde_json::Value> = (0..30).map(|i| json!({"name": format!("t{i}")})).collect();
+        let many: Vec<serde_json::Value> = (0..30).map(|i| json!({"type": "workflow", "name": format!("t{i}")})).collect();
         assert_eq!(
             background_task_labels(&json!({"background_tasks": many})).unwrap().len(),
             MAX_BACKGROUND_TASKS
@@ -1650,6 +1704,27 @@ mod tests {
     }
 
     #[test]
+    fn only_work_tasks_keep_a_finished_turn_working() {
+        // 2026-11-22: an artifact's live-update subscription stayed listed for the whole session.
+        let prev = hook_agent(AgentState::Working, 10);
+        let watchers = json!({"background_tasks": [
+            {"id": "w1", "type": "artifact subscription", "status": "running", "description": "live updates for artifact https://claude.ai/artifact/x"},
+            {"id": "m1", "type": "monitor", "status": "running", "command": "tail -f log"},
+            {"id": "p1", "type": "MCP task", "status": "running"},
+            {"id": "n1", "status": "running"}
+        ]});
+        let a = upsert(apply_hook(Some(&prev), "p1", "w1", "Stop", &watchers, 20, false));
+        assert_eq!(a.state, AgentState::Done);
+        assert!(a.background_tasks.is_empty());
+
+        for kind in ["shell", "subagent", "workflow", "teammate", "cloud session", "Shell"] {
+            let payload = json!({"background_tasks": [{"type": kind, "status": "running"}, {"type": "monitor"}]});
+            let b = upsert(apply_hook(Some(&prev), "p1", "w1", "Stop", &payload, 20, false));
+            assert_eq!((kind, b.state, b.background_tasks.len()), (kind, AgentState::Working, 1));
+        }
+    }
+
+    #[test]
     fn stop_with_empty_or_absent_background_tasks_finishes_and_clears() {
         let mut prev = hook_agent(AgentState::Working, 10);
         prev.background_tasks = vec!["x".into()];
@@ -1664,7 +1739,7 @@ mod tests {
     fn subagent_stop_finishes_a_turn_waiting_on_background_work() {
         let paused = upsert(apply_hook(Some(&hook_agent(AgentState::Working, 10)), "p1", "w1", "Stop", &stop_with_background(), 20, true));
         // One task left: labels follow, still Working.
-        let one_left = json!({"background_tasks": [{"agent_type": "frontend-expert"}]});
+        let one_left = json!({"background_tasks": [{"type": "subagent", "agent_type": "frontend-expert"}]});
         let a = upsert(apply_hook(Some(&paused), "p1", "w1", "SubagentStop", &one_left, 30, true));
         assert_eq!((a.state, a.background_tasks.clone()), (AgentState::Working, vec!["frontend-expert".to_string()]));
         // Absent field: nothing changes.
@@ -1687,7 +1762,9 @@ mod tests {
 
     #[test]
     fn idle_prompt_ends_background_waiting_and_prompt_submit_clears_labels() {
-        let paused = upsert(apply_hook(Some(&hook_agent(AgentState::Working, 10)), "p1", "w1", "Stop", &stop_with_background(), 20, false));
+        // Background agents only: a listed shell would keep it Working (D-071).
+        let agents_only = json!({"background_tasks": [{"type": "subagent", "agent_type": "backend-expert"}, {"type": "workflow", "name": "w"}]});
+        let paused = upsert(apply_hook(Some(&hook_agent(AgentState::Working, 10)), "p1", "w1", "Stop", &agents_only, 20, false));
         let idle = json!({"notification_type": "idle_prompt"});
         let a = upsert(apply_hook(Some(&paused), "p1", "w1", "Notification", &idle, 30, false));
         assert_eq!(a.state, AgentState::Done);
@@ -1701,7 +1778,7 @@ mod tests {
         assert!(b.background_tasks.is_empty());
         // Tool events of background agents keep the labels.
         let c = upsert(apply_hook(Some(&paused), "p1", "w1", "PreToolUse", &json!({}), 40, false));
-        assert_eq!(c.background_tasks.len(), 3);
+        assert_eq!(c.background_tasks.len(), 2);
     }
 
     #[test]

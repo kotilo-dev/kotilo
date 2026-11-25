@@ -63,10 +63,36 @@ const restoredTerminals = {
 
 const workspace = { id: "ws-demo", name: "orders-service", path: "C:\\src\\orders-service", expandedDirs: [] as string[] };
 // `workspaces=2`: a second workspace; `workspace_set_active` switches and emits `workspaces:changed`.
-const workspaceList = params.get("workspaces") === "2"
-  ? [workspace, { id: "ws-billing", name: "billing-api", path: "C:\\src\\billing-api", expandedDirs: [] as string[] }]
-  : [workspace];
+// `workspaces=4`: four workspaces for the D-080 group tests (groups live in this mock only).
+type MockWorkspace = { id: string; name: string; path: string; expandedDirs: string[]; group?: string };
+const extraWorkspace = (id: string, name: string): MockWorkspace => ({ id, name, path: `C:\\src\\${name}`, expandedDirs: [] });
+let workspaceList: MockWorkspace[] = params.get("workspaces") === "2"
+  ? [workspace, extraWorkspace("ws-billing", "billing-api")]
+  : params.get("workspaces") === "4"
+    ? [workspace, extraWorkspace("ws-billing", "billing-api"), extraWorkspace("ws-blog", "blog"), extraWorkspace("ws-game", "space-game")]
+    : [workspace];
 let activeWorkspaceId = workspace.id;
+let workspaceGroups: { id: string; name: string }[] = [];
+let nextGroupId = 1;
+function workspacesChanged() {
+  void emit("workspaces:changed", { workspaces: workspaceList, activeId: activeWorkspaceId, groups: workspaceGroups });
+}
+function mockError(code: string, message: string): never {
+  throw { code, message };
+}
+function checkGroupName(name: string, exceptId?: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) mockError("invalid_name", "group name must not be empty");
+  if (workspaceGroups.some((g) => g.id !== exceptId && g.name.toLowerCase() === trimmed.toLowerCase())) mockError("already_exists", "a group with this name already exists");
+  return trimmed;
+}
+function moveToGroup(workspaceId: string, groupId: string | null) {
+  const ws = workspaceList.find((w) => w.id === workspaceId);
+  if (!ws) mockError("not_found", "workspace not found");
+  const { group: _old, ...rest } = ws;
+  const moved: MockWorkspace = groupId ? { ...rest, group: groupId } : rest;
+  workspaceList = [...workspaceList.filter((w) => w.id !== workspaceId), moved];
+}
 // `panes=a,b`: pane ids `pty_spawn` hands out in turn (default: the Claude and Codex fixture panes).
 const paneIds = params.get("panes")?.split(",") ?? ["pane-claude", "pane-codex"];
 let spawned = 0;
@@ -76,6 +102,9 @@ function hubRoute(method: string, path: string): unknown {
   const p = url.pathname;
   const q = url.searchParams;
   if (method === "POST" && p === "/v1/ai/test") return { ok: true, errorKind: "none", latencyMs: 840 };
+  if (method === "GET" && p === "/v1/adapters/claude-code/statusline") {
+    return { state: "missing", configPath: "C:/Users/demo/.claude/settings.json", wrappedCommand: null, helperAvailable: true };
+  }
   if (method !== "GET") return p.startsWith("/v1/tasks") ? fx.tasks[0] : null;
   switch (p) {
     case "/v1/sessions":
@@ -194,10 +223,50 @@ mockIPC(
         composerFx.ptyWrites.push(String(args.data ?? ""));
         return null;
       case "workspace_list":
-        return { workspaces: workspaceList, activeId: activeWorkspaceId };
+        return { workspaces: workspaceList, activeId: activeWorkspaceId, groups: workspaceGroups };
       case "workspace_set_active":
         activeWorkspaceId = String(args.id);
-        void emit("workspaces:changed", { workspaces: workspaceList, activeId: activeWorkspaceId });
+        workspacesChanged();
+        return null;
+      case "workspace_reorder": {
+        const ids = args.ids as string[];
+        workspaceList = ids.map((id) => workspaceList.find((w) => w.id === id)).filter((w): w is MockWorkspace => !!w);
+        workspacesChanged();
+        return null;
+      }
+      case "workspace_group_create": {
+        const name = checkGroupName(String(args.name ?? ""));
+        const id = `group-${nextGroupId++}`;
+        workspaceGroups = [...workspaceGroups, { id, name }];
+        if (typeof args.workspaceId === "string") moveToGroup(args.workspaceId, id);
+        workspacesChanged();
+        return null;
+      }
+      case "workspace_group_rename": {
+        const name = checkGroupName(String(args.name ?? ""), String(args.id));
+        workspaceGroups = workspaceGroups.map((g) => (g.id === args.id ? { ...g, name } : g));
+        workspacesChanged();
+        return null;
+      }
+      case "workspace_group_remove":
+        workspaceGroups = workspaceGroups.filter((g) => g.id !== args.id);
+        workspaceList = workspaceList.map(({ group, ...w }) => (group === args.id || !group ? w : { ...w, group }));
+        workspacesChanged();
+        return null;
+      case "workspace_group_move": {
+        const idx = workspaceGroups.findIndex((g) => g.id === args.id);
+        const to = args.direction === "up" ? idx - 1 : idx + 1;
+        if (idx !== -1 && to >= 0 && to < workspaceGroups.length) {
+          const next = [...workspaceGroups];
+          [next[idx], next[to]] = [next[to]!, next[idx]!];
+          workspaceGroups = next;
+        }
+        workspacesChanged();
+        return null;
+      }
+      case "workspace_set_group":
+        moveToGroup(String(args.workspaceId), typeof args.groupId === "string" ? args.groupId : null);
+        workspacesChanged();
         return null;
       case "fs_read_dir":
         return docsFx.readDir(String(args.rel ?? "")) ?? (args.rel ? [] : [
@@ -239,6 +308,8 @@ mockIPC(
         return runUpdateInstall();
       case "terminal_font_suggestion":
         return null;
+      case "fonts_installed":
+        return ["Cascadia Code", "Consolas", "Inter", "Segoe UI"];
       case "terminal_wt_schemes":
         return themeFx.wtSchemes;
       case "app_info":

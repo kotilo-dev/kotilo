@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useViewerStore } from "../../stores/viewerStore";
@@ -6,24 +15,15 @@ import { flattenVisible, type Row } from "./flatten";
 import { iconFor } from "./icons";
 import { baseName, parentRel } from "./paths";
 import { useStrings } from "../../app/strings";
-import type { AppError, Workspace } from "../../lib/ipc";
+import type { AppError } from "../../lib/ipc";
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from "./ContextMenu";
 import { InlineInput } from "./InlineInput";
 import { ConfirmModal } from "../../app/ConfirmModal";
-import { UnsavedChangesModal } from "../viewer/UnsavedChangesModal";
-import { collectDirtyDocsForWorkspace, saveAllDirty, type DirtyDocRef } from "../viewer/unsavedChanges";
-import { useToastStore } from "../../stores/toastStore";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { useLayoutStore } from "../../stores/layoutStore";
-import { useAgentStore } from "../../stores/agentStore";
-import { urgentStateForWorkspace } from "../agents/agentLogic";
-import { AgentBadge } from "../agents/AgentBadge";
 import { isModPressed } from "../../lib/keys";
-import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useDocsStore } from "../../stores/docsStore";
-import { openDocsCheck } from "../docs/docsActions";
-import { openAgentContext } from "../context/contextActions";
 import { DocBadgeDot } from "../docs/DocBadgeDot";
 import { badgeIndex } from "../docs/docsLogic";
 
@@ -31,23 +31,25 @@ const ROW_HEIGHT = 22;
 const INDENT_PX = 14;
 
 export type Editing =
-  | { kind: "rename-workspace"; workspaceId: string }
   | { kind: "rename-entry"; workspaceId: string; rel: string }
   | { kind: "creating"; workspaceId: string; dirRel: string; mode: "file" | "dir" };
 
-type PendingDelete =
-  | { kind: "entry"; workspaceId: string; rel: string; name: string }
-  | { kind: "workspace"; workspaceId: string; name: string };
+interface PendingDelete {
+  workspaceId: string;
+  rel: string;
+  name: string;
+}
 
 type CreatingRow = { kind: "creating"; workspaceId: string; dirRel: string; mode: "file" | "dir"; depth: number };
 type DisplayRow = Row | CreatingRow;
 
+/** Where the inline "new file/folder" row goes: the top of the list for the root, else under the folder. */
 function findAnchorIndex(rows: Row[], workspaceId: string, dirRel: string): { index: number; depth: number } | null {
+  if (dirRel === "") return { index: -1, depth: 0 };
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
     if (r.workspaceId !== workspaceId) continue;
-    if (dirRel === "" && r.kind === "root") return { index: i, depth: 1 };
-    if (dirRel !== "" && r.kind === "dir" && r.rel === dirRel) return { index: i, depth: r.depth + 1 };
+    if (r.kind === "dir" && r.rel === dirRel) return { index: i, depth: r.depth + 1 };
   }
   return null;
 }
@@ -75,9 +77,6 @@ function insertCreatingRow(rows: Row[], editing: Editing | null): DisplayRow[] {
  * `handleTreeKeyDown`'s `if (editing) return` leaves every tree key dead forever.
  */
 export function editingAnchorExists(rows: Row[], editing: Editing): boolean {
-  if (editing.kind === "rename-workspace") {
-    return rows.some((r) => r.kind === "root" && r.workspaceId === editing.workspaceId);
-  }
   if (editing.kind === "rename-entry") {
     return rows.some(
       (r) => (r.kind === "dir" || r.kind === "file") && r.workspaceId === editing.workspaceId && r.rel === editing.rel,
@@ -86,29 +85,31 @@ export function editingAnchorExists(rows: Row[], editing: Editing): boolean {
   return findAnchorIndex(rows, editing.workspaceId, editing.dirRel) !== null;
 }
 
-type SelectableRow = Extract<Row, { kind: "root" | "dir" | "file" }>;
+type SelectableRow = Extract<Row, { kind: "dir" | "file" }>;
 
 function rowKey(row: DisplayRow): string {
-  if (row.kind === "root") return `root:${row.workspaceId}`;
-  if (row.kind === "group") return "group";
   if (row.kind === "creating") return `creating:${row.workspaceId}:${row.dirRel}`;
   return `${row.kind}:${row.workspaceId}:${row.rel}`;
 }
 
-export function Tree() {
+/** What the Files header's "New file" / "New folder" buttons call into. */
+export interface TreeHandle {
+  /** Starts an inline create in the selected folder (or the selected file's folder, else the root). */
+  startCreateAtSelection: (mode: "file" | "dir") => void;
+}
+
+/** The active workspace's file tree (the Files tab). No root row: the top level is always open. */
+export const Tree = forwardRef<TreeHandle>(function Tree(_props, ref) {
   const strings = useStrings();
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeId = useWorkspaceStore((s) => s.activeId);
   const dirCache = useWorkspaceStore((s) => s.dirCache);
   const expanded = useWorkspaceStore((s) => s.expanded);
   const selected = useWorkspaceStore((s) => s.selected);
 
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
+  const ensureRootLoaded = useWorkspaceStore((s) => s.ensureRootLoaded);
   const select = useWorkspaceStore((s) => s.select);
   const setActive = useWorkspaceStore((s) => s.setActive);
-  const removeWorkspace = useWorkspaceStore((s) => s.removeWorkspace);
-  const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
-  const moveWorkspace = useWorkspaceStore((s) => s.moveWorkspace);
   const createFile = useWorkspaceStore((s) => s.createFile);
   const createDir = useWorkspaceStore((s) => s.createDir);
   const renameEntry = useWorkspaceStore((s) => s.renameEntry);
@@ -119,7 +120,6 @@ export function Tree() {
   const copyRelativePath = useWorkspaceStore((s) => s.copyRelativePath);
 
   const openFile = useViewerStore((s) => s.openFile);
-  const agents = useAgentStore((s) => s.agents);
 
   // 0.7: docs check badges on the active workspace's doc files (missing red, stale amber).
   const treeBadges = useSettingsStore((s) => s.settings.docs?.treeBadges ?? true);
@@ -127,22 +127,19 @@ export function Tree() {
   const docBadges = useMemo(() => (treeBadges ? badgeIndex(docsReport) : null), [treeBadges, docsReport]);
   useEffect(() => (treeBadges && activeId ? useDocsStore.getState().watch(activeId) : undefined), [treeBadges, activeId]);
 
+  // The top level is always shown, even when the saved state had the root collapsed.
+  useEffect(() => {
+    if (activeId) void ensureRootLoaded(activeId);
+  }, [activeId, ensureRootLoaded]);
+
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
-  // finding #6: removing a workspace with dirty documents does not call `removeWorkspace`
-  // directly; it reuses the "Save all / Discard / Cancel" flow (same as CloseGuard, shared in
-  // `unsavedChanges.ts`).
-  const [pendingRemoveWorkspace, setPendingRemoveWorkspace] = useState<{
-    workspaceId: string;
-    name: string;
-    dirty: DirtyDocRef[];
-  } | null>(null);
 
-  const rows = useMemo(
-    () => flattenVisible({ workspaces, dirCache, expanded, activeId }),
-    [workspaces, dirCache, expanded, activeId],
-  );
+  // A half-finished inline edit belongs to the workspace it started in.
+  useEffect(() => setEditing(null), [activeId]);
+
+  const rows = useMemo(() => flattenVisible({ dirCache, expanded, workspaceId: activeId }), [dirCache, expanded, activeId]);
   const displayRows = useMemo(() => insertCreatingRow(rows, editing), [rows, editing]);
 
   // Finding #6: clear `editing` once its anchor row is no longer visible so the tree
@@ -160,13 +157,8 @@ export function Tree() {
     overscan: 12,
   });
 
-  function wsOf(id: string): Workspace | undefined {
-    return workspaces.find((w) => w.id === id);
-  }
-
   function matchesSelected(row: Row): boolean {
     if (!selected) return false;
-    if (row.kind === "root") return selected.workspaceId === row.workspaceId && selected.rel === "";
     if (row.kind === "dir" || row.kind === "file") {
       return selected.workspaceId === row.workspaceId && selected.rel === row.rel;
     }
@@ -174,7 +166,7 @@ export function Tree() {
   }
 
   function selectableRows(): SelectableRow[] {
-    return rows.filter((r): r is SelectableRow => r.kind === "root" || r.kind === "dir" || r.kind === "file");
+    return rows.filter((r): r is SelectableRow => r.kind === "dir" || r.kind === "file");
   }
 
   function selectedRow(): SelectableRow | undefined {
@@ -188,18 +180,13 @@ export function Tree() {
     const nextIdx = Math.min(Math.max(idx + delta, 0), list.length - 1);
     const row = list[nextIdx];
     if (!row) return;
-    select(row.workspaceId, row.kind === "root" ? "" : row.rel);
+    select(row.workspaceId, row.rel);
     const flatIdx = displayRows.findIndex((r) => r === row);
     if (flatIdx >= 0) virtualizer.scrollToIndex(flatIdx, { align: "auto" });
   }
 
   function openRow(row: Row, pinned: boolean) {
-    if (row.kind === "root") {
-      // Enter: activates an inactive root; toggles the tree of the active root.
-      select(row.workspaceId, "");
-      if (row.workspaceId === activeId) toggleExpanded(row.workspaceId, "");
-      else void setActive(row.workspaceId);
-    } else if (row.kind === "dir") {
+    if (row.kind === "dir") {
       select(row.workspaceId, row.rel);
       toggleExpanded(row.workspaceId, row.rel);
     } else if (row.kind === "file") {
@@ -210,37 +197,28 @@ export function Tree() {
 
   function startRenameForSelected() {
     const row = selectedRow();
-    if (!row) return;
-    if (row.kind === "root") setEditing({ kind: "rename-workspace", workspaceId: row.workspaceId });
-    else if (row.kind === "dir" || row.kind === "file") setEditing({ kind: "rename-entry", workspaceId: row.workspaceId, rel: row.rel });
-  }
-
-  /** finding #6: removing a workspace with dirty documents asks Save all/Discard/Cancel first. */
-  function requestRemoveWorkspace(workspaceId: string, name: string) {
-    const dirty = collectDirtyDocsForWorkspace(workspaceId);
-    if (dirty.length === 0) {
-      setPendingDelete({ kind: "workspace", workspaceId, name });
-    } else {
-      setPendingRemoveWorkspace({ workspaceId, name, dirty });
-    }
+    if (row) setEditing({ kind: "rename-entry", workspaceId: row.workspaceId, rel: row.rel });
   }
 
   function startDeleteForSelected() {
     const row = selectedRow();
-    if (!row) return;
-    if (row.kind === "root") {
-      const ws = wsOf(row.workspaceId);
-      if (ws) requestRemoveWorkspace(row.workspaceId, ws.name);
-    } else if (row.kind === "dir" || row.kind === "file") {
-      setPendingDelete({ kind: "entry", workspaceId: row.workspaceId, rel: row.rel, name: baseName(row.rel) });
-    }
+    if (row) setPendingDelete({ workspaceId: row.workspaceId, rel: row.rel, name: baseName(row.rel) });
   }
 
   function startCreate(workspaceId: string, dirRel: string, mode: "file" | "dir") {
-    const isExpanded = expanded[workspaceId]?.has(dirRel) ?? false;
-    if (!isExpanded) toggleExpanded(workspaceId, dirRel);
+    // The root is always open; a sub-folder is opened so the new row is visible.
+    if (dirRel !== "" && !(expanded[workspaceId]?.has(dirRel) ?? false)) toggleExpanded(workspaceId, dirRel);
     setEditing({ kind: "creating", workspaceId, dirRel, mode });
   }
+
+  useImperativeHandle(ref, () => ({
+    startCreateAtSelection: (mode) => {
+      if (!activeId) return;
+      const row = selected && selected.workspaceId === activeId ? selectedRow() : undefined;
+      const dirRel = row ? (row.kind === "dir" ? row.rel : parentRel(row.rel)) : "";
+      startCreate(activeId, dirRel, mode);
+    },
+  }));
 
   function handleTreeKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
     // ConfirmModal/ContextMenu render *inside* this div (so they can be positioned
@@ -249,7 +227,7 @@ export function Tree() {
     // be interpreted as tree navigation), and also when the event didn't originate on
     // the tree container itself (e.g. from the modal's focused button), as a second
     // line of defense (finding #2).
-    if (editing || pendingDelete || pendingRemoveWorkspace || contextMenu) return;
+    if (editing || pendingDelete || contextMenu) return;
     if (e.target !== e.currentTarget) return;
     switch (e.key) {
       case "ArrowDown":
@@ -263,18 +241,16 @@ export function Tree() {
       case "ArrowRight": {
         e.preventDefault();
         const row = selectedRow();
-        if (row?.kind === "root" && !row.expanded && row.workspaceId === activeId) toggleExpanded(row.workspaceId, "");
-        else if (row?.kind === "dir" && !row.expanded) toggleExpanded(row.workspaceId, row.rel);
+        if (row?.kind === "dir" && !row.expanded) toggleExpanded(row.workspaceId, row.rel);
         break;
       }
       case "ArrowLeft": {
         e.preventDefault();
         const row = selectedRow();
-        if (row?.kind === "root" && row.expanded) toggleExpanded(row.workspaceId, "");
-        else if (row?.kind === "dir" && row.expanded) toggleExpanded(row.workspaceId, row.rel);
+        if (row?.kind === "dir" && row.expanded) toggleExpanded(row.workspaceId, row.rel);
         else if (row && selected) {
-          const parent = row.kind === "root" ? null : parentRel(row.rel);
-          if (parent !== null) select(selected.workspaceId, parent);
+          const parent = parentRel(row.rel);
+          if (parent !== "") select(selected.workspaceId, parent);
         }
         break;
       }
@@ -298,11 +274,11 @@ export function Tree() {
         // Ctrl+Shift+V is the terminal-paste shortcut everywhere now (faz4-spec §4.1 — the
         // panel toggle moved to Ctrl+Shift+U); without the shift/alt guard, a bare Ctrl+V
         // here would still collide with a clipboard-image save.
-        if (isModPressed(e) && !e.shiftKey && !e.altKey) {
+        if (isModPressed(e) && !e.shiftKey && !e.altKey && activeId) {
           e.preventDefault();
           const row = selectedRow();
-          if (row?.kind === "root") void saveClipboardImage(row.workspaceId, "");
-          else if (row?.kind === "dir") void saveClipboardImage(row.workspaceId, row.rel);
+          if (row?.kind === "dir") void saveClipboardImage(row.workspaceId, row.rel);
+          else if (!row) void saveClipboardImage(activeId, "");
         }
         break;
       default:
@@ -323,40 +299,18 @@ export function Tree() {
     setContextMenu({ x: e.clientX, y: e.clientY, items });
   }
 
-  function rootMenuItems(ws: Workspace): ContextMenuItem[] {
+  /** Right click on the empty area below the rows: the workspace root's file actions. */
+  function rootMenuItems(workspaceId: string): ContextMenuItem[] {
     return [
+      { label: strings.contextMenu.newFile, onClick: () => startCreate(workspaceId, "", "file") },
+      { label: strings.contextMenu.newFolder, onClick: () => startCreate(workspaceId, "", "dir") },
+      { label: strings.contextMenu.openInExplorer, onClick: () => void reveal(workspaceId, ""), separatorBefore: true },
       {
-        label: strings.contextMenu.makeActive,
-        onClick: () => void setActive(ws.id),
-        disabled: ws.id === activeId,
-      },
-      { label: strings.worktrees.newAgent, onClick: () => openCreateWorktreeDialog(ws.id), separatorBefore: true },
-      { label: strings.docs.contextMenu, onClick: () => openDocsCheck(ws.id) },
-      { label: strings.agentContext.contextMenu, onClick: () => openAgentContext(ws.id) },
-      { label: strings.contextMenu.newFile, onClick: () => startCreate(ws.id, "", "file"), separatorBefore: true },
-      { label: strings.contextMenu.newFolder, onClick: () => startCreate(ws.id, "", "dir") },
-      {
-        label: strings.contextMenu.rename,
-        onClick: () => setEditing({ kind: "rename-workspace", workspaceId: ws.id }),
+        label: strings.contextMenu.saveClipboardImageHere,
+        onClick: () => void saveClipboardImage(workspaceId, ""),
         separatorBefore: true,
       },
-      {
-        label: strings.contextMenu.removeWorkspace,
-        onClick: () => requestRemoveWorkspace(ws.id, ws.name),
-      },
-      { label: strings.contextMenu.openInExplorer, onClick: () => void reveal(ws.id, ""), separatorBefore: true },
-      { label: strings.contextMenu.saveClipboardImageHere, onClick: () => void saveClipboardImage(ws.id, "") },
-      {
-        label: strings.contextMenu.moveUp,
-        onClick: () => void moveWorkspace(ws.id, "up"),
-        disabled: workspaces[0]?.id === ws.id,
-        separatorBefore: true,
-      },
-      {
-        label: strings.contextMenu.moveDown,
-        onClick: () => void moveWorkspace(ws.id, "down"),
-        disabled: workspaces[workspaces.length - 1]?.id === ws.id,
-      },
+      { label: strings.contextMenu.openTerminalHere, onClick: () => openTerminalHere(workspaceId, "") },
     ];
   }
 
@@ -371,7 +325,7 @@ export function Tree() {
       },
       {
         label: strings.contextMenu.delete,
-        onClick: () => setPendingDelete({ kind: "entry", workspaceId, rel, name: baseName(rel) }),
+        onClick: () => setPendingDelete({ workspaceId, rel, name: baseName(rel) }),
       },
       { label: strings.contextMenu.copyPath, onClick: () => void copyPath(workspaceId, rel), separatorBefore: true },
       { label: strings.contextMenu.copyRelativePath, onClick: () => void copyRelativePath(workspaceId, rel) },
@@ -390,7 +344,7 @@ export function Tree() {
       { label: strings.contextMenu.rename, onClick: () => setEditing({ kind: "rename-entry", workspaceId, rel }) },
       {
         label: strings.contextMenu.delete,
-        onClick: () => setPendingDelete({ kind: "entry", workspaceId, rel, name: baseName(rel) }),
+        onClick: () => setPendingDelete({ workspaceId, rel, name: baseName(rel) }),
       },
       { label: strings.contextMenu.copyPath, onClick: () => void copyPath(workspaceId, rel), separatorBefore: true },
       { label: strings.contextMenu.copyRelativePath, onClick: () => void copyRelativePath(workspaceId, rel) },
@@ -401,12 +355,6 @@ export function Tree() {
         separatorBefore: true,
       },
     ];
-  }
-
-  async function submitRenameWorkspace(workspaceId: string, name: string): Promise<AppError | null> {
-    const err = await renameWorkspace(workspaceId, name);
-    if (!err) setEditing(null);
-    return err;
   }
 
   async function submitRenameEntry(workspaceId: string, rel: string, newName: string): Promise<AppError | null> {
@@ -453,17 +401,6 @@ export function Tree() {
       );
     }
 
-    if (row.kind === "group") {
-      return (
-        <div
-          className="flex items-end border-t border-border-subtle px-2 pb-1 text-label font-semibold uppercase tracking-wide text-muted"
-          style={{ height: ROW_HEIGHT }}
-        >
-          {strings.workspaces.otherWorkspaces(row.count)}
-        </div>
-      );
-    }
-
     if (row.kind === "error") {
       return (
         <div
@@ -475,18 +412,11 @@ export function Tree() {
       );
     }
 
-    const isRoot = row.kind === "root";
-    const rel = isRoot ? "" : row.rel;
-    const workspaceId = row.workspaceId;
-    const name = isRoot ? row.workspace.name : row.name;
-    const isDir = isRoot || row.kind === "dir";
-    const rowExpanded = isRoot || row.kind === "dir" ? row.expanded : false;
-    const isEditingThis =
-      (editing?.kind === "rename-workspace" && isRoot && editing.workspaceId === workspaceId) ||
-      (editing?.kind === "rename-entry" && !isRoot && editing.workspaceId === workspaceId && editing.rel === rel);
-    const isActive = isRoot && activeId === workspaceId;
+    const { rel, workspaceId, name } = row;
+    const isDir = row.kind === "dir";
+    const rowExpanded = row.kind === "dir" ? row.expanded : false;
+    const isEditingThis = editing?.kind === "rename-entry" && editing.workspaceId === workspaceId && editing.rel === rel;
     const isSel = matchesSelected(row);
-    const rootWorkspace = row.kind === "root" ? row.workspace : null;
     const docBadge = row.kind === "file" && workspaceId === activeId ? docBadges?.get(rel) : undefined;
 
     return (
@@ -496,108 +426,54 @@ export function Tree() {
         onClick={(e) => {
           if (isEditingThis) return;
           // File: a click only selects, Ctrl+click opens in a new (pinned) tab, a double click
-          // opens in the preview tab (onDoubleClick). Folder: a click toggles. Root: a click only
-          // selects (user request 2026-09-27); activation is the ○ dot, the "Switch" button shown
-          // on hover/selection, a double click or "Make active" in the context menu; the active
-          // root's tree toggles with the arrow (▶/▼).
+          // opens in the preview tab (onDoubleClick). Folder: a click toggles.
           if (row.kind === "file") {
-            if (isModPressed(e)) openRow(row as Row, true);
+            if (isModPressed(e)) openRow(row, true);
             else select(workspaceId, rel);
             return;
           }
-          if (isRoot) {
-            select(workspaceId, "");
-            return;
-          }
-          openRow(row as Row, false);
+          openRow(row, false);
         }}
         onDoubleClick={(e) => {
           if (isEditingThis || isModPressed(e)) return;
-          if (row.kind === "file") openRow(row as Row, false);
-          else if (isRoot && !isActive) void setActive(workspaceId);
+          if (row.kind === "file") openRow(row, false);
         }}
         onContextMenu={(e) => {
           select(workspaceId, rel);
-          if (rootWorkspace) openContextMenu(e, rootMenuItems(rootWorkspace));
-          else if (isDir) openContextMenu(e, dirMenuItems(workspaceId, rel));
-          else openContextMenu(e, fileMenuItems(workspaceId, rel));
+          openContextMenu(e, isDir ? dirMenuItems(workspaceId, rel) : fileMenuItems(workspaceId, rel));
         }}
       >
-        {(!isRoot || isActive) && (
-          <span
-            className="mr-1 w-3.5 shrink-0 select-none text-muted"
-            onClick={(e) => {
-              // The active root's arrow toggles its tree; inactive roots have no arrow (no tree shown).
-              if (!isRoot || isEditingThis) return;
-              e.stopPropagation();
-              toggleExpanded(workspaceId, "");
-            }}
-          >
-            {isDir ? (rowExpanded ? "▼" : "▶") : ""}
-          </span>
-        )}
-        {isRoot && (
-          <button
-            type="button"
-            className={`mr-1 flex h-full w-4 shrink-0 items-center justify-center leading-none ${isActive ? "cursor-default text-accent" : "cursor-pointer text-muted hover:text-text"}`}
-            title={isActive ? strings.workspaces.activeTooltip : strings.workspaces.activateTooltip}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isActive) void setActive(workspaceId);
-            }}
-          >
-            {isActive ? "●" : "○"}
-          </button>
-        )}
-        {!isRoot && <span className="mr-1 shrink-0">{iconFor(name, isDir, rowExpanded)}</span>}
+        <span className="mr-1 w-3.5 shrink-0 select-none text-muted">{isDir ? (rowExpanded ? "▼" : "▶") : ""}</span>
+        <span className="mr-1 shrink-0">{iconFor(name, isDir, rowExpanded)}</span>
         {isEditingThis ? (
           <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
-            {editing?.kind === "rename-workspace" ? (
-              <InlineInput
-                initialValue={name}
-                onSubmit={(value) => submitRenameWorkspace(workspaceId, value)}
-                onCancel={() => setEditing(null)}
-              />
-            ) : (
-              <InlineInput
-                initialValue={name}
-                selectBaseNameOnly
-                onSubmit={(value) => submitRenameEntry(workspaceId, rel, value)}
-                onCancel={() => setEditing(null)}
-              />
-            )}
+            <InlineInput
+              initialValue={name}
+              selectBaseNameOnly
+              onSubmit={(value) => submitRenameEntry(workspaceId, rel, value)}
+              onCancel={() => setEditing(null)}
+            />
           </div>
         ) : (
           <>
-            <span className={`min-w-0 flex-1 truncate${isActive ? " font-semibold" : ""}`} title={name}>
+            <span className="min-w-0 flex-1 truncate" title={name}>
               {name}
             </span>
-            {isRoot && !isActive && (
-              <button
-                type="button"
-                title={strings.workspaces.activateTooltip}
-                className={`ml-1 shrink-0 cursor-pointer rounded border border-border px-1.5 leading-4 text-text-2 hover:bg-surface-5 hover:text-text ${isSel ? "" : "hidden group-hover:block"}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void setActive(workspaceId);
-                }}
-              >
-                {strings.workspaces.activate}
-              </button>
-            )}
             {docBadge && <DocBadgeDot badge={docBadge} />}
-            {isRoot && <AgentBadge state={urgentStateForWorkspace(agents, workspaceId)} />}
           </>
         )}
       </div>
     );
   }
 
+  if (!activeId) return null;
+
   return (
     <div
       ref={parentRef}
       tabIndex={0}
       onKeyDown={handleTreeKeyDown}
+      onContextMenu={(e) => openContextMenu(e, rootMenuItems(activeId))}
       className="h-full min-h-0 flex-1 overflow-auto outline-none text-xs"
     >
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
@@ -617,7 +493,7 @@ export function Tree() {
 
       {contextMenu && <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />}
 
-      {pendingDelete && pendingDelete.kind === "entry" && (
+      {pendingDelete && (
         <ConfirmModal
           title={strings.confirm.deleteTitle(pendingDelete.name)}
           body={strings.confirm.deleteBody}
@@ -629,44 +505,6 @@ export function Tree() {
           }}
         />
       )}
-
-      {pendingDelete && pendingDelete.kind === "workspace" && (
-        <ConfirmModal
-          title={strings.confirm.removeWorkspaceTitle(pendingDelete.name)}
-          body={strings.confirm.removeWorkspaceBody(useTerminalStore.getState().runningCount(pendingDelete.workspaceId))}
-          confirmLabel={strings.confirm.removeConfirm}
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => {
-            void removeWorkspace(pendingDelete.workspaceId);
-            setPendingDelete(null);
-          }}
-        />
-      )}
-
-      {pendingRemoveWorkspace && (
-        <UnsavedChangesModal
-          title={strings.confirm.removeWorkspaceUnsavedTitle(pendingRemoveWorkspace.name)}
-          body={strings.confirm.removeWorkspaceUnsavedBody(useTerminalStore.getState().runningCount(pendingRemoveWorkspace.workspaceId))}
-          saveLabel={strings.viewer.closeAppModal.saveAll}
-          discardLabel={strings.viewer.closeAppModal.discard}
-          onCancel={() => setPendingRemoveWorkspace(null)}
-          onDiscard={() => {
-            void removeWorkspace(pendingRemoveWorkspace.workspaceId);
-            setPendingRemoveWorkspace(null);
-          }}
-          onSave={() => {
-            const target = pendingRemoveWorkspace;
-            setPendingRemoveWorkspace(null);
-            void saveAllDirty(target.dirty).then((ok) => {
-              if (!ok) {
-                useToastStore.getState().show(strings.viewer.closeAppModal.saveFailed);
-                return; // save failed: cancel the removal
-              }
-              void removeWorkspace(target.workspaceId);
-            });
-          }}
-        />
-      )}
     </div>
   );
-}
+});

@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import { useStrings } from "../../../app/strings";
 import { useResolvedTheme } from "../../../app/theme/resolvedTheme";
+import { unscaledFontSize } from "../../../app/ui/uiScale";
+import { useSettingsStore } from "../../../stores/settingsStore";
 import { fsReadText, gitShowHead, isAppError, onFsChanged } from "../../../lib/ipc";
 import { isSameOrDescendant, parentRel } from "../../workspaces/paths";
 import { languageForRel, monacoThemeFor } from "./TextEditor";
@@ -49,6 +51,8 @@ export async function loadDiff(workspaceId: string, rel: string, rev?: string): 
 export function DiffView({ workspaceId, rel, rev }: RendererProps & { rev?: string }) {
   const strings = useStrings();
   const theme = useResolvedTheme((s) => s.theme);
+  const editorFont = useSettingsStore((s) => s.settings.editor);
+  const uiScale = useSettingsStore((s) => s.settings.appearance?.uiScale);
   const [state, setState] = useState<DiffState>({ status: "loading" });
   const [mounted, setMounted] = useState<Mounted | null>(null);
   // A diff that left "ready" unmounted its editor; the next mount reports the new one.
@@ -108,7 +112,14 @@ export function DiffView({ workspaceId, rel, rev }: RendererProps & { rev?: stri
             // Own path spaces: TextEditor models start with "/", the compare banner uses `compare-*:`.
             originalModelPath={`diff-head:${workspaceId}/${rev ? `${rev}/` : ""}${rel}`}
             modifiedModelPath={`diff-work:${workspaceId}/${rel}`}
-            options={{ readOnly: true, originalEditable: false, renderSideBySide: true, automaticLayout: true }}
+            options={{
+              readOnly: true,
+              originalEditable: false,
+              renderSideBySide: true,
+              automaticLayout: true,
+              fontFamily: editorFont.fontFamily,
+              fontSize: unscaledFontSize(editorFont.fontSize, uiScale),
+            }}
             onMount={(editor, monaco) => setMounted({ editor, monaco })}
           />
         ) : null}

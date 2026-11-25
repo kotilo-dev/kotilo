@@ -17,6 +17,52 @@ pub fn default_data_dir(env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf>
         .map(|d| PathBuf::from(d).join(agenthub_proto::brand::SLUG).join("hub"))
 }
 
+/// The shell running a user's statusLine command line. Claude Code on Windows runs its commands in
+/// Git Bash, so a user's statusLine is written for bash (`~/.claude/statusline.sh`, `$HOME`, …): use
+/// the same Git Bash (`bash.exe -c "<command>"`). Only without Git Bash fall back to
+/// `cmd.exe /D /S /C "<command>"`, where `raw_arg` keeps the user's own quoting intact (std's
+/// escaping would turn `"` into `\"`). `bash` from PATH is never used: on Windows it is often WSL's.
+pub fn shell_command(command: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    if let Some(bash) = git_bash(&|k| std::env::var(k).ok()) {
+        let mut cmd = std::process::Command::new(bash);
+        cmd.arg("-c").arg(command);
+        return cmd;
+    }
+    let mut cmd = std::process::Command::new("cmd.exe");
+    cmd.raw_arg(format!("/D /S /C \"{command}\""));
+    cmd
+}
+
+/// Git Bash as Claude Code finds it: `CLAUDE_CODE_GIT_BASH_PATH`, else Git for Windows' usual
+/// install folders (machine-wide, 32-bit, per-user).
+fn git_bash(env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
+    let configured = env("CLAUDE_CODE_GIT_BASH_PATH").filter(|v| !v.trim().is_empty()).map(PathBuf::from);
+    let installs = [("ProgramFiles", r"Git\bin\bash.exe"), ("ProgramFiles(x86)", r"Git\bin\bash.exe"), ("LOCALAPPDATA", r"Programs\Git\bin\bash.exe")]
+        .into_iter()
+        .filter_map(|(var, rel)| env(var).filter(|v| !v.is_empty()).map(|base| PathBuf::from(base).join(rel)));
+    configured.into_iter().chain(installs).find(|p| p.is_file())
+}
+
+#[cfg(test)]
+mod shell_tests {
+    use super::*;
+
+    #[test]
+    fn git_bash_prefers_the_configured_path_and_skips_missing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let bash = dir.path().join("bash.exe");
+        std::fs::write(&bash, b"").unwrap();
+        let configured = bash.to_string_lossy().to_string();
+        let env = move |k: &str| (k == "CLAUDE_CODE_GIT_BASH_PATH").then(|| configured.clone());
+        assert_eq!(git_bash(&env), Some(bash));
+
+        let missing = dir.path().join("nope.exe").to_string_lossy().to_string();
+        let env = move |k: &str| (k == "CLAUDE_CODE_GIT_BASH_PATH").then(|| missing.clone());
+        assert_eq!(git_bash(&env), None);
+    }
+}
+
 /// Windows uses `LOCALAPPDATA`, never `HOME`, for the data folder.
 pub fn known_home() -> Option<String> {
     None

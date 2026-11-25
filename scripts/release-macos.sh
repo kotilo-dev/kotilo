@@ -187,7 +187,7 @@ overlay="$staging/tauri.release.conf.json"
 cat > "$overlay" <<EOF
 {
   "bundle": {
-    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-hub"],
+    "externalBin": ["binaries/$prefix-hook", "binaries/$prefix-docs", "binaries/$prefix-statusline", "binaries/$prefix-hub"],
     "resources": {
       "../../../adapters/": null,
       "$staging_rel/adapters/": "adapters/"

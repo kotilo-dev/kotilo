@@ -98,6 +98,74 @@ pub fn workspace_set_active(
     Ok(())
 }
 
+// ---- D-080: user groups. One atomic change each; all emit `workspaces:changed`.
+
+#[tauri::command]
+pub fn workspace_group_create(
+    app: AppHandle,
+    store: State<'_, WorkspaceStore>,
+    state_store: State<'_, StateStore>,
+    name: String,
+    workspace_id: Option<String>,
+) -> AppResult<()> {
+    let snapshot = store.create_group(&state_store, &name, workspace_id.as_deref())?;
+    let _ = app.emit(EVENT_WORKSPACES_CHANGED, &snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn workspace_group_rename(
+    app: AppHandle,
+    store: State<'_, WorkspaceStore>,
+    state_store: State<'_, StateStore>,
+    id: String,
+    name: String,
+) -> AppResult<()> {
+    let snapshot = store.rename_group(&state_store, &id, &name)?;
+    let _ = app.emit(EVENT_WORKSPACES_CHANGED, &snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn workspace_group_remove(
+    app: AppHandle,
+    store: State<'_, WorkspaceStore>,
+    state_store: State<'_, StateStore>,
+    id: String,
+) -> AppResult<()> {
+    let snapshot = store.remove_group(&state_store, &id)?;
+    let _ = app.emit(EVENT_WORKSPACES_CHANGED, &snapshot);
+    Ok(())
+}
+
+/// `direction`: "up" or "down" (anything else is "down", like `moveWorkspace`).
+#[tauri::command]
+pub fn workspace_group_move(
+    app: AppHandle,
+    store: State<'_, WorkspaceStore>,
+    state_store: State<'_, StateStore>,
+    id: String,
+    direction: String,
+) -> AppResult<()> {
+    let delta = if direction == "up" { -1 } else { 1 };
+    let snapshot = store.move_group(&state_store, &id, delta)?;
+    let _ = app.emit(EVENT_WORKSPACES_CHANGED, &snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn workspace_set_group(
+    app: AppHandle,
+    store: State<'_, WorkspaceStore>,
+    state_store: State<'_, StateStore>,
+    workspace_id: String,
+    group_id: Option<String>,
+) -> AppResult<()> {
+    let snapshot = store.set_group(&state_store, &workspace_id, group_id.as_deref())?;
+    let _ = app.emit(EVENT_WORKSPACES_CHANGED, &snapshot);
+    Ok(())
+}
+
 /// §8.3: persists but never emits `workspaces:changed` — the frontend's own `expanded`
 /// state is the single source of truth after startup, this just makes it durable across
 /// restarts.

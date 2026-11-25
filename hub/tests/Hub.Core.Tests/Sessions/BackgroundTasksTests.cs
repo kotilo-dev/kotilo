@@ -42,13 +42,28 @@ public sealed class BackgroundTasksTests
         var e = ParseFixture("hooks/stop_background.json");
 
         e.Kind.Should().Be(HookEventKind.Stop);
-        e.BackgroundTasks.Should().Equal("backend-expert", "npm run dev watching", "monitor", "task", "workflow");
+        // D-079: only work types count; the monitor, the untyped entry and the number are left out.
+        e.BackgroundTasks.Should().Equal("backend-expert", "npm run dev watching", "workflow");
+    }
+
+    [Fact]
+    public void A_stop_listing_only_watchers_finishes_the_turn()
+    {
+        // 2026-11-22: an artifact's live-update subscription stayed listed for the whole session (D-079). Its exact
+        // `type` value was not captured (only the label); any type outside the work list behaves the same.
+        var e = ParseFixture("hooks/stop_watchers_only.json");
+        e.BackgroundTasks.Should().BeEmpty();
+        e.BackgroundShell.Should().BeFalse();
+
+        var (s, _) = Run(Hook(HookEventKind.UserPromptSubmit, T0), Stop(T0.AddMinutes(1), [.. e.BackgroundTasks!]));
+        s.State.Should().NotBe(SessionState.Working);
+        s.LastCompletedAt.Should().Be(T0.AddMinutes(1));
     }
 
     [Fact]
     public void Labels_are_clipped_and_capped()
     {
-        var many = string.Join(",", Enumerable.Range(0, 15).Select(i => $$$"""{"description":"{{{new string('x', 100)}}}{{{i}}}"}"""));
+        var many = string.Join(",", Enumerable.Range(0, 15).Select(i => $$$"""{"type":"shell","description":"{{{new string('x', 100)}}}{{{i}}}"}"""));
         var e = HookEventParser.Parse(
             Encoding.UTF8.GetBytes($$$"""{"payload":{"session_id":"s","hook_event_name":"Stop","background_tasks":[{{{many}}}]}}"""),
             TestAdapters.BuiltIn, out _)!;

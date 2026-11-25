@@ -23,6 +23,25 @@ export function sortAgents(agents: Agent[]): Agent[] {
   });
 }
 
+/**
+ * D-080: section order of the Agents panel (waiting first, then working). Only the panel uses
+ * it; urgency (`STATE_PRIORITY`, workspace pill, Ctrl+Shift+A) keeps done before working.
+ */
+export const AGENT_GROUP_ORDER: readonly AgentState[] = ["blocked", "working", "done", "idle"];
+
+export interface AgentGroup {
+  state: AgentState;
+  agents: Agent[];
+}
+
+/** Non-empty state sections in `AGENT_GROUP_ORDER`; inside each, `sortAgents` order. */
+export function groupAgents(agents: Agent[]): AgentGroup[] {
+  const sorted = sortAgents(agents);
+  return AGENT_GROUP_ORDER.map((state) => ({ state, agents: sorted.filter((a) => a.state === state) })).filter(
+    (g) => g.agents.length > 0,
+  );
+}
+
 /** Bir workspace'teki agent'lardan en acil olanın durumu; agent yoksa `null`. */
 export function urgentStateForWorkspace(agents: Agent[], workspaceId: string): AgentState | null {
   let best: AgentState | null = null;

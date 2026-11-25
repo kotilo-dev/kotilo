@@ -209,7 +209,7 @@ describe("workspaces:changed handling", () => {
     expect(s.selected).toBeNull();
   });
 
-  it("expands the root of a newly activated workspace, but not on unrelated updates", async () => {
+  it("loads the root of a newly activated workspace (the Files tab always shows it), once", async () => {
     const useWorkspaceStore = await freshStore();
     ipc.workspaceList.mockResolvedValue({ workspaces: [ws("a", "a-ws"), ws("b", "b-ws")], activeId: "a" });
     await useWorkspaceStore.getState().init();
@@ -217,12 +217,14 @@ describe("workspaces:changed handling", () => {
 
     workspacesChangedHandler!({ workspaces: [ws("a", "a-ws"), ws("b", "b-ws")], activeId: "b" });
     await vi.waitFor(() => expect(ipc.fsReadDir).toHaveBeenCalledWith("b", ""));
-    expect(useWorkspaceStore.getState().expanded.b?.has("")).toBe(true);
+    await vi.waitFor(() => expect(Array.isArray(useWorkspaceStore.getState().dirCache.b?.[""])).toBe(true));
+    // The root is no longer toggled through `expanded`: the tree treats it as always open.
+    expect(useWorkspaceStore.getState().expanded.b?.has("") ?? false).toBe(false);
 
-    // Kullanıcı aktif kökü kapattı; aktif değişmeyen bir güncelleme (ör. rename) onu yeniden açmaz.
-    useWorkspaceStore.getState().toggleExpanded("b", "");
+    // An update that does not change the active workspace (e.g. a rename) does not reload it.
+    const reads = ipc.fsReadDir.mock.calls.length;
     workspacesChangedHandler!({ workspaces: [ws("a", "a-ws"), ws("b", "b-renamed")], activeId: "b" });
-    expect(useWorkspaceStore.getState().expanded.b?.has("")).toBe(false);
+    expect(ipc.fsReadDir.mock.calls.length).toBe(reads);
   });
 
   it("expands and loads the root of a newly added workspace", async () => {

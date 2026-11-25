@@ -12,6 +12,29 @@ pub fn nerd_font_suggestion() -> Option<String> {
     pick(&families, &faces)
 }
 
+/// Every installed font family, sorted case-insensitively, for the font pickers in Settings.
+pub fn installed_families() -> Vec<String> {
+    families(os::installed_font_names().iter().map(String::as_str))
+}
+
+/// Distinct families from registry value names. A collection entry such as
+/// `Cambria & Cambria Math (TrueType)` names several families.
+pub fn families<'a>(value_names: impl Iterator<Item = &'a str>) -> Vec<String> {
+    let mut out: Vec<String> = value_names
+        .flat_map(|name| {
+            let (names, suffix) = match name.rfind(" (") {
+                Some(open) => (&name[..open], &name[open..]),
+                None => (name, ""),
+            };
+            names.split(" & ").map(move |part| family_of(&format!("{part}{suffix}"))).collect::<Vec<_>>()
+        })
+        .filter(|f| !f.is_empty() && !f.starts_with('@'))
+        .collect();
+    out.sort_by_key(|f| f.to_lowercase());
+    out.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    out
+}
+
 /// Family name from a registry font value name, e.g. `MesloLGM Nerd Font Bold Italic (TrueType)`
 /// → `MesloLGM Nerd Font`.
 pub fn family_of(value_name: &str) -> String {
@@ -128,6 +151,19 @@ mod tests {
         assert_eq!(family_of("MesloLGS Nerd Font Mono Regular (TrueType)"), "MesloLGS Nerd Font Mono");
         assert_eq!(family_of("Consolas (TrueType)"), "Consolas");
         assert_eq!(family_of("Bold"), "Bold");
+    }
+
+    #[test]
+    fn families_split_collections_and_dedup() {
+        let names = [
+            "Segoe UI Bold (TrueType)",
+            "Segoe UI (TrueType)",
+            "Cambria & Cambria Math (TrueType)",
+            "consolas (TrueType)",
+            "Consolas Bold (TrueType)",
+            "@MS Gothic (TrueType)",
+        ];
+        assert_eq!(families(names.into_iter()), vec!["Cambria", "Cambria Math", "consolas", "Segoe UI"]);
     }
 
     #[test]

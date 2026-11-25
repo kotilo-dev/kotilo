@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { strings } from "../../app/strings";
-import type { AdapterDto } from "../../lib/hubTypes";
+import type { AdapterDto, StatusLineStatusDto } from "../../lib/hubTypes";
 import { builtinDefinitions } from "../../test/builtinDefinitions";
 
 const ipc = vi.hoisted(() => ({
@@ -123,6 +123,61 @@ describe("Settings → Agents", () => {
     render(<AgentsSection />);
     fireEvent.click(await screen.findByRole("button", { name: strings.settingsPage.agents.install }));
     await waitFor(() => expect(ipc.hooksInstall).toHaveBeenCalledWith("copilot"));
+  });
+});
+
+describe("Settings → Agents: Claude Code status line (D-078)", () => {
+  const sl = strings.agentSetup.statusLine;
+  const LABEL = /^Show plan limits/;
+  const ROUTE = "/v1/adapters/claude-code/statusline";
+  const status = (patch: Partial<StatusLineStatusDto> = {}): StatusLineStatusDto => ({
+    state: "missing",
+    configPath: "C:/u/.claude/settings.json",
+    wrappedCommand: null,
+    helperAvailable: true,
+    ...patch,
+  });
+  function withStatus(current: () => StatusLineStatusDto) {
+    ipc.hubRequest.mockImplementation((m: string, p: string) => (p === ROUTE ? Promise.resolve(current()) : routeHub(m, p)));
+  }
+
+  it("starts off and installs when switched on", async () => {
+    let current = status();
+    withStatus(() => current);
+    render(<AgentsSection />);
+    const box = await screen.findByRole("checkbox", { name: LABEL });
+    expect(box).not.toBeChecked();
+    ipc.hubRequest.mockImplementation((m: string, p: string) => {
+      if (p === `${ROUTE}/install`) {
+        current = status({ state: "installed" });
+        return Promise.resolve({ state: "installed", backupPath: null, wrappedCommand: null });
+      }
+      return p === ROUTE ? Promise.resolve(current) : routeHub(m, p);
+    });
+    fireEvent.click(box);
+    await waitFor(() => expect(ipc.hubRequest).toHaveBeenCalledWith("POST", `${ROUTE}/install`));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: LABEL })).toBeChecked());
+  });
+
+  it("shows the chained user command and turns off with an uninstall", async () => {
+    withStatus(() => status({ state: "installed", wrappedCommand: "bash ~/sl.sh" }));
+    render(<AgentsSection />);
+    expect(await screen.findByText(sl.chained("bash ~/sl.sh"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: LABEL }));
+    await waitFor(() => expect(ipc.hubRequest).toHaveBeenCalledWith("POST", `${ROUTE}/uninstall`));
+  });
+
+  it("is disabled with a note when settings.json is unreadable or the helper is missing", async () => {
+    withStatus(() => status({ state: "invalidConfig" }));
+    const { unmount } = render(<AgentsSection />);
+    expect(await screen.findByText(sl.invalid)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: LABEL })).toBeDisabled();
+    unmount();
+
+    withStatus(() => status({ helperAvailable: false }));
+    render(<AgentsSection />);
+    expect(await screen.findByText(sl.helperMissing)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: LABEL })).toBeDisabled();
   });
 });
 

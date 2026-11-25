@@ -78,9 +78,10 @@ public sealed class ClaudeSettingsMerger(string settingsPath, string hookExePath
     /// Points statusLine at the Kotilo exe (spec §9). The user's previous command is returned so the caller can
     /// store it as <c>wrappedCommand</c>; null when there was none or Kotilo was already installed.
     /// </summary>
+    /// <exception cref="HookConfigException">settings.json is not valid JSON; the file is untouched.</exception>
     public (string? Backup, string? PreviousCommand) InstallStatusLine(string statusLineExePath)
     {
-        var root = Load();
+        var root = LoadGuarded();
         var previous = StatusLineCommand(root);
         var command = $"\"{statusLineExePath}\"";
         if (string.Equals(previous, command, StringComparison.OrdinalIgnoreCase))
@@ -96,9 +97,10 @@ public sealed class ClaudeSettingsMerger(string settingsPath, string hookExePath
     }
 
     /// <summary>Restores <paramref name="wrappedCommand"/> (or removes statusLine) if the hub's command is installed.</summary>
+    /// <exception cref="HookConfigException">settings.json is not valid JSON; the file is untouched.</exception>
     public string? UninstallStatusLine(string? wrappedCommand)
     {
-        var root = Load();
+        var root = LoadGuarded();
         if (!IsOwnStatusLine(StatusLineCommand(root)))
         {
             return null;
@@ -114,6 +116,31 @@ public sealed class ClaudeSettingsMerger(string settingsPath, string hookExePath
         }
 
         return Save(root);
+    }
+
+    /// <summary>
+    /// Where the statusLine stands for <paramref name="statusLineExePath"/>: ours (<see cref="StatusLineState.Installed"/>),
+    /// ours but pointing at another exe (<see cref="StatusLineState.Outdated"/>), someone else's or none
+    /// (<see cref="StatusLineState.Missing"/>), or settings.json unreadable (<see cref="StatusLineState.InvalidConfig"/>).
+    /// </summary>
+    public StatusLineState GetStatusLineState(string statusLineExePath)
+    {
+        try
+        {
+            var command = StatusLineCommand(Load());
+            if (!IsOwnStatusLine(command))
+            {
+                return StatusLineState.Missing;
+            }
+
+            return string.Equals(command, $"\"{statusLineExePath}\"", StringComparison.OrdinalIgnoreCase)
+                ? StatusLineState.Installed
+                : StatusLineState.Outdated;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
+        {
+            return StatusLineState.InvalidConfig;
+        }
     }
 
     /// <summary>Claude Code's own <c>/voice</c> dictation settings (spec §22.6): <c>voice.enabled</c>, <c>voice.mode</c>, <c>language</c>.</summary>
@@ -154,7 +181,28 @@ public sealed class ClaudeSettingsMerger(string settingsPath, string hookExePath
 
     private JsonObject Load() => _file.Load();
 
+    private JsonObject LoadGuarded()
+    {
+        try
+        {
+            return _file.Load();
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
+        {
+            throw new HookConfigException($"{settingsPath} could not be read as Claude Code settings: {ex.Message}", ex);
+        }
+    }
+
     private string? Save(JsonObject root) => _file.Save(root);
+}
+
+/// <summary>Whether Kotilo's statusLine helper is what Claude Code's <c>statusLine</c> setting points at.</summary>
+public enum StatusLineState
+{
+    Missing,
+    Installed,
+    Outdated,
+    InvalidConfig,
 }
 
 /// <summary>Claude Code <c>/voice</c> state read from settings.json; <see cref="Language"/> null means English.</summary>
