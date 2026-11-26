@@ -180,6 +180,8 @@ Builtin ids: builtin.secret-file, builtin.force-push, builtin.git-discard, built
 ### Sonuç
 İzleme kuralları çalışıyor. Hub her araç çağrısını hazır kurallar, senin kuralların ve onayladığın projelerin `.kotilo/watch.json` kurallarıyla karşılaştırıyor. Eşleşme izin kartında, zaman akışında ve gerektiğinde bir bildirimde görünüyor. Hiçbir çağrı engellenmiyor ve hiçbir komut metni diske yazılmıyor.
 
+Kotilo 0.11.0 olarak yayınlandı (2026-11-26): https://github.com/kotilo-dev/kotilo/releases/tag/v0.11.0. Sürüm commit'i `41a2d00`, etiket `v0.11.0`. CI ve sürüm derlemesi bütün platformlarda geçti; 22 dosya ve güncelleme beslemesi (`latest.json`, sürüm 0.11.0) yerinde. Sürüm; izleme kurallarını, UX gözden geçirmesindeki arayüz değişikliklerini (`eaa91ce`) ve görsel cilayı (`e441574`) içeriyor.
+
 ### Yapılanlar
 - **Hub çekirdeği** (`hub/Hub.Core/Watch/`):
   - kural modeli, sınırlar ve doğrulama;
