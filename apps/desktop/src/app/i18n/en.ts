@@ -53,6 +53,8 @@ export const en = {
   /** M2 app shell: left navigation rail. */
   nav: {
     label: "Main navigation",
+    expand: "Show labels",
+    collapse: "Hide labels",
     workspace: "Workspace",
     overview: "Overview",
     mission: "Mission control",
@@ -63,19 +65,6 @@ export const en = {
     tasks: "Tasks",
     dictation: "Dictation",
     settings: "Settings",
-    /** One-word labels under the rail icons (the rail is ~64px wide). */
-    short: {
-      workspace: "Work",
-      overview: "Overview",
-      mission: "Mission",
-      usage: "Usage",
-      reports: "Reports",
-      sessions: "Sessions",
-      projects: "Projects",
-      tasks: "Tasks",
-      dictation: "Dictation",
-      settings: "Settings",
-    },
     tasksDue: (today: number, overdue: number) =>
       [overdue > 0 ? `${overdue} overdue` : "", today > 0 ? `${today} due today` : ""].filter(Boolean).join(", "),
   },
@@ -531,6 +520,7 @@ export const en = {
     projected: (tokens: string, cost: string) => `Projected at block end: ${tokens} · ${cost}`,
     today: "Today",
     thisWeek: "This week",
+    totals: "Totals",
     sessionsCount: (n: number) => `${n} ${n === 1 ? "session" : "sessions"}`,
     usageDetails: "Usage details",
     limits: "Plan limits",

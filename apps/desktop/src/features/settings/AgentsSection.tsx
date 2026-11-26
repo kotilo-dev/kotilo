@@ -89,8 +89,8 @@ function HookCard({ adapter, installed, onChanged }: { adapter: AdapterDto; inst
         <Badge tone={state === "installed" ? "ok" : state === "outdated" || state === "invalidConfig" ? "warn" : "neutral"}>{t.states[state]}</Badge>
       </div>
       {hooks.configPath && (
-        <span className="truncate font-mono text-meta text-muted" title={hooks.configPath}>
-          {t.configFile}: {hooks.configPath}
+        <span className="truncate text-meta text-muted" title={hooks.configPath}>
+          {t.configFile}: <span className="font-mono">{hooks.configPath}</span>
         </span>
       )}
       {isInstalled && hooks.needsApproval && <Notice tone="warning">{a.needsApproval(adapter.displayName)}</Notice>}
@@ -99,12 +99,12 @@ function HookCard({ adapter, installed, onChanged }: { adapter: AdapterDto; inst
       {state !== "unsupported" && (
         <div className="flex flex-wrap gap-2">
           {!isInstalled && (
-            <Button small variant="primary" disabled={busy || state === "invalidConfig"} onClick={() => void act(true)}>
+            <Button small disabled={busy || state === "invalidConfig"} onClick={() => void act(true)}>
               {t.install}
             </Button>
           )}
           {state === "outdated" && (
-            <Button small variant="primary" disabled={busy} onClick={() => void act(true)}>
+            <Button small disabled={busy} onClick={() => void act(true)}>
               {a.repair}
             </Button>
           )}
@@ -222,8 +222,8 @@ function ErrorCard({ adapter, path, onDelete }: { adapter: AdapterDto; path: str
         {adapter.error}
       </p>
       <span className="text-small text-muted">{a.invalidHint}</span>
-      <span className="truncate font-mono text-meta text-muted" title={path ?? undefined}>
-        {a.file}: {path ?? userAdapterPath(adapter.id)}
+      <span className="truncate text-meta text-muted" title={path ?? undefined}>
+        {a.file}: <span className="font-mono">{path ?? userAdapterPath(adapter.id)}</span>
       </span>
       {adapter.source === "user" && (
         <div className="flex flex-wrap gap-2">

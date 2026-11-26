@@ -22,7 +22,7 @@ export function Card({
       className={`flex min-w-0 flex-col overflow-hidden rounded-card border border-border-subtle bg-surface-2 ${className}`}
     >
       {(title || actions) && (
-        <header className="flex items-center gap-2 border-b border-border-subtle px-4 py-2.5">
+        <header className="flex min-h-11 items-center gap-2 border-b border-border-subtle px-4 py-2">
           {title && (
             <h2 id={labelledBy} className="m-0 text-title font-semibold text-text">
               {title}
@@ -40,7 +40,7 @@ export function Card({
 /** §3 section label: 11px uppercase, letter-spaced. */
 export function SectionLabel({ children, id }: { children: ReactNode; id?: string }) {
   return (
-    <h2 id={id} className="m-0 text-label font-semibold uppercase tracking-[0.08em] text-faint">
+    <h2 id={id} data-section-label className="m-0 text-label font-semibold uppercase tracking-[0.08em] text-muted">
       {children}
     </h2>
   );

@@ -10,6 +10,7 @@ import { agentIdentity } from "./agentIdentity";
 import { useRouteStore } from "../stores/routeStore";
 import { useHubStore } from "../stores/hubStore";
 import { useSettingsStore } from "../stores/settingsStore";
+import { DEFAULT_LAYOUT, useLayoutStore } from "../stores/layoutStore";
 import { useI18nStore } from "./i18n";
 import { en } from "./i18n/en";
 
@@ -27,6 +28,7 @@ beforeEach(() => {
   useRouteStore.setState({ route: "workspace" });
   useI18nStore.setState({ preference: "en", language: "en" });
   useHubStore.setState({ taskCounts: null });
+  useLayoutStore.setState({ layout: DEFAULT_LAYOUT });
 });
 
 afterEach(() => {
@@ -78,6 +80,19 @@ describe("nav rail", () => {
     act(() => useHubStore.getState().apply({ type: "tasks", data: { today: 0, overdue: 0 } }));
     expect(screen.queryByTestId("nav-badge")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: en.nav.tasks })).toBeInTheDocument();
+  });
+
+  it("shows icons only by default; the toggle adds full labels and is remembered in the layout", () => {
+    render(<Shell />);
+    const nav = screen.getByRole("navigation", { name: en.nav.label });
+    expect(nav).not.toHaveAttribute("data-expanded");
+    expect(screen.queryByText(en.nav.mission)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: en.nav.expand }));
+    expect(nav).toHaveAttribute("data-expanded", "true");
+    expect(screen.getByText(en.nav.mission)).toBeInTheDocument();
+    expect(useLayoutStore.getState().layout.navExpanded).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: en.nav.collapse }));
+    expect(useLayoutStore.getState().layout.navExpanded).toBe(false);
   });
 
   it("follows the UI language", () => {

@@ -305,7 +305,7 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
 /** Inline notice (hub unavailable, load errors). */
 export function Notice({ tone = "info", children }: { tone?: "info" | "error" | "warning"; children: ReactNode }) {
   const toneClass =
-    tone === "error" ? "border-blocked bg-blocked-bg text-blocked-ink" : tone === "warning" ? "border-working bg-working-bg text-working-ink" : "border-border bg-surface-3 text-text-2";
+    tone === "error" ? "border-blocked bg-blocked-bg text-blocked-ink" : tone === "warning" ? "border-working/35 bg-working-bg text-working-ink" : "border-border bg-surface-3 text-text-2";
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-control border px-3 py-2 text-body ${toneClass}`}>
       {children}

@@ -6,6 +6,8 @@
 import { useEffect, useRef, useState } from "react";
 import { HeaderButton } from "../../app/HeaderButton";
 import { PanelHeader } from "../../app/PanelHeader";
+import { EmptyState } from "../../app/ui/EmptyState";
+import { Icon } from "../../app/icons";
 import { agentLabel } from "../../app/ui/agents";
 import { AgentAvatar } from "../../app/ui";
 import { useStrings } from "../../app/strings";
@@ -173,9 +175,7 @@ export function AgentsPanel() {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {groups.length === 0 ? (
-          <div className="p-3 text-xs text-muted">
-            {strings.empty.agents}
-          </div>
+          <EmptyState icon={<Icon name="sessions" size={20} />} title={strings.empty.agents} />
         ) : (
           groups.map((group) => <AgentSection key={group.state} group={group} now={now} />)
         )}

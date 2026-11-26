@@ -22,10 +22,10 @@ export function Toolbar({ children }: { children: ReactNode }) {
 }
 
 /** Scrollable page body with the standard 28px/32px padding. */
-export function Page({ children }: { children: ReactNode }) {
+export function Page({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
-    <section aria-labelledby="page-title" className="flex h-full flex-col gap-[22px] overflow-auto bg-bg px-8 py-7">
-      {children}
+    <section aria-labelledby="page-title" className="h-full overflow-auto bg-bg px-8 py-7">
+      <div className={`flex flex-col gap-[22px] ${wide ? "" : "mx-auto w-full max-w-[1180px]"}`}>{children}</div>
     </section>
   );
 }

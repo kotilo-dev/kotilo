@@ -52,6 +52,8 @@ export const tr: Strings = {
 
   nav: {
     label: "Ana gezinme",
+    expand: "Etiketleri göster",
+    collapse: "Etiketleri gizle",
     workspace: "Çalışma alanı",
     overview: "Genel bakış",
     mission: "Görev kontrol",
@@ -62,19 +64,6 @@ export const tr: Strings = {
     tasks: "Görevler",
     dictation: "Dikte",
     settings: "Ayarlar",
-    /** One-word labels under the rail icons (the rail is ~64px wide). */
-    short: {
-      workspace: "Alan",
-      overview: "Genel",
-      mission: "Kontrol",
-      usage: "Kullanım",
-      reports: "Raporlar",
-      sessions: "Oturum",
-      projects: "Projeler",
-      tasks: "Görevler",
-      dictation: "Dikte",
-      settings: "Ayarlar",
-    },
     tasksDue: (today: number, overdue: number) =>
       [overdue > 0 ? `${overdue} gecikmiş` : "", today > 0 ? `${today} bugün` : ""].filter(Boolean).join(", "),
   },
@@ -521,6 +510,7 @@ export const tr: Strings = {
     projected: (tokens: string, cost: string) => `Blok sonunda tahmini: ${tokens} · ${cost}`,
     today: "Bugün",
     thisWeek: "Bu hafta",
+    totals: "Toplamlar",
     sessionsCount: (n: number) => `${n} oturum`,
     usageDetails: "Kullanım ayrıntıları",
     limits: "Plan limitleri",

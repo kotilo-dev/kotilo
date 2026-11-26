@@ -328,6 +328,10 @@ pub fn apply_agent_hook(
 
     let tool_name = payload.get("tool_name").and_then(|v| v.as_str());
     let mut new_state = next.state;
+    // A new turn restarts the state clock even when the state stays Working (a prompt sent
+    // while a paused turn waits for background work, or a queued one): the keystrokes that
+    // typed the prompt are older than the turn and must not arm the Esc-cancel fallback.
+    let mut restamp = false;
     let finished = if seen { AgentState::Idle } else { AgentState::Done };
     // 0.3.2: Working only because a finished turn waits for background work.
     let waiting_on_background = next.state == AgentState::Working && !next.background_tasks.is_empty();
@@ -344,6 +348,7 @@ pub fn apply_agent_hook(
         "UserPromptSubmit" => {
             new_state = AgentState::Working;
             next.background_tasks.clear();
+            restamp = true;
         }
         "PreToolUse" => {
             new_state = AgentState::Working;
@@ -431,7 +436,7 @@ pub fn apply_agent_hook(
     if !matches!(event, "PreToolUse" | "PermissionRequest" | "Notification") {
         next.question_pending = false;
     }
-    if new_state != next.state {
+    if new_state != next.state || restamp {
         next.since_ms = ts_ms;
     }
     next.state = new_state;
@@ -1324,6 +1329,12 @@ impl AgentTracker {
                 return false;
             };
             if let Some(updated) = apply_cancel_fallback(&record.agent, signal, now) {
+                log::info!(
+                    "agent pane={} cancel-fallback state={:?}->{:?}",
+                    short_pane_id(&pane.pane_id),
+                    record.agent.state,
+                    updated.state
+                );
                 record.agent = updated;
                 return true;
             }
@@ -1579,6 +1590,21 @@ mod tests {
 
     fn hook(prev: &Agent, event: &str, payload: serde_json::Value) -> Agent {
         upsert(apply_hook(Some(prev), "p1", "w1", event, &payload, 20, false))
+    }
+
+    #[test]
+    fn prompt_while_working_restarts_the_clock_so_its_typing_does_not_cancel() {
+        // A turn paused for a background agent stays Working; the user types and sends a
+        // new prompt (keystrokes at 15, submit at 20).
+        let mut prev = hook_agent(AgentState::Working, 10);
+        prev.background_tasks = vec!["subagent".into()];
+        let a = hook(&prev, "UserPromptSubmit", json!({}));
+        assert_eq!((a.state, a.since_ms), (AgentState::Working, 20));
+        assert!(a.background_tasks.is_empty());
+        // The prompt's own keystrokes are older than the turn: no cancel signal after silence.
+        assert_eq!(cancel_fallback_signal(a.since_ms, 15, 15, 0, 20 + CANCEL_FALLBACK_SILENCE_MS + 1), None);
+        // A real keystroke during the turn (Esc at 30) still arms it.
+        assert_eq!(cancel_fallback_signal(a.since_ms, 30, 30, 0, 30 + CANCEL_FALLBACK_SILENCE_MS), Some(CancelSignal::Idle));
     }
 
     #[test]

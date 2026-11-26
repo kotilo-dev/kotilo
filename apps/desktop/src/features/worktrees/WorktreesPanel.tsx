@@ -7,6 +7,8 @@
 import { useEffect, useMemo } from "react";
 import { useStrings } from "../../app/i18n";
 import { AgentAvatar, Button, SectionLabel } from "../../app/ui";
+import { EmptyState } from "../../app/ui/EmptyState";
+import { Icon } from "../../app/icons";
 import type { Agent, Workspace, WorktreeInfo } from "../../lib/ipc";
 import { useAgentStore } from "../../stores/agentStore";
 import { useTerminalStore, type TerminalTab } from "../../stores/terminalStore";
@@ -57,7 +59,7 @@ function WorkspaceWorktrees({ workspace }: { workspace: Workspace }) {
   } else if (!list.supported) {
     body = <p className="m-0 px-4 py-3 text-body text-muted" data-testid="worktrees-unsupported">{unsupportedHint(s, list.reason)}</p>;
   } else if (list.worktrees.length === 0) {
-    body = <p className="m-0 px-4 py-3 text-body text-muted">{t.empty}</p>;
+    body = <EmptyState icon={<Icon name="projects" size={20} />} title={t.empty} />;
   } else {
     body = (
       <ul className="m-0 list-none p-0">

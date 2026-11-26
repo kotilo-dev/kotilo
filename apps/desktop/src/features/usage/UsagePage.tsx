@@ -178,7 +178,7 @@ function BlocksCard({ blocks, loading }: { blocks: UsageBlockDto[] | null; loadi
       ) : (
         <table className="w-full border-collapse text-body">
           <thead>
-            <tr className="text-left text-label uppercase tracking-[0.08em] text-faint">
+            <tr data-section-label className="text-left text-label uppercase tracking-[0.08em] text-muted">
               <th className="px-4 py-2 font-semibold">{s.usage.columns.block}</th>
               <th className="px-2 py-2 text-right font-semibold">{s.usage.columns.tokens}</th>
               <th className="px-2 py-2 text-right font-semibold">{s.usage.columns.cost}</th>
@@ -249,7 +249,7 @@ function BreakdownCard({
       ) : (
         <table className="w-full border-collapse text-body">
           <thead>
-            <tr className="text-left text-label uppercase tracking-[0.08em] text-faint">
+            <tr data-section-label className="text-left text-label uppercase tracking-[0.08em] text-muted">
               <th className="px-4 py-2 font-semibold">{s.usage.columns.name}</th>
               <th className="w-[30%] px-2 py-2 font-semibold">
                 <span className="sr-only">{s.usage.columns.share}</span>

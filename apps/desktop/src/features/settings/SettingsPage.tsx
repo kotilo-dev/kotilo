@@ -244,7 +244,7 @@ export function SettingsPage() {
             if (items.length === 0) return null;
             return (
               <div key={g.key} className="flex flex-col gap-0.5">
-                <span className="px-3 pb-1 text-label font-semibold uppercase tracking-[0.08em] text-faint">{t.navGroups[g.key]}</span>
+                <span data-section-label className="px-3 pb-1 text-label font-semibold uppercase tracking-[0.08em] text-muted">{t.navGroups[g.key]}</span>
                 <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                   {items.map((x) => (
                     <li key={x.id}>

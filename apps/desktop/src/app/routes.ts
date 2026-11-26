@@ -14,7 +14,7 @@ export interface RouteDef {
   id: RouteId;
   icon: IconName;
   /** Key of the label in `strings.nav`. */
-  label: keyof Omit<Strings["nav"], "label" | "tasksDue" | "short">;
+  label: keyof Omit<Strings["nav"], "label" | "tasksDue" | "expand" | "collapse">;
   /** Shown at the bottom of the rail rather than in the main group. */
   bottom?: boolean;
   /** U-2: shown only where this OS feature exists. */

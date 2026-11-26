@@ -9,6 +9,8 @@ import { registerCommand } from "../../app/commands";
 import { ensureViewerRoom } from "../../app/viewerRoom";
 import { strings as liveStrings, useStrings } from "../../app/strings";
 import { AgentAvatar } from "../../app/ui/AgentAvatar";
+import { EmptyState } from "../../app/ui/EmptyState";
+import { Icon } from "../../app/icons";
 import { agentDisplayName } from "../../app/ui/agents";
 import { formatClock, formatDuration, NO_VALUE, secondsSince } from "../../app/ui/format";
 import { useNow } from "../../app/ui/useNow";
@@ -107,7 +109,7 @@ function ViewerToggle() {
   );
 }
 
-const SECTION_LABEL ="text-label font-semibold uppercase tracking-[0.08em] text-faint";
+const SECTION_LABEL = "text-label font-semibold uppercase tracking-[0.08em] text-muted";
 
 export function TimelineRail() {
   const strings = useStrings();
@@ -326,7 +328,11 @@ function ActivitySection({ entries, loading }: { entries: readonly ActivityEntry
     <section className="flex flex-col gap-1" aria-label={strings.timeline.activity}>
       <span className={`${SECTION_LABEL} mb-1.5`}>{strings.timeline.activity}</span>
       {rows.length === 0 ? (
-        <div className="text-xs text-muted">{loading ? strings.timeline.loading : strings.timeline.noActivity}</div>
+        loading ? (
+          <div className="text-xs text-muted">{strings.timeline.loading}</div>
+        ) : (
+          <EmptyState icon={<Icon name="sessions" size={20} />} title={strings.timeline.noActivity} />
+        )
       ) : (
         <ol className="flex flex-col" data-testid="timeline-activity">
           {rows.map((e) =>

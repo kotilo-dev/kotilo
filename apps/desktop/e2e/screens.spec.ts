@@ -259,3 +259,20 @@ for (const { theme, lang } of VARIANTS) {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 }
+
+// The nav rail: icons only by default; the bottom toggle shows full labels beside the icons.
+for (const lang of ["en", "tr"] as const) {
+  test(`nav rail · expanded labels · dark · ${lang}`, async ({ page }) => {
+    const errors = await openApp(page, "dark", lang);
+    const nav = page.getByRole("navigation").first();
+    await expect(nav).not.toHaveAttribute("data-expanded", "true");
+    await page.getByTestId("nav-expand").click();
+    await expect(nav).toHaveAttribute("data-expanded", "true");
+    await page.keyboard.press("Alt+3");
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `test-results/screens/nav-expanded-dark-${lang}.png` });
+    await page.getByTestId("nav-expand").click();
+    await expect(nav).not.toHaveAttribute("data-expanded", "true");
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+}

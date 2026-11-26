@@ -484,3 +484,85 @@ html[data-view="dictation-overlay"] body {
   opacity: 0.4;
   cursor: default;
 }
+
+/* Numeric token: Geist Mono with tabular figures. Labels and sentences stay in the UI font. */
+.num {
+  font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Surface depth (DESIGN_SYSTEM §4, "layered depth"): three planes – rail, page, raised cards – and
+ * the terminal/preview as a recessed well. Everything derives from palette tokens, so other
+ * palettes and the light theme keep working. Unlayered so it beats the Tailwind utilities.
+ */
+:root {
+  --elev-highlight: color-mix(in srgb, var(--text) 6%, transparent);
+  --elev-shade: color-mix(in srgb, #000 28%, transparent);
+}
+:root[data-theme="light"] {
+  --elev-highlight: transparent;
+  --elev-shade: color-mix(in srgb, var(--text) 9%, transparent);
+}
+:root :is(.rounded-card, .rounded-sheet).bg-surface-2 {
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2) 56px);
+  border-color: var(--border-strong);
+  box-shadow: inset 0 1px 0 var(--elev-highlight), 0 1px 2px var(--elev-shade), 0 8px 24px -12px var(--elev-shade);
+}
+:root[data-theme="light"] :is(.rounded-card, .rounded-sheet).bg-surface-2 {
+  background: var(--surface-2);
+}
+:root :is(.rounded-card, .rounded-sheet).bg-surface-2 > header {
+  background: color-mix(in srgb, var(--surface-4) 60%, transparent);
+}
+:root [data-testid="mission-preview"] {
+  box-shadow: inset 0 2px 6px var(--elev-shade);
+}
+:root [data-section-label] {
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+:root [data-section-label]::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+:root tr[data-section-label]::after {
+  display: none;
+}
+:root tr[data-section-label] {
+  display: table-row;
+}
+:root #page-title {
+  letter-spacing: -0.025em;
+}
+:root .num,
+:root .font-mono.text-\[22px\] {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+:root button.bg-accent {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 25%, transparent), 0 1px 2px var(--elev-shade);
+}
+:root button.bg-surface-5 {
+  box-shadow: inset 0 1px 0 var(--elev-highlight);
+  border-color: var(--border-strong);
+}
+:root [role="radio"][aria-checked="true"] {
+  box-shadow: inset 0 1px 0 var(--elev-highlight), 0 1px 2px var(--elev-shade);
+}
+:root [data-route][aria-current="page"] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root nav[data-expanded] [data-route][aria-current="page"] {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+:root :focus-visible {
+  outline-offset: 1px;
+}

@@ -16,7 +16,7 @@ export function Segmented<T extends string>({
   ariaLabel: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex gap-1 rounded-card border border-border-subtle bg-surface-3 p-1">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex gap-1 rounded-button border border-border-subtle bg-surface-3 p-1">
       {options.map((o) => {
         const on = o.value === value;
         return (

@@ -5,6 +5,8 @@
  */
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { PanelHeader } from "../../app/PanelHeader";
+import { EmptyState } from "../../app/ui/EmptyState";
+import { Icon } from "../../app/icons";
 import { strings, useStrings } from "../../app/strings";
 import { registerCommand } from "../../app/commands";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -255,8 +257,8 @@ export function ViewerPanel() {
     <div className="flex h-full flex-col">
       <PanelHeader title={strings.panels.viewer} />
       {tabs.length === 0 ? (
-        <div className="flex-1 overflow-auto p-3 text-xs text-muted">
-          {strings.viewer.noTabs}
+        <div className="flex-1 overflow-auto">
+          <EmptyState icon={<Icon name="workspace" size={20} />} title={strings.viewer.noTabs} />
         </div>
       ) : (
         <>

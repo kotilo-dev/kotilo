@@ -42,7 +42,10 @@ describe("mergeWithDefaults", () => {
       timelineSplitSizes: DEFAULT_LAYOUT.timelineSplitSizes,
       collapsedWorkspaceGroups: [],
       collapsedAgentGroups: [],
+      navExpanded: false,
     });
+    expect(mergeWithDefaults({ navExpanded: true }).navExpanded).toBe(true);
+    expect(mergeWithDefaults({ navExpanded: "yes" }).navExpanded).toBe(false);
   });
 
   it("restores the timeline rail split, or the default for a partial one", () => {

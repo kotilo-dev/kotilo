@@ -80,7 +80,7 @@ v1'de tanımlanacak; token adları aynı kalır, değerler `[data-theme="light"]
 | Terminal / kod / sayı | **Geist Mono** (ligatür açık) | 13.5 / 1.6 (terminal), 12 (sayılar) | 400–600 |
 | Ekran başlığı | Geist | 26 / 1.2, `letter-spacing: -0.02em` | 700 |
 | Panel başlığı | Geist | 14 | 600 |
-| Bölüm etiketi | Geist | 11, uppercase, `letter-spacing: 0.08em` | 600 |
+| Bölüm etiketi | Geist | 11, uppercase, `letter-spacing: 0.1em`, `--text-3`, sağında ince çizgi (`data-section-label`) | 600 |
 | Meta | Geist | 11.5–12 | 400–500 |
 
 - Tailwind boyut sınıfları (`index.css` `@theme`): `text-label` 11 · `text-meta` 11.5 · `text-small` 12 · `text-body` 12.5 · `text-ui` 13 · `text-title` 14 · `text-display` 26. 11px altı metin yok.
@@ -93,7 +93,8 @@ v1'de tanımlanacak; token adları aynı kalır, değerler `[data-theme="light"]
 - 4px temel ızgara. Sık kullanılan: 4, 6, 8, 10, 12, 14, 16, 18, 22, 28, 32.
 - Panel iç boşluğu 12–16px; terminal iç boşluğu **18px 22px** (terminalin "ürün" hissi için kritik).
 - Köşe yarıçapı: 4 (rozet), 6–7 (küçük kontrol), 8–9 (buton, avatar), 10 (kart), 12 (panel), 14 (izin kartı, görev kartı).
-- Gölge: yalnızca yüzen öğelerde. İzin kartı `0 18px 50px rgba(0,0,0,.55)`. Durum halesi: `0 0 0 4px <status @ 0.05–0.08>` + gerekirse `0 0 40px <status @ 0.10>`.
+- Katmanlı derinlik (2026-11-26): üç düzlem – ray, sayfa, yükseltilmiş kart – ve içe gömük terminal/önizleme. Kart (`rounded-card`/`rounded-sheet` + `bg-surface-2`): üstte `--surface-3`'ten `--surface-2`'ye 56px'lik geçiş, `--border-strong` çerçeve, 1px iç üst ışık (`--elev-highlight`) ve hafif temas gölgesi (`0 1px 2px` + `0 8px 24px -12px`, `--elev-shade`). Görev kontrol önizlemesi içe gölgeli. Birincil ve ikincil butonlarda 1px üst ışık. Değerler palet token'larından türetilir (`index.css` "Surface depth"), başka paletlerde ve açık temada da çalışır.
+- Yüzen öğe gölgesi: İzin kartı `0 18px 50px rgba(0,0,0,.55)`. Durum halesi: `0 0 0 4px <status @ 0.05–0.08>` + gerekirse `0 0 40px <status @ 0.10>`.
 - Modal arka perdesi: `--scrim` (`bg-scrim`; koyu `rgba(0,0,0,.5)`, açık `rgba(15,20,35,.3)`) – tüm diyaloglar, Yardım, komut paleti.
 - Pencere: Windows 11'de Mica (Tauri `window-vibrancy`), Mac'te vibrancy; desteklenmezse `--bg`.
 

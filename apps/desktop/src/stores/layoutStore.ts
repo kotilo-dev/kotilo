@@ -49,6 +49,8 @@ export interface LayoutSlice {
   collapsedWorkspaceGroups: string[];
   /** D-080: collapsed state sections of the Agents panel. */
   collapsedAgentGroups: AgentState[];
+  /** Nav rail with text labels beside the icons (off = icons only). */
+  navExpanded: boolean;
 }
 
 export const DEFAULT_LAYOUT: LayoutSlice = {
@@ -62,6 +64,7 @@ export const DEFAULT_LAYOUT: LayoutSlice = {
   timelineSplitSizes: { activity: 60, changes: 40 },
   collapsedWorkspaceGroups: [],
   collapsedAgentGroups: [],
+  navExpanded: false,
 };
 
 const AGENT_STATES: readonly AgentState[] = ["blocked", "working", "done", "idle"];
@@ -131,6 +134,7 @@ export function mergeWithDefaults(partial: unknown): LayoutSlice {
     timelineSplitSizes,
     collapsedWorkspaceGroups: stringList(p.collapsedWorkspaceGroups),
     collapsedAgentGroups: stringList(p.collapsedAgentGroups).filter((x): x is AgentState => AGENT_STATES.includes(x as AgentState)),
+    navExpanded: typeof p.navExpanded === "boolean" ? p.navExpanded : DEFAULT_LAYOUT.navExpanded,
   };
 }
 
@@ -160,6 +164,7 @@ interface LayoutStore {
   /** D-080: collapse/expand a workspace group or an Agents panel state section. */
   setWorkspaceGroupCollapsed: (groupId: string, collapsed: boolean) => void;
   setAgentGroupCollapsed: (state: AgentState, collapsed: boolean) => void;
+  toggleNavExpanded: () => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -234,6 +239,12 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     const current = get().layout.timelineSplitSizes;
     if (current.activity === sizes.activity && current.changes === sizes.changes) return;
     const layout = { ...get().layout, timelineSplitSizes: sizes };
+    set({ layout });
+    scheduleSave(layout);
+  },
+
+  toggleNavExpanded: () => {
+    const layout = { ...get().layout, navExpanded: !get().layout.navExpanded };
     set({ layout });
     scheduleSave(layout);
   },

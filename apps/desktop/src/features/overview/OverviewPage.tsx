@@ -5,6 +5,7 @@
  * Live data comes from the hub stream (`hubStore`); projects are loaded once per visit.
  */
 import { useStrings, formatNumber } from "../../app/i18n";
+import { Icon } from "../../app/icons";
 import {
   AgentAvatar,
   Button,
@@ -16,7 +17,6 @@ import {
   PageHeader,
   ProgressBar,
   SectionLabel,
-  StatTile,
   agentDisplayName,
   formatClock,
   formatCost,
@@ -79,50 +79,74 @@ function UsageRow({ usage, now }: { usage: UsageCurrent | null; now: number }) {
   const progress = block ? blockProgress(block.start, block.end, now) : 0;
   const blockSeconds = block ? (Date.parse(block.end) - Date.parse(block.start)) / 1000 : 0;
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
       <div className="flex min-w-0 flex-col gap-2.5 rounded-card border border-border-subtle bg-surface-2 px-4 py-3.5">
         <div className="flex items-center gap-2 text-small text-text-3">
           <span>{s.overview.activeBlock}</span>
           {block && (
-            <span className="font-mono text-muted">
+            <span className="num text-muted">
               {formatClock(block.start)}–{formatClock(block.end)}
             </span>
           )}
           <div className="flex-1" />
-          {block && <span className="font-mono text-text-2">{s.overview.remaining(formatDuration(block.remainingMinutes * 60))}</span>}
+          {block && <span className="text-text-2">{s.overview.remaining(formatDuration(block.remainingMinutes * 60))}</span>}
         </div>
         {block ? (
           <>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[22px] font-semibold text-text">{formatTokenCount(block.tokens)}</span>
+              <span className="num text-[22px] font-semibold text-text">{formatTokenCount(block.tokens)}</span>
               <span className="text-muted">{s.overview.tokens}</span>
               <span className="font-mono text-text-2">≈ {formatCost(block.costUsd)}</span>
               <div className="flex-1" />
-              <span className="font-mono text-small text-muted">
+              <span className="text-small text-muted">
                 {s.overview.burnRate(formatNumber(Math.round(block.tokensPerMinute)))}
               </span>
             </div>
             <ProgressBar value={progress} label={s.overview.blockElapsed(formatDuration(progress * blockSeconds), formatDuration(blockSeconds))} />
             <div className="flex flex-wrap items-center gap-x-3 text-small text-muted">
-              <span className="font-mono">{s.overview.blockElapsed(formatDuration(progress * blockSeconds), formatDuration(blockSeconds))}</span>
+              <span>{s.overview.blockElapsed(formatDuration(progress * blockSeconds), formatDuration(blockSeconds))}</span>
               <span>{s.overview.projected(formatTokenCount(block.projectedTokens), formatCost(block.projectedCostUsd))}</span>
             </div>
           </>
         ) : (
           <span className="text-muted">{s.overview.noActiveBlock}</span>
         )}
-        <span className="text-meta text-faint">{s.overview.blockEstimateNote}</span>
+        <span className="mt-auto text-meta text-muted">{s.overview.blockEstimateNote}</span>
       </div>
-      <StatTile
-        label={s.overview.today}
-        value={formatTokenCount(usage?.today.tokens ?? null)}
-        detail={`${formatCost(usage?.today.costUsd ?? null)}${usage?.today.sessions != null ? ` · ${s.overview.sessionsCount(usage.today.sessions)}` : ""}`}
-      />
-      <StatTile label={s.overview.thisWeek} value={formatTokenCount(usage?.week.tokens ?? null)} detail={formatCost(usage?.week.costUsd ?? null)}>
-        <Button variant="ghost" className="-ml-2 mt-1 self-start" onClick={() => navigate("usage")}>
-          {s.overview.usageDetails}
-        </Button>
-      </StatTile>
+      <Card
+        title={s.overview.totals}
+        labelledBy="overview-totals"
+        bodyClassName="p-0"
+        actions={
+          <Button className="h-7 text-small" onClick={() => navigate("usage")}>
+            {s.overview.usageDetails}
+          </Button>
+        }
+      >
+        <div className="grid grid-cols-2">
+          <TotalsRow
+            label={s.overview.today}
+            value={formatTokenCount(usage?.today.tokens ?? null)}
+            detail={`${formatCost(usage?.today.costUsd ?? null)}${usage?.today.sessions != null ? ` · ${s.overview.sessionsCount(usage.today.sessions)}` : ""}`}
+          />
+          <TotalsRow
+            border
+            label={s.overview.thisWeek}
+            value={formatTokenCount(usage?.week.tokens ?? null)}
+            detail={formatCost(usage?.week.costUsd ?? null)}
+          />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function TotalsRow({ label, value, detail, border = false }: { label: string; value: string; detail: string; border?: boolean }) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-1 px-4 py-3.5 ${border ? "border-l border-border-subtle" : ""}`}>
+      <span className="text-small text-text-3">{label}</span>
+      <span className="num text-[22px] font-semibold leading-tight text-text">{value}</span>
+      <span className="text-small text-muted">{detail}</span>
     </div>
   );
 }
@@ -165,13 +189,13 @@ function WaitingList({ waiting, live, now }: { waiting: SessionDto[]; live: numb
       title={s.overview.waitingTitle}
       labelledBy="overview-waiting"
       actions={
-        <Button variant="ghost" onClick={() => navigate("mission")}>
+        <Button className="h-7 text-small" onClick={() => navigate("mission")}>
           {s.mission.open}
         </Button>
       }
     >
       {shown.length === 0 ? (
-        <p className="m-0 text-muted">{live === 0 ? s.overview.noSessions : s.overview.noAttention}</p>
+        <EmptyState icon={<Icon name="mission" size={20} />} title={live === 0 ? s.overview.noSessions : s.overview.noAttention} />
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {shown.map((w) => (
@@ -179,7 +203,7 @@ function WaitingList({ waiting, live, now }: { waiting: SessionDto[]; live: numb
               <AgentAvatar agent={w.agent} size={28} />
               <span className="min-w-0 flex-1 truncate font-medium text-text">{w.projectName}</span>
               <StatusPill state={w.state as SessionState} />
-              <span className="hidden w-28 text-right font-mono text-small text-muted sm:block">
+              <span className="hidden w-28 text-right text-small text-muted sm:block">
                 {s.overview.waitingFor(formatDuration(secondsSince(w.stateSince, now)))}
               </span>
               <Button disabled={!canGoToSession(w, byWorkspace)} title={canGoToSession(w, byWorkspace) ? undefined : s.sessions.runningElsewhere} onClick={() => goToSession(w)}>
@@ -189,7 +213,7 @@ function WaitingList({ waiting, live, now }: { waiting: SessionDto[]; live: numb
           ))}
           {hidden > 0 && (
             <li>
-              <Button variant="ghost" onClick={() => navigate("mission")}>
+              <Button className="h-7 text-small" onClick={() => navigate("mission")}>
                 {s.overview.moreWaiting(hidden)}
               </Button>
             </li>
@@ -209,7 +233,7 @@ function ProjectsCard({ projects, loading }: { projects: ProjectDto[] | null; lo
       title={s.overview.projects}
       labelledBy="overview-projects"
       actions={
-        <Button variant="ghost" onClick={() => navigate("projects")}>
+        <Button className="h-7 text-small" onClick={() => navigate("projects")}>
           {s.overview.allProjects}
         </Button>
       }

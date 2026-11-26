@@ -15,7 +15,9 @@ export type IconName =
   | "tasks"
   | "sessions"
   | "dictation"
-  | "settings";
+  | "settings"
+  | "railExpand"
+  | "railCollapse";
 
 const PATHS: Record<IconName, JSX.Element> = {
   appMark: (
@@ -93,6 +95,8 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
     </>
   ),
+  railExpand: <path d="M6 17l5-5-5-5M13 17l5-5-5-5" />,
+  railCollapse: <path d="M18 17l-5-5 5-5M11 17l-5-5 5-5" />,
 };
 
 export function Icon({ name, size = 18, strokeWidth = 2, ...rest }: { name: IconName; size?: number; strokeWidth?: number } & SVGProps<SVGSVGElement>) {

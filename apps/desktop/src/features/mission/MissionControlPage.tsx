@@ -170,7 +170,7 @@ export function MissionControlPage() {
   }));
 
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title={s.nav.mission}
         subtitle={unavailable ? undefined : s.mission.summary(counts.all, counts.attention, counts.working, counts.done)}
@@ -287,7 +287,7 @@ function MissionTile({
       {/* Not a live region: a once-a-second terminal echo would flood screen readers. */}
       <div
         data-testid="mission-preview"
-        className="flex h-[132px] flex-col justify-end gap-0.5 overflow-hidden bg-terminal px-3.5 py-2.5 font-mono text-meta leading-[1.6]"
+        className="flex min-h-[64px] max-h-[132px] flex-1 flex-col justify-end gap-0.5 overflow-hidden bg-terminal px-3.5 py-2.5 font-mono text-meta leading-[1.6]"
       >
         {preview.length > 0 ? (
           preview.map((line, i) => (
@@ -316,7 +316,7 @@ function MissionTile({
     attention ? "border border-blocked/50 shadow-[var(--halo-blocked)]" : "border border-border-subtle"
   }`;
   const label = unseen ? s.status.done : stateLabel(session.state);
-  const button = "flex w-full cursor-pointer flex-col text-left hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent";
+  const button = "flex w-full flex-1 cursor-pointer flex-col text-left hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent";
   // Cards that need you carry a visible action row (outside the tile button: no nested buttons).
   // Allow/Deny are not offered here: the permission answer path lives in the agent's own pane.
   const actions = attention ? (
@@ -355,7 +355,7 @@ function MissionTile({
           {body}
         </button>
       ) : (
-        <div className="flex flex-col">{body}</div>
+        <div className="flex flex-1 flex-col">{body}</div>
       )}
       {actions}
     </div>

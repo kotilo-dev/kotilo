@@ -56,6 +56,7 @@ listeye dökeceğiz. Ardından kullanıcının seçtiği maddeleri uygulayacağ�
 - 2026-11-26: İki bağımsız Fable kod incelemesi iki klavye gerilemesi buldu: bağlam menüsünde odak her saniye ilk öğeye atlıyordu ve onay pencereleri "İptal" odaklı açılıyordu. İkisi de düzeltildi; onay penceresi yine onay butonu odaklı açılıyor (dosya ağacında Delete + Enter yine siliyor).
 - 2026-11-26: İzin kartını terminalin altına yerleştirme (P3-2) geri alındı. Neden: kart her açılıp kapandığında terminal (PTY) 2–3 kez yeniden boyutlanıyor; ajanın arayüzü yeniden çiziliyor ve ekrandan izin algılayan ajanlarda (Cursor) algılama bozulabilir. Kart eskisi gibi üst katmanda; buton yazısı ve komut kaydırma düzeltmeleri korundu.
 - 2026-11-26: "Worktree'ler" Türkçe terimi uygulamanın her yerinde kullanıldığı için değiştirilmedi (eleştirmen "Çalışma ağaçları" önermişti).
+- 2026-11-26 (commit sonrası): Kullanıcı, sol menüdeki kısa etiketlerin %100 ölçekte bile sığmadığını bildirdi ("Overvi…", "Settin…"; tek aralıklı arayüz fontunda belirgin). Seçenekler: açılıp kapanan ray, fareyle üzerine gelince açılan ray, eski hal (yalnızca simge). Kullanıcı açılıp kapanan rayı seçti: varsayılan dar (yalnız simgeler, 56px); alttaki "»" butonu tam etiketli geniş moda (192px) geçiriyor; seçim düzen ayarında (`navExpanded`) saklanıyor. Kısa etiket metinleri (`nav.short`) kaldırıldı.
 - 2026-11-26: Plan limitleri yalnızca Genel bakış'ta gösteriliyor; Görev kontrolden kaldırıldı (P6-4 "limitler tek yerde").
 
 ### Bulgular
@@ -194,4 +195,4 @@ Ayrıca: `playwright.config.ts` portu `E2E_PORT` ortam değişkeninden okuyor (v
 | 2 | Commit kararı: bu iş ile composer dosya butonu ve grup butonu tek commit mi, ayrı mı | Commit yalnızca sen isteyince yapılıyor | Uygun olduğunda | Hayır |
 
 ### Sonraki oturum için not
-Değişiklikler commit edilmedi; baz `main` 55ec0c0. Açık maddeler yukarıdaki tabloda. Paralel e2e için `E2E_PORT` kullanılabilir. Alt ajanlar dosyaları CRLF satır sonuyla yazabiliyor; birleştirmeden önce satır sonlarını kontrol et.
+Kullanıcının isteğiyle commit `eaa91ce` olarak `main` dalına gönderildi (composer dosya butonu ve grup butonu da içinde); CI 7/7 yeşil. Açık maddeler yukarıdaki tabloda. Paralel e2e için `E2E_PORT` kullanılabilir. Alt ajanlar dosyaları CRLF satır sonuyla yazabiliyor; birleştirmeden önce satır sonlarını kontrol et.
