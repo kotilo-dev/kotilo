@@ -258,10 +258,9 @@ Builtin ids: builtin.secret-file, builtin.force-push, builtin.git-discard, built
 ### ⚠ Senden beklenenler (şimdi)
 | # | Eylem | Neden | Aciliyet | İşi durduruyor mu? (Evet/Hayır) |
 |---|---|---|---|---|
-| 1 | Uygulama kapalıyken `dotnet build hub/AgentHub.sln`, ardından `tauri dev`; WR-1…WR-8 elle testleri (`docs/manual-tests.md`) | `tauri dev` hub'ı yeniden derlemiyor. Gerçek ajan ve gerçek bildirim testle görülemiyor (AGENTS.md kural 6). | Commit'ten önce | Hayır |
-| 2 | Commit kararı | Commit yalnızca sen isteyince yapılır | Uygun olduğunda | Hayır |
+| 1 | Uygulama kapalıyken `dotnet build hub/AgentHub.sln`, ardından `tauri dev`; WR-1…WR-8 elle testleri (`docs/manual-tests.md`) | `tauri dev` hub'ı yeniden derlemiyor. Gerçek ajan ve gerçek bildirim testle görülemiyor (AGENTS.md kural 6). | Uygun olduğunda | Hayır |
 
 ### Sonraki oturum için not
-- Hiçbir şey commit edilmedi. `tasks/2026-11-26-gorsel-cila.md` içindeki küçük not değişikliği de commit bekliyor.
+- Commit `ac3adf2` gönderildi (görsel cila notu dahil); CI 7/7 yeşil. Kullanıcı WR-1…WR-8 elle testlerini henüz çalıştırmadı.
 - Bir sonraki karar numarası D-084.
 - Değerlendirme `EventPipeline.ApplyHook` içinde `ActivityTracker.ObserveWatched` üzerinden yapılıyor.
