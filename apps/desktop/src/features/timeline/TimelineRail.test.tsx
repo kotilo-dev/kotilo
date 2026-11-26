@@ -96,6 +96,21 @@ describe("TimelineRail", () => {
     expect(files[0]).toHaveTextContent("+12 −3");
   });
 
+  it("marks an entry that matched a watch rule", async () => {
+    ipc.hubRequest.mockResolvedValue({
+      entries: [
+        { id: 1, kind: "bash", tool: "Bash", target: "git push --force", startedAt: "2026-10-04T10:00:00Z", status: "ok", watch: { id: "builtin.force-push", name: "Force push" } },
+        { id: 2, kind: "read", tool: "Read", target: "README.md", startedAt: "2026-10-04T10:00:01Z", status: "ok" },
+      ],
+      plan: null,
+    } satisfies ActivityDto);
+    render(<TimelineRail />);
+    const marks = await screen.findAllByTestId("timeline-watch-mark");
+    expect(marks).toHaveLength(1);
+    expect(marks[0]).toHaveAttribute("aria-label", "Watch rule: Force push");
+    expect(marks[0]).toHaveTextContent("Force push");
+  });
+
   it("opens a read-only diff tab for a changed file", async () => {
     useLayoutStore.setState({ layout: { ...DEFAULT_LAYOUT, viewerVisible: false } });
     render(<TimelineRail />);

@@ -5,6 +5,8 @@
  */
 import type { HubSettings, TimeOnlyString, TimeSpanString } from "../../lib/hubTypes";
 import type { Strings } from "../../app/i18n";
+import { strings as liveStrings } from "../../app/strings";
+import { validateWatchRules } from "./watchRules";
 
 /** `[d.]hh:mm:ss[.fffffff]` → seconds; null when it isn't a TimeSpan. */
 export function parseTimeSpan(value: TimeSpanString): number | null {
@@ -47,7 +49,7 @@ function inRange(n: number, min: number, max: number): boolean {
 }
 
 /** Client-side checks mirroring the hub's own validation. Empty object = valid. */
-export function validateHubSettings(s: HubSettings, t: Strings["settingsPage"]): Record<string, string> {
+export function validateHubSettings(s: HubSettings, t: Strings["settingsPage"], w: Strings["watch"]["settings"] = liveStrings.watch.settings): Record<string, string> {
   const errors: Record<string, string> = {};
   const range = (key: string, n: number, min: number, max: number) => {
     if (!inRange(n, min, max)) errors[key] = t.rangeError(min, max);
@@ -75,6 +77,7 @@ export function validateHubSettings(s: HubSettings, t: Strings["settingsPage"]):
   range("dictation.maxMinutes", s.dictation.maxMinutes, 1, 60);
   range("insights.uncommittedThreshold", s.insights.uncommittedThreshold, 1, 10_000);
   if (!isTimeOfDay(s.insights.dailySummaryTime)) errors["insights.dailySummaryTime"] = t.timeError;
+  Object.assign(errors, validateWatchRules(s.watch?.rules ?? [], w));
   return errors;
 }
 

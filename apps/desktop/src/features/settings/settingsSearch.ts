@@ -39,7 +39,7 @@ export function sectionTexts(s: Strings, id: SettingsSectionId): string[] {
     case "ai":
       return [name, ...values(s.ai, ["features", "cliProviders", "endpoints", "provider", "model", "addEndpoint", "fullyLocal"]), ...Object.values(s.ai.featureNames)];
     case "notifications":
-      return [name, ...values(t.notifications, ["language", "rules", "quietHours", "dnd", "waitingPermission", "waitingInput", "completed", "stale", "reminder", "contextHigh"]), st.agents.notifications, st.agents.awaySummary];
+      return [name, ...values(t.notifications, ["language", "rules", "quietHours", "dnd", "waitingPermission", "waitingInput", "completed", "stale", "reminder", "contextHigh"]), st.agents.notifications, st.agents.awaySummary, ...values(s.watch.settings, ["title", "enabled", "builtins", "userRules", "add", "test", "projects"])];
     case "usage":
       return [name, ...values(t.usage, ["rules", "dailyCost", "pricing", "dailySummary"])];
     case "projects":

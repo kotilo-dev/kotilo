@@ -5,6 +5,9 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Hub.Core.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Brand.Current (Directory.Build.props points at the repo's brand.json). -->
     <EmbeddedResource Include="$(BrandJsonPath)" LogicalName="brand.json" Link="brand.json" />
   </ItemGroup>

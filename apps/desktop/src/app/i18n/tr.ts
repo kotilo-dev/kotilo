@@ -11,6 +11,7 @@ import type { Strings } from "./en";
 import { agentSetupTr } from "./agentSetup.tr";
 import { composerTr } from "./composer.tr";
 import { timelineTr } from "./timeline.tr";
+import { watchTr } from "./watch.tr";
 import { reviewTr } from "./review.tr";
 import { quickCommandsTr } from "./quickCommands.tr";
 import { sessionsTr } from "./sessions.tr";
@@ -640,6 +641,7 @@ export const tr: Strings = {
   agentSetup: agentSetupTr,
   composer: composerTr,
   timeline: timelineTr,
+  watch: watchTr,
   review: reviewTr,
   quickCommands: quickCommandsTr,
   sessions: sessionsTr,

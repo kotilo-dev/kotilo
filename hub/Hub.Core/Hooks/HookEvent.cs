@@ -74,6 +74,9 @@ public sealed record HookEvent(
     /// <summary>Risk the agent itself reported for a permission request (protocol <c>risk</c>); null: the hub classifies.</summary>
     public Sessions.PermissionRisk? Risk { get; init; }
 
+    /// <summary>The watch rule this tool call matched; set by the hub before the event is applied (never by an adapter). In memory only.</summary>
+    public Watch.WatchHit? Watch { get; init; }
+
     /// <summary>Token counts of a <see cref="HookEventKind.Usage"/> event.</summary>
     public ReportedUsage? Usage { get; init; }
 

@@ -11,6 +11,7 @@ import { formatKeybinding } from "../../lib/keys";
 import { agentSetupEn } from "./agentSetup.en";
 import { composerEn } from "./composer.en";
 import { timelineEn } from "./timeline.en";
+import { watchEn } from "./watch.en";
 import { reviewEn } from "./review.en";
 import { quickCommandsEn } from "./quickCommands.en";
 import { sessionsEn } from "./sessions.en";
@@ -659,6 +660,7 @@ export const en = {
   /** M4: per-pane composer and split pane (`composer.en.ts`). */ composer: composerEn,
   /** M4: workspace timeline rail and diff tab (`timeline.en.ts`). */
   timeline: timelineEn,
+  watch: watchEn,
   review: reviewEn,
   quickCommands: quickCommandsEn,
   sessions: sessionsEn,

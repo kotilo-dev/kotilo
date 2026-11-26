@@ -10,6 +10,7 @@ import { useToastStore } from "../../stores/toastStore";
 import { Button, Card, Checkbox, Field, Notice, SectionLabel, Select, TextArea, TextInput } from "./controls";
 import { asAppError, useHubResource } from "./hubData";
 import { useSettingsPageStore } from "./SettingsPage";
+import { WatchRulesSettings } from "./WatchRulesSettings";
 import { dndUntil, formatTimeSpan, INVALID_TIMESPAN, inputToTimeOnly, parseNumberList, parseTimeSpan, timeOnlyToInput } from "./hubSettings";
 
 export interface HubSectionProps {
@@ -161,6 +162,8 @@ export function NotificationsSection({ draft, update, errors }: HubSectionProps)
           )}
         </div>
       </div>
+
+      <WatchRulesSettings draft={draft} update={update} />
     </div>
   );
 }

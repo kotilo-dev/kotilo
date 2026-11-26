@@ -5,6 +5,7 @@ using Hub.Core.Hooks;
 using Hub.Core.Notifications;
 using Hub.Core.Sessions;
 using Hub.Core.Usage;
+using Hub.Core.Watch;
 using Hub.Infrastructure.Data;
 using Hub.Infrastructure.Projects;
 using Serilog;
@@ -36,11 +37,14 @@ public sealed class EventPipeline : IAsyncDisposable
 
     private readonly ProjectRootResolver _roots;
     private readonly Func<AdapterRegistry> _adapters;
+    private readonly WatchService? _watch;
 
     /// <param name="adapters">The live adapter registry (it changes when adapter definitions are reloaded).</param>
     public EventPipeline(
-        SessionTracker tracker, RuleEngine rules, ISessionRepository repository, TimeProvider time, ProjectRootResolver roots, Func<AdapterRegistry> adapters)
+        SessionTracker tracker, RuleEngine rules, ISessionRepository repository, TimeProvider time, ProjectRootResolver roots, Func<AdapterRegistry> adapters,
+        WatchService? watch = null)
     {
+        _watch = watch;
         _roots = roots;
         _adapters = adapters;
         _tracker = tracker;
@@ -268,6 +272,25 @@ public sealed class EventPipeline : IAsyncDisposable
             return ApplyUsage(e);
         }
 
+        // Watch rules run before the state machine so the permission card and the timeline row carry the hit in the same frame.
+        // The timeline decides which events start a new tool row; only those are evaluated, so a call is never judged twice.
+        var root = _tracker.Get(e.Agent, e.SessionId) is { ProjectRoot.Length: > 0 } known ? known.ProjectRoot : e.Cwd;
+        var watch = _watch;
+        var observed = watch is null
+            ? new ObserveResult(Activity.Observe(e, root), null, Evaluated: false)
+            : Activity.ObserveWatched(e, root, () => WatchEngine.Primary(watch.Evaluate(e, root)));
+        if (observed.Changed)
+        {
+            ActivityChanged?.Invoke();
+        }
+
+        // The card carries the hit of the row this event resolves to (a parallel call or a subagent cannot lend its own).
+        var hit = observed.Watch;
+        if (hit is not null)
+        {
+            e = e with { Watch = hit };
+        }
+
         var (session, change) = _tracker.Apply(e);
         _repository.Upsert(session);
         if (change is not null)
@@ -275,9 +298,9 @@ public sealed class EventPipeline : IAsyncDisposable
             Record(change, notify);
         }
 
-        if (Activity.Observe(e, session.ProjectRoot))
+        if (notify && observed.Evaluated && hit is { Notify: true })
         {
-            ActivityChanged?.Invoke();
+            _rules.OnWatchMatched(session.SessionId, hit, e.ToolName, e.ReceivedAt);
         }
 
         HookObserved?.Invoke(e);

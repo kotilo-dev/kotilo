@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-hub.local/schema/watch-rules.v1.json",
+  "title": "Project watch rules (.kotilo/watch.json) v1",
+  "description": "Rules a project adds to the user's watch rules (D-083). Used only after the user trusts the project in Settings; they can only add warnings, never block a call or turn off the user's rules. The hub prefixes every id with \"project.\". Limits: file at most 64 KB, first 50 rules used. Comments and trailing commas are accepted.",
+  "type": "object",
+  "required": ["rules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "rules": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "rule": {
+      "type": "object",
+      "description": "All fields that are present must match; any item of a list is enough for that field.",
+      "required": ["id", "name"],
+      "anyOf": [
+        { "required": ["tools"] },
+        { "required": ["command"] },
+        { "required": ["paths"] }
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9._-]{1,64}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60, "description": "Shown on the permission card, the timeline and the toast." },
+        "enabled": { "type": "boolean", "default": true },
+        "notify": { "type": "boolean", "default": true, "description": "false: badge and timeline mark only, no toast." },
+        "tools": { "$ref": "#/$defs/items", "description": "Tool names, case-insensitive (Bash, Read, Write, …)." },
+        "command": { "type": "string", "minLength": 1, "maxLength": 500, "description": ".NET regular expression run without backtracking (no lookarounds, backreferences or atomic groups), case-insensitive, against the tool's command." },
+        "paths": { "$ref": "#/$defs/items", "description": "Glob patterns matched against the project-relative and the absolute file path." }
+      },
+      "additionalProperties": false
+    }
+  }
+}

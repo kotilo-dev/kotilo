@@ -77,14 +77,11 @@ Uygulama "katmanlı derinlik" görsel diline geçti: kartlar hafif gölge ve üs
 |---|---|
 | Açık temada derinlik zayıf | Açık temada yalnızca gölge taşıyor; bilerek abartılmadı. Beğenilmezse ayrı ayar. |
 | B ve C yönleri | Kullanıcı A'yı seçti; deneme katmanı silindi. |
+| `e2e/settings-ux.spec.ts` "dark · en" | Commit e441574 sonrası CI'da bir kez düştü (sol menüdeki Ayarlar butonu 60 sn bulunamadı), yeniden çalıştırınca geçti; yerelde geçiyor. Kararsız; tekrarlarsa incelenmeli. |
 | Tepsi menüsü e2e testi | Bu turda geçti ama bilinen kararsız test (UX turunda not edildi). |
 
 ### ⚠ Senden beklenenler (şimdi)
-| # | Eylem | Neden | Aciliyet | İşi durduruyor mu? (Evet/Hayır) |
-|---|---|---|---|---|
-| 1 | `tauri dev` ile dikteyi birkaç kez başlatıp başlık çubuğunun artık çıkmadığına bakmak (Rust değiştiği için uygulama yeniden derlenir) | Gerçek pencere davranışı testle görülemiyor | Commit'ten önce | Hayır |
-| 2 | Yeni görünüme genel bir bakış (özellikle kendi paletin ve fontunla) | Görsel tercih; testler varsayılan paletle | Uygun olduğunda | Hayır |
-| 3 | Commit kararı (sol menü + görsel cila + dikte düzeltmesi) | Commit yalnızca sen isteyince | Uygun olduğunda | Hayır |
+Senden beklenen bir şey yok. (2026-11-26: kullanıcı `tauri dev` ile dikte penceresini, Working durumunu ve yeni görünümü denedi, sorun görmedi; commit e441574 gönderildi.)
 
 ### Sonraki oturum için not
-Değişiklikler commit edilmedi; baz `main` eaa91ce. Deneme ekran görüntüleri `apps/desktop/test-results/screens/polish/` altında kaldı (git dışı, eski). Derinlik kuralları `index.css` sonunda "Surface depth" bölümünde; seçici `:is(.rounded-card, .rounded-sheet).bg-surface-2`.
+Commit `e441574` olarak `main` dalına gönderildi (sol menü, görsel cila, dikte ve Idle düzeltmeleri); CI 7/7 yeşil (bir kararsız e2e testi yeniden çalıştırmada geçti). Deneme ekran görüntüleri `apps/desktop/test-results/screens/polish/` altında kaldı (git dışı, eski). Derinlik kuralları `index.css` sonunda "Surface depth" bölümünde; seçici `:is(.rounded-card, .rounded-sheet).bg-surface-2`.

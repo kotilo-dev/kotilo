@@ -46,6 +46,7 @@ public static class NotificationFeed
             RuleIds.UnseenReminder => (tr ? "Bakmadığın bitmiş iş var" : "Finished work waiting for you", NotificationSeverity.Info),
             RuleIds.Stale => (tr ? "Sessiz" : "Silent", NotificationSeverity.Warning),
             RuleIds.ContextHigh => ("Context", NotificationSeverity.Warning),
+            RuleIds.WatchMatched => (tr ? "İzleme kuralı" : "Watch rule", NotificationSeverity.Attention),
             _ => (r.RuleId, NotificationSeverity.Info),
         };
 

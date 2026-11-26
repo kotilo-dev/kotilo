@@ -12,4 +12,7 @@ public static class RuleIds
     public const string ContextHigh = "session.context_high";
     public const string Error = "session.error";
     public const string UnseenReminder = "session.unseen_reminder";
+
+    /// <summary>A tool call matched a watch rule and no permission card announced it.</summary>
+    public const string WatchMatched = "watch.matched";
 }

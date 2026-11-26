@@ -607,6 +607,49 @@ bir ajan `İzin bekliyor` ya da `Bitti` durumuna geçince bildirim gösterir. Bi
 tıklamak panele götürmez (Windows bildirimleri burada bunu desteklemiyor); bunun
 yerine `Ctrl+Shift+A`'yı kullanın.
 
+### İzleme kuralları
+
+İzleme kuralları riskli araç çağrılarını işaretler: bir `.env` dosyasını okumak,
+`git push --force`, mutlak bir yolda `rm -rf` gibi. Hiçbir şeyi **engellemez**: kararı
+ajanın kendi izin sistemi verir, hook çağrıyı her zaman geçirir; böylece Kotilo kapalı
+ya da yanlış ayarlı olsa bile ajan durmaz. Eşleşme üç yerde görünür:
+
+- **İzin kartı:** kart o çağrı içinse risk etiketinin üstünde "Kural: <ad>" etiketi.
+- **Zaman çizelgesi:** araç satırında küçük bir uyarı işareti; üzerine gelince kural adı.
+- **Bildirim:** çağrı sana sormadan çalıştıysa "<kural> · <araç>". İzin isteyen çağrı
+  ikinci bir bildirim üretmez; kural adı izin bildirimine eklenir. Aynı kural ve oturum
+  için 5 dakikada en fazla bir bildirim gelir; sessiz saatler ve Rahatsız etme geçerlidir.
+  Komutun kendisi bildirimde yer almaz.
+
+Kurallar her araç çağrısında denetlenir; izin listenin veya "her şeye izin ver" kipinin
+sormadan geçirdikleri de dahil. Claude Code, Codex, Gemini, Droid, Qwen ve OpenCode
+çağrıyı çalışmadan önce bildirir, uyarı çağrı başlarken gelir. Cursor ve GitHub Copilot
+yalnızca sonra bildirir; onlarda uyarı iş olduktan sonra gelir.
+
+**Ayarlar → Bildirimler → İzleme kuralları** özelliği kapatır; her hazır kuralı (gizli
+dosyalar, zorla push, git değişikliklerini silme, geniş silme, veritabanı tablosu silme,
+indirileni kabuğa verme) ve bildirimini ayrı ayrı açıp kapatır; kendi kurallarını
+eklemeni sağlar: ad, araç adları, komut deseni (düzenli ifade) ve yol desenleri (glob);
+doldurduğun alanların hepsi tutmalıdır. **Bir komutu dene** örnek bir komutun hangi
+kurallara takılacağını gösterir.
+
+Bir proje kendi kurallarını `.kotilo/watch.json` dosyasında getirebilir. Bu kurallar
+ancak aynı bölümde o proje için **Bu projenin kurallarını kullan** anahtarını açtıktan
+sonra uygulanır; böylece klonladığın bir depo kendiliğinden bildirim gönderemez. Proje
+kuralları yalnızca uyarı ekler, seninkileri kapatamaz. Sınırlar: 64 KB, 50 kural.
+
+```json
+{
+  "rules": [
+    { "id": "prod-db", "name": "Canlı veritabanı",
+      "command": "psql\\s+.*prod\\.example\\.com", "notify": true },
+    { "id": "migrations", "name": "Migration dosyaları", "paths": ["db/migrations/**"] }
+  ]
+}
+```
+
+Eşleşmeyle ilgili hiçbir şey diske yazılmaz; logda yalnızca kural kimliği geçer.
+
 ### Kotilo Deck
 
 [Kotilo Deck](https://github.com/kotilo-dev/kotilo-deck) ayrı bir ikinci ekran pano

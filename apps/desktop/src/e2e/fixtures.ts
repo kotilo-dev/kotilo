@@ -24,6 +24,7 @@ import type {
   UsageCurrent,
   WaitReport,
 } from "../lib/hubTypes";
+import { watchSettings } from "./watchFixtures";
 
 const NOW = new Date("2026-10-04T12:00:00+03:00");
 const iso = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000).toISOString();
@@ -444,6 +445,7 @@ export const hubSettings: HubSettings = {
     dailySummaryWithoutAi: false,
     healthInfoBarLevel: "Warning",
   },
+  watch: watchSettings,
   ai: {
     providers: [{ name: "ollama", kind: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1:8b", hasKey: true }],
     assistant: { provider: "cli:claude-code", model: "haiku" },

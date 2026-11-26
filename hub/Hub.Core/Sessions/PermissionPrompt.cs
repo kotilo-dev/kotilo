@@ -17,7 +17,11 @@ public enum PermissionRisk
 /// The request a session is waiting on. Lives only in memory on <see cref="SessionInfo"/>: the command may carry
 /// secrets, so it is never written to SQLite or a log (AGENTS.md rule 5).
 /// </summary>
-public sealed record PermissionPrompt(string? Tool, string? Command, string? Path, PermissionRisk? Risk, DateTimeOffset Since);
+public sealed record PermissionPrompt(string? Tool, string? Command, string? Path, PermissionRisk? Risk, DateTimeOffset Since)
+{
+    /// <summary>The watch rule the call matched (memory only), shown next to the risk label; null when none.</summary>
+    public Watch.WatchHit? Watch { get; init; }
+}
 
 /// <summary>Heuristic risk label for a shell command; null when there is no command to judge (file edits).</summary>
 public static partial class PermissionRiskClassifier

@@ -56,6 +56,9 @@ public sealed record AppSettings
     /// <summary>AI providers and the provider per feature (M3). Keys are in the platform vault, never here.</summary>
     public AiSettings Ai { get; init; } = new();
 
+    /// <summary>Watch rules: tool calls that deserve a second look (D-083). Old files without it load as the defaults.</summary>
+    public Core.Watch.WatchSettings Watch { get; init; } = new();
+
     public static AppSettings Load(string path)
     {
         try
@@ -69,6 +72,7 @@ public sealed record AppSettings
                     settings = settings with { Version = 0 };
                 }
 
+                settings = settings with { Watch = (settings.Watch ?? new()).Normalized() };
                 return settings.MigrateAi().MigrateVersion();
             }
         }

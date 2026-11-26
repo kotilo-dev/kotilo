@@ -24,6 +24,7 @@ import { useRouteStore } from "../../stores/routeStore";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { useViewerStore } from "../../stores/viewerStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { watchHitName } from "../settings/watchRules";
 import { useActivityStore } from "./activityStore";
 import { useChangesStore } from "./changesStore";
 import { useOpenNoteCount } from "../review/reviewStore";
@@ -368,8 +369,9 @@ function ToolRow({ entry, now }: { entry: ActivityToolEntry; now: number }) {
     if (since !== null) parts.push(since < 5 ? strings.timeline.justNow : strings.timeline.ago(formatDuration(since)));
   }
   const target = entry.paths && entry.paths.length > 1 ? entry.paths.join(", ") : entry.target;
+  const rule = entry.watch ? watchHitName(entry.watch, strings.watch) : null;
   return (
-    <li className="flex gap-2.5 px-1 py-1.5" data-status={entry.status} data-kind={entry.kind}>
+    <li className="flex gap-2.5 px-1 py-1.5" data-status={entry.status} data-kind={entry.kind} data-watch={entry.watch?.id}>
       <span
         aria-hidden="true"
         className={`flex size-6 shrink-0 items-center justify-center rounded-control border bg-surface-5 font-mono text-label font-semibold ${TONE_CLASS[tone]}`}
@@ -380,6 +382,15 @@ function ToolRow({ entry, now }: { entry: ActivityToolEntry; now: number }) {
         <div className={`truncate text-body ${target ? "text-text" : "text-muted"}`} title={target}>
           {target ?? strings.timeline.noTarget}
         </div>
+        {rule && (
+          <div className="flex min-w-0 items-center gap-1 text-label font-medium text-working-ink" data-testid="timeline-watch-mark" title={strings.watch.ruleMark(rule)} aria-label={strings.watch.ruleMark(rule)} role="img">
+            <svg aria-hidden width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M12 3l10 18H2z" />
+              <path d="M12 10v5M12 18h.01" />
+            </svg>
+            <span className="truncate">{rule}</span>
+          </div>
+        )}
         <div className={`truncate text-label ${tone === "failed" ? "text-blocked-ink" : tone === "running" ? "text-working-ink" : "text-faint"}`}>
           {parts.join(" · ")}
         </div>

@@ -59,14 +59,16 @@ public sealed record HubSettingsDto(
     DictationSettings Dictation,
     string TasksGlob,
     InsightSettingsDto Insights,
-    AiSettingsDto? Ai = null)
+    AiSettingsDto? Ai = null,
+    Hub.Core.Watch.WatchSettings? Watch = null)
 {
     public static HubSettingsDto From(AppSettings s, Func<string, bool> hasKey) => new(
         s.Language, s.Rules, s.UsageRules, s.QuietHours, s.DoNotDisturbUntil, s.SuppressWhenTerminalFocused, s.Buddy, s.Tasks, s.Dictation, s.TasksGlob,
         new InsightSettingsDto(
             s.Insights.GitEnabled, s.Insights.UncommittedThreshold, s.Insights.UncommittedInToast, s.Insights.DailySummaryEnabled,
             s.Insights.DailySummaryTime, s.Insights.DailySummaryWithoutAi, s.Insights.HealthInfoBarLevel),
-        AiSettingsDto.From(s.Ai, hasKey));
+        AiSettingsDto.From(s.Ai, hasKey),
+        s.Watch);
 
     public AppSettings ApplyTo(AppSettings current) => current with
     {
@@ -93,6 +95,7 @@ public sealed record HubSettingsDto(
             HealthInfoBarLevel = Insights.HealthInfoBarLevel,
         },
         Ai = Ai?.ToSettings() ?? current.Ai,
+        Watch = Watch?.Normalized() ?? current.Watch,
     };
 }
 
@@ -286,7 +289,70 @@ internal static class SettingsEndpoints
             ValidateAi(s.Ai, Fail);
         }
 
+        if (s.Watch is not null)
+        {
+            ValidateWatch(s.Watch, Fail);
+        }
+
         return f;
+    }
+
+    /// <summary><c>watch.*</c>: user rules are compiled with the same limits and engine that will run them.</summary>
+    private static void ValidateWatch(Hub.Core.Watch.WatchSettings w, Action<string, string> fail)
+    {
+        if (w.DisabledBuiltins is null || w.NotifyOffBuiltins is null || w.Rules is null || w.TrustedProjects is null)
+        {
+            fail("watch", "disabledBuiltins, notifyOffBuiltins, rules and trustedProjects are required");
+            return;
+        }
+
+        var known = Hub.Core.Watch.WatchBuiltins.All.Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
+        if (w.DisabledBuiltins.Any(id => !known.Contains(id)))
+        {
+            fail("watch.disabledBuiltins", "built-in rule ids: " + string.Join(", ", known));
+        }
+
+        if (w.NotifyOffBuiltins.Any(id => !known.Contains(id)))
+        {
+            fail("watch.notifyOffBuiltins", "built-in rule ids: " + string.Join(", ", known));
+        }
+
+        if (w.Rules.Count > Hub.Core.Watch.WatchLimits.MaxUserRules)
+        {
+            fail("watch.rules", $"at most {Hub.Core.Watch.WatchLimits.MaxUserRules} rules");
+            return;
+        }
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < w.Rules.Count; i++)
+        {
+            var rule = w.Rules[i];
+            var at = $"watch.rules[{i}]";
+            if (rule is null)
+            {
+                fail(at, "required");
+                continue;
+            }
+
+            foreach (var (field, message) in Hub.Core.Watch.WatchRuleCompiler.Compile(rule, Hub.Core.Watch.WatchEngine.UserIdPrefix, Hub.Core.Watch.WatchLimits.RegexTimeout, out _))
+            {
+                fail($"{at}.{field}", message);
+            }
+
+            if (rule.Id is not null && !ids.Add(rule.Id))
+            {
+                fail(at + ".id", "already used by another rule");
+            }
+        }
+
+        if (w.TrustedProjects.Count > 200 || w.TrustedProjects.Any(p => string.IsNullOrWhiteSpace(p) || p.Length > 500))
+        {
+            fail("watch.trustedProjects", "at most 200 non-empty paths of at most 500 characters");
+        }
+        else if (w.TrustedProjects.Any(p => !Path.IsPathRooted(p.Trim()) || p.Trim().Split('/', '\\').Contains("..")))
+        {
+            fail("watch.trustedProjects", "every entry must be an absolute path without ..");
+        }
     }
 
     /// <summary><c>ai.providers[i].*</c> and <c>ai.&lt;feature&gt;.*</c>.</summary>

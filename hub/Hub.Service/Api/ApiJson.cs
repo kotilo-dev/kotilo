@@ -53,7 +53,15 @@ internal static class ApiJson
 /// <summary>Error body of every non-2xx answer. <c>fields</c>: per-field messages for validation errors.</summary>
 public sealed record ApiError(string Error, string Message, IReadOnlyDictionary<string, string[]>? Fields = null);
 
-public sealed record PendingPermissionDto(string? Tool, string? Command, string? Path, PermissionRisk? Risk, DateTimeOffset Since);
+/// <summary>The watch rule a call matched: <c>{ id, name }</c>. A built-in rule's name is its English fallback.</summary>
+public sealed record WatchHitDto(string Id, string Name)
+{
+    public static WatchHitDto? From(Hub.Core.Watch.WatchHit? hit) => hit is null ? null : new(hit.Id, hit.Name);
+}
+
+public sealed record PendingPermissionDto(
+    string? Tool, string? Command, string? Path, PermissionRisk? Risk, DateTimeOffset Since,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WatchHitDto? Watch = null);
 
 public sealed record SessionErrorDto(SessionErrorKind Kind, DateTimeOffset? ResetsAt);
 
@@ -114,7 +122,7 @@ public sealed record SessionDto(
         s.Error is { } e ? new SessionErrorDto(e.Kind, e.ResetsAt) : null,
         s.Tasks is { } t ? new TaskProgressDto(t.Completed, t.InProgress, t.Total) : null,
         s.State == SessionState.WaitingPermission && s.PendingPermission is { } p
-            ? new PendingPermissionDto(p.Tool, p.Command, p.Path, p.Risk, p.Since)
+            ? new PendingPermissionDto(p.Tool, p.Command, p.Path, p.Risk, p.Since, WatchHitDto.From(p.Watch))
             : null,
         s.LastCompletedAt,
         s.IsUnseen,
@@ -196,7 +204,7 @@ public sealed record HealthDto(string? Version, long Uptime, string Status, IRea
 
 /// <summary>
 /// One timeline entry (<c>GET /v1/sessions/{agent}/{id}/activity</c>, <c>activity</c> stream frames). Tool entries:
-/// <c>{ id, kind, tool, target, paths?, startedAt, durationMs?, status }</c>; turn markers: <c>{ id, kind: "turn", at }</c>.
+/// <c>{ id, kind, tool, target, paths?, startedAt, durationMs?, status, watch? }</c>; turn markers: <c>{ id, kind: "turn", at }</c>.
 /// </summary>
 public sealed record ActivityEntryDto(
     long Id,
@@ -207,11 +215,12 @@ public sealed record ActivityEntryDto(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? StartedAt,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? DurationMs,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Hub.Core.Activity.ActivityStatus? Status,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? At)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? At,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WatchHitDto? Watch = null)
 {
     public static ActivityEntryDto From(Hub.Core.Activity.ActivityEntry e) => e.Kind == Hub.Core.Activity.ActivityKind.Turn
         ? new(e.Id, e.Kind, null, null, null, null, null, null, e.At)
-        : new(e.Id, e.Kind, e.Tool, e.Target, e.Paths, e.At, e.DurationMs, e.Status, null);
+        : new(e.Id, e.Kind, e.Tool, e.Target, e.Paths, e.At, e.DurationMs, e.Status, null, WatchHitDto.From(e.Watch));
 }
 
 public sealed record ActivityPlanItemDto(string Text, string Status);

@@ -600,6 +600,50 @@ when an agent becomes `blocked` or `done` while the window isn't focused. Clicki
 toast doesn't jump to the pane (Windows notifications don't support that here) — use
 `Ctrl+Shift+A` instead.
 
+### Watch rules
+
+Watch rules point out risky tool calls: reading a `.env` file, `git push --force`,
+`rm -rf` on an absolute path and the like. They **never block** anything: the agent's
+own permission system decides, and the hook always lets the call through, so Kotilo
+being closed or misconfigured can never stop an agent. A match shows in three places:
+
+- **Permission card:** a "Rule: <name>" badge above the risk tag when the card is for
+  that call.
+- **Timeline:** a small warning mark on the tool row, with the rule name on hover.
+- **Toast:** "<rule> · <tool>" when the call ran without asking you. A call that asks
+  for permission gets no second toast; the rule name is added to the permission
+  toast instead. At most one toast per rule and session every 5 minutes; quiet hours
+  and Do not disturb apply. The command itself is never in the toast.
+
+Rules are checked on every tool call, also the ones your allow list or a "bypass"
+mode lets through without asking. Claude Code, Codex, Gemini, Droid, Qwen and OpenCode
+report a tool call before it runs, so the warning comes as it starts. Cursor and
+GitHub Copilot only report it afterwards, so for them the warning comes after the fact.
+
+**Settings → Notifications → Watch rules** turns the feature off, switches each
+built-in rule (secret files, force push, discarding git changes, wide deletes,
+dropping database tables, piping a download into a shell) and its toast on or off,
+and lets you add your own rules: a name, tool names, a command pattern (regular
+expression) and path patterns (globs); all fields you fill must match. **Test a
+command** shows which rules a sample command would hit.
+
+A project can bring its own rules in `.kotilo/watch.json`. They are used only after
+you turn on **Use this project's rules** for that project in the same settings block,
+so a cloned repository cannot start sending you toasts on its own. Project rules can
+only add warnings; they cannot turn off yours. Limits: 64 KB, 50 rules.
+
+```json
+{
+  "rules": [
+    { "id": "prod-db", "name": "Production database",
+      "command": "psql\\s+.*prod\\.example\\.com", "notify": true },
+    { "id": "migrations", "name": "Migration files", "paths": ["db/migrations/**"] }
+  ]
+}
+```
+
+Nothing about a match is stored on disk; the log names only the rule id.
+
 ### Kotilo Deck
 
 [Kotilo Deck](https://github.com/kotilo-dev/kotilo-deck) is a separate second-screen

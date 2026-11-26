@@ -1,5 +1,6 @@
 ## Görev dosyaları
 
+- 2026-11-26 · İzleme kuralları (watch rules) · TAMAMLANDI · [dosya](2026-11-26-izleme-kurallari.md)
 - 2026-11-26 · Görsel cila turu (UI estetiği) · TAMAMLANDI · [dosya](2026-11-26-gorsel-cila.md)
 - 2026-11-26 · Tüm ekranların UX/UI gözden geçirmesi · TAMAMLANDI · [dosya](2026-11-26-ux-gozden-gecirme.md)
 - 2026-11-25 · Workspace grupları, durum gruplu ajanlar, arayüz ölçeği ve fontu · TAMAMLANDI · [dosya](2026-11-25-gruplar-ve-olcek.md)

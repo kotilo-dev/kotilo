@@ -1,4 +1,5 @@
 using Hub.Core.Sessions;
+using Hub.Core.Watch;
 
 namespace Hub.Core.Notifications;
 
@@ -24,11 +25,31 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
     /// <summary>"Bu session için sustur": (session, rule) pairs that stay silent for the session's lifetime.</summary>
     private readonly HashSet<(string SessionId, string RuleId)> _mutedSessionRules = [];
 
+    /// <summary>Watch matches waiting to settle: a permission card may still announce the same call.</summary>
+    private readonly List<WatchCandidate> _watchPending = [];
+
+    /// <summary>Last watch toast per (session, watch rule id), for <see cref="WatchThrottle"/>.</summary>
+    private readonly Dictionary<(string SessionId, string WatchRuleId), DateTimeOffset> _watchFired = [];
+
+    /// <summary>At most one watch toast per session and rule in this period.</summary>
+    public static readonly TimeSpan WatchThrottle = TimeSpan.FromMinutes(5);
+
+    /// <summary>A watch match is held this long: a permission request for the same call usually follows within moments.</summary>
+    public static readonly TimeSpan WatchSettle = TimeSpan.FromSeconds(3);
+
     public RuleOptions Options { get; set; } = options;
 
     public void MuteProject(string projectRoot, DateTimeOffset until) => _mutedProjects[projectRoot] = until;
 
     public void MuteSessionRule(string sessionId, string ruleId) => _mutedSessionRules.Add((sessionId, ruleId));
+
+    /// <summary>
+    /// A tool call matched a watch rule that wants a notification. Called only for live events (not replayed ones).
+    /// Fires after <see cref="WatchSettle"/> as <see cref="RuleIds.WatchMatched"/>, unless the session then waits for permission
+    /// on that call: the "needs permission" toast names the rule instead.
+    /// </summary>
+    public void OnWatchMatched(string sessionId, WatchHit hit, string? tool, DateTimeOffset at) =>
+        _watchPending.Add(new WatchCandidate(sessionId, hit, tool, at + WatchSettle));
 
     public void OnStateChanged(SessionStateChanged c)
     {
@@ -45,6 +66,12 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
 
         // A newer transition supersedes whatever was still settling for this session.
         _pending.RemoveAll(p => p.SessionId == c.SessionId);
+
+        // The permission card names the rule, so its toast replaces the watch toast even when the card is answered before the settle ends.
+        if (c.To == SessionState.WaitingPermission && c.Session.PendingPermission?.Watch is { } carried)
+        {
+            _watchPending.RemoveAll(w => w.SessionId == c.SessionId && w.Hit.Id == carried.Id);
+        }
 
         if (ruleId is not null && Options.IsEnabled(ruleId))
         {
@@ -70,6 +97,15 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
             if (byId.TryGetValue(p.SessionId, out var s) && s.State == p.State)
             {
                 TryFire(p.RuleId, s, now, p.Duration, result);
+            }
+        }
+
+        foreach (var w in _watchPending.Where(w => w.DueAt <= now).ToList())
+        {
+            _watchPending.Remove(w);
+            if (byId.TryGetValue(w.SessionId, out var watched))
+            {
+                TryFireWatch(w, watched, now, result);
             }
         }
 
@@ -115,6 +151,13 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
         }
 
         _mutedSessionRules.RemoveWhere(m => !byId.ContainsKey(m.SessionId));
+        foreach (var stale in _watchFired.Where(kv => !byId.ContainsKey(kv.Key.SessionId) || now - kv.Value >= WatchThrottle).Select(kv => kv.Key).ToList())
+        {
+            _watchFired.Remove(stale);
+        }
+
+        _watchPending.RemoveAll(w => !byId.ContainsKey(w.SessionId));
+
         return result;
     }
 
@@ -165,17 +208,7 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
 
     private void TryFire(string ruleId, SessionInfo s, DateTimeOffset now, TimeSpan? duration, List<NotificationRequest> sink)
     {
-        if (_mutedProjects.TryGetValue(s.ProjectRoot, out var until))
-        {
-            if (now < until)
-            {
-                return;
-            }
-
-            _mutedProjects.Remove(s.ProjectRoot);
-        }
-
-        if (_mutedSessionRules.Contains((s.SessionId, ruleId)))
+        if (IsMuted(s, ruleId, now))
         {
             return;
         }
@@ -190,12 +223,59 @@ public sealed class RuleEngine(RuleOptions options, IRuleStateStore? state = nul
         }
 
         _lastFired[key] = now;
-        sink.Add(new NotificationRequest(ruleId, s.SessionId, s.ProjectName, s.ProjectRoot, s.State, s.LastNotification, duration, now)
+        sink.Add(new NotificationRequest(ruleId, s.SessionId, s.ProjectName, s.ProjectRoot, s.State, MessageFor(ruleId, s), duration, now)
         {
             ContextPercent = ruleId == RuleIds.ContextHigh ? s.ContextUsedPercent : null,
             Error = ruleId == RuleIds.Error ? s.Error : null,
         });
     }
 
+    private bool IsMuted(SessionInfo s, string ruleId, DateTimeOffset now)
+    {
+        if (_mutedProjects.TryGetValue(s.ProjectRoot, out var until))
+        {
+            if (now < until)
+            {
+                return true;
+            }
+
+            _mutedProjects.Remove(s.ProjectRoot);
+        }
+
+        return _mutedSessionRules.Contains((s.SessionId, ruleId));
+    }
+
+    /// <summary>The agent's own message; a "needs permission" toast also names the watch rule the call matched.</summary>
+    private static string? MessageFor(string ruleId, SessionInfo s) =>
+        ruleId == RuleIds.WaitingPermission && s.PendingPermission?.Watch is { } hit
+            ? (string.IsNullOrEmpty(s.LastNotification) ? hit.Name : $"{s.LastNotification} · {hit.Name}")
+            : s.LastNotification;
+
+    private void TryFireWatch(WatchCandidate w, SessionInfo s, DateTimeOffset now, List<NotificationRequest> sink)
+    {
+        // The permission card already carries the rule name; a second toast for the same call would be noise.
+        if (s.State == SessionState.WaitingPermission && s.PendingPermission?.Watch?.Id == w.Hit.Id)
+        {
+            return;
+        }
+
+        if (IsMuted(s, RuleIds.WatchMatched, now))
+        {
+            return;
+        }
+
+        var key = (s.SessionId, w.Hit.Id);
+        if (_watchFired.TryGetValue(key, out var last) && now - last < WatchThrottle)
+        {
+            return;
+        }
+
+        _watchFired[key] = now;
+        var message = string.IsNullOrEmpty(w.Tool) ? w.Hit.Name : $"{w.Hit.Name} · {w.Tool}";
+        sink.Add(new NotificationRequest(RuleIds.WatchMatched, s.SessionId, s.ProjectName, s.ProjectRoot, s.State, message, null, now));
+    }
+
     private sealed record Candidate(string RuleId, string SessionId, SessionState State, DateTimeOffset DueAt, TimeSpan? Duration);
+
+    private sealed record WatchCandidate(string SessionId, WatchHit Hit, string? Tool, DateTimeOffset DueAt);
 }

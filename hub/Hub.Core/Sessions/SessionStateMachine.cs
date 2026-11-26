@@ -158,7 +158,7 @@ public static class SessionStateMachine
                     if (kind == NotificationKind.Permission && s.PendingPermission is null)
                     {
                         // Claude's permission Notification carries no tool input; PermissionRequest (if it came) already set it.
-                        s = s with { PendingPermission = new PermissionPrompt(s.CurrentTool, null, null, null, at) };
+                        s = s with { PendingPermission = new PermissionPrompt(s.CurrentTool, null, null, null, at) { Watch = e.Watch } };
                     }
                 }
 
@@ -318,7 +318,7 @@ public static class SessionStateMachine
     private static bool IsQuestionTool(string? tool) => tool is "AskUserQuestion" or "ExitPlanMode";
 
     private static PermissionPrompt PendingFrom(HookEvent e, string? tool, DateTimeOffset at) =>
-        new(tool, e.ToolCommand, e.ToolPath, e.Risk ?? PermissionRiskClassifier.Classify(e.ToolCommand), at);
+        new(tool, e.ToolCommand, e.ToolPath, e.Risk ?? PermissionRiskClassifier.Classify(e.ToolCommand), at) { Watch = e.Watch };
 
     /// <summary>Clears the turn's bookkeeping; <paramref name="turnDuration"/> gets the turn's length if it had a start.</summary>
     private static SessionInfo EndTurn(SessionInfo s, DateTimeOffset at, ref TimeSpan? turnDuration)

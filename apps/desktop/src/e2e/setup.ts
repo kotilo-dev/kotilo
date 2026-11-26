@@ -12,6 +12,7 @@ import * as fx from "./fixtures";
 import * as agentFx from "./agentFixtures";
 import * as composerFx from "./composerFixtures";
 import * as timelineFx from "./timelineFixtures";
+import * as watchFx from "./watchFixtures";
 import * as assistantFx from "./assistantFixtures";
 import * as themeFx from "./themeFixtures";
 import * as worktreeFx from "./worktreeFixtures";
@@ -44,6 +45,9 @@ const colorTheme = params.get("colorTheme");
 const appearance = colorTheme ? { darkTheme: colorTheme, lightTheme: colorTheme } : DEFAULT_SETTINGS.appearance;
 // `ai=local`: Settings → AI with every feature on the local endpoint ("Fully local").
 const aiLocal = params.get("ai") === "local";
+// `watch=1`: a force-push hit on the waiting Codex permission and on Claude timeline entries.
+const watchHits = params.get("watch") === "1";
+const hubSessions = watchFx.withWatchSessions(fx.sessions, watchHits);
 // `deck=connected`: the Kotilo Deck client reports a connected deck 1.0.1 (D-072).
 const deckConnected = params.get("deck") === "connected";
 // `restore=agent`: the workspace comes back with a restored (not yet started) Claude tab.
@@ -114,10 +118,11 @@ function hubRoute(method: string, path: string, body?: unknown): unknown {
     savedHubSettings = body ?? null;
     return null;
   }
+  if (method === "POST" && p === "/v1/watch/test") return watchFx.testResult(body as Parameters<typeof watchFx.testResult>[0]);
   if (method !== "GET") return p.startsWith("/v1/tasks") ? fx.tasks[0] : null;
   switch (p) {
     case "/v1/sessions":
-      return fx.sessions;
+      return hubSessions;
     case "/v1/sessions/history":
       return fx.sessionHistory;
     case "/v1/usage/current":
@@ -152,6 +157,8 @@ function hubRoute(method: string, path: string, body?: unknown): unknown {
       return fx.dictationModels;
     case "/v1/settings":
       return savedHubSettings ?? (aiLocal ? fx.hubSettingsAiLocal : fx.hubSettings);
+    case "/v1/watch":
+      return watchFx.overview;
     case "/v1/ai/providers":
       return fx.aiProviders(aiLocal);
     case "/v1/adapters":
@@ -161,7 +168,7 @@ function hubRoute(method: string, path: string, body?: unknown): unknown {
     case "/v1/pricing":
       return { path: "pricing.json", error: null, models: {} };
     default:
-      if (p.startsWith("/v1/sessions/") && p.endsWith("/activity")) return timelineFx.activityFor(p);
+      if (p.startsWith("/v1/sessions/") && p.endsWith("/activity")) return watchFx.withWatchActivity(timelineFx.activityFor(p), watchHits);
       if (p.startsWith("/v1/reports/daily-summaries/")) return { summary: fx.summaries[0] ?? null, input: { date: "2026-10-03", activeMinutes: 312, sessions: 7, tokens: 1_610_000, costUsd: 6.41, waitMinutes: 22, hasActivity: true } };
       return null;
   }
@@ -416,7 +423,7 @@ mockIPC(
 
 async function pushHubSnapshot(): Promise<void> {
   await emit("hub:status", { connected: true });
-  await emit("hub:event", { type: "sessions", data: fx.sessions });
+  await emit("hub:event", { type: "sessions", data: hubSessions });
   await emit("hub:event", { type: "usage", data: fx.usageCurrent });
   await emit("hub:event", { type: "limits", data: fx.limits });
   await emit("hub:event", { type: "health", data: fx.health });

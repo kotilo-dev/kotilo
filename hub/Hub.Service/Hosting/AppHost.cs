@@ -28,9 +28,11 @@ public sealed class AppHost : IAsyncDisposable
         Repository = new SessionRepository(db);
         Tracker = new SessionTracker(new SessionEnvironment(), new SessionOptions());
         Rules = new RuleEngine(settings.Rules, new NotificationLogStore(db));
+        Watch = new WatchService();
+        Watch.Configure(settings.Watch);
         var roots = new ProjectRootResolver();
         roots.AddFixedRoot(paths.BuddyDir);
-        Pipeline = new EventPipeline(Tracker, Rules, Repository, TimeProvider.System, roots, () => Adapters?.Registry ?? AdapterRegistry.Empty);
+        Pipeline = new EventPipeline(Tracker, Rules, Repository, TimeProvider.System, roots, () => Adapters?.Registry ?? AdapterRegistry.Empty, Watch);
         Usage = new UsageService(paths, db, settings.UsageRules, roots);
         Projects = new ProjectService(paths, db, roots, settings.TasksGlob, () => Tracker.Snapshot);
         AiProviders = new Hub.Infrastructure.Ai.AiProviderFactory(BuddyService.ScratchDirOf(paths), secrets, AiHttp);
@@ -103,6 +105,7 @@ public sealed class AppHost : IAsyncDisposable
         Ingest.Modules.Add(app => Api.WorkEndpoints.Map(app, this, DictationModels));
         Ingest.Modules.Add(app => Api.DictationEndpoints.Map(app, Dictation));
         Ingest.Modules.Add(app => Api.SettingsEndpoints.Map(app, this));
+        Ingest.Modules.Add(app => Api.WatchEndpoints.Map(app, this));
         Ingest.Modules.Add(app => Api.AiEndpoints.Map(app, this));
         Ingest.Modules.Add(app => Api.AssistantEndpoints.Map(app, this));
         Pipeline.SessionsChanged += _ => Stream.MarkDirty("sessions");
@@ -191,6 +194,8 @@ public sealed class AppHost : IAsyncDisposable
 
     public RuleEngine Rules { get; }
 
+    public WatchService Watch { get; }
+
     public EventPipeline Pipeline { get; }
 
     public UsageService Usage { get; }
@@ -249,6 +254,7 @@ public sealed class AppHost : IAsyncDisposable
 
         Tracker.Restore(Repository.LoadRecent(DateTimeOffset.UtcNow, SessionTracker.EndedVisibleFor));
         Pipeline.Start();
+        Watch.Start(() => Tracker.Snapshot.Select(x => x.ProjectRoot));
 
         await Ingest.StartAsync(Paths.PortFile, ct);
 
@@ -278,6 +284,7 @@ public sealed class AppHost : IAsyncDisposable
         Usage.RequestRefresh();
         Projects.SetGlob(settings.TasksGlob);
         Insights.GitEnabled = settings.Insights.GitEnabled;
+        Watch.Configure(settings.Watch);
         Pipeline.Post((_, rules) =>
         {
             rules.Options = settings.Rules;
@@ -358,6 +365,7 @@ public sealed class AppHost : IAsyncDisposable
         await Usage.DisposeAsync();
         await Ingest.DisposeAsync();
         await Pipeline.DisposeAsync();
+        Watch.Dispose();
         try
         {
             File.Delete(Paths.PortFile);

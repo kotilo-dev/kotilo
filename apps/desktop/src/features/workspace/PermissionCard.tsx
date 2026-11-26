@@ -13,6 +13,7 @@ import { useStrings } from "../../app/i18n";
 import type { PendingPermission } from "../../lib/hubTypes";
 import type { PermissionKeys } from "../agents/permissionKeys";
 import { shortAlwaysLabel } from "../agents/promptOptions";
+import { watchHitName } from "../settings/watchRules";
 
 /** Enter/Space/Esc right after the card took focus were typed before it appeared. */
 const FOCUS_GRACE_MS = 400;
@@ -42,6 +43,15 @@ function ShieldIcon() {
   );
 }
 
+function WarnIcon() {
+  return (
+    <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" className="shrink-0" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l10 18H2z" />
+      <path d="M12 10v5M12 18h.01" />
+    </svg>
+  );
+}
+
 export function PermissionCard(p: PermissionCardProps) {
   const s = useStrings();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -58,6 +68,7 @@ export function PermissionCard(p: PermissionCardProps) {
         ? s.permission.useTool(p.agentName, tool)
         : s.permission.needsPermission(p.agentName);
   const risk = p.permission.risk && p.permission.risk !== "other" ? s.permission.risk[p.permission.risk] : null;
+  const rule = p.permission.watch ? watchHitName(p.permission.watch, s.watch) : null;
   const subject = p.permission.command ?? p.permission.path;
   const detailless = !subject && !tool;
 
@@ -112,6 +123,15 @@ export function PermissionCard(p: PermissionCardProps) {
       onKeyDown={onKeyDown}
       className="absolute bottom-[22px] left-[22px] right-[22px] z-10 max-h-[calc(100%-44px)] overflow-y-auto animate-rise rounded-[14px] border border-blocked/45 bg-surface-4 px-[18px] pb-4 pt-[18px] shadow-float"
     >
+      {rule && (
+        <div
+          data-testid="permission-watch-rule"
+          className="mb-3 flex items-center gap-2 rounded-[9px] border border-working/50 bg-working-bg px-3 py-1.5 text-ui font-semibold text-working-ink"
+        >
+          <WarnIcon />
+          <span className="min-w-0 truncate">{s.watch.ruleBadge(rule)}</span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-blocked-bg text-blocked-ink">
           <ShieldIcon />

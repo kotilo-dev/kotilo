@@ -56,6 +56,8 @@ export interface PendingPermission {
   /** Null when there is no command to judge (file edits). */
   risk: PermissionRisk | null;
   since: IsoDateTime;
+  /** Watch rule the call matched (hub memory only); absent = no badge. */
+  watch?: WatchHit;
 }
 
 export type SessionErrorKind = "apiError" | "usageLimit" | "rateLimited" | "overloaded" | "authError";
@@ -122,6 +124,8 @@ export interface ActivityToolEntry {
   /** Set once the call finished (absent when the end was inferred from the turn ending). */
   durationMs?: number;
   status: ActivityStatus;
+  /** Watch rule this call matched; absent = none. */
+  watch?: WatchHit;
 }
 
 /** A user prompt was submitted. */
@@ -575,6 +579,72 @@ export interface HubSettings {
   insights: InsightSettings;
   /** Always in GET; optional on PUT (left out = unchanged). */
   ai?: AiSettings;
+  /** Watch rules; absent from an older hub (then the Settings block uses the defaults). */
+  watch?: WatchSettings;
+}
+
+// ---------------------------------------------------------------------------
+// Watch rules: warn (never block) when an agent does something risky
+// ---------------------------------------------------------------------------
+
+/** A rule: all given fields must match; any item of a list is enough. User rules have ids `user.<slug>`, built-ins `builtin.<suffix>`. */
+export interface WatchRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  /** False: label/mark only, no notification. */
+  notify: boolean;
+  tools?: string[];
+  /** Regex on the command (hub: NonBacktracking, 50 ms timeout). */
+  command?: string;
+  /** Path globs. */
+  paths?: string[];
+}
+
+export interface WatchSettings {
+  enabled: boolean;
+  disabledBuiltins: string[];
+  notifyOffBuiltins: string[];
+  rules: WatchRule[];
+  trustedProjects: string[];
+}
+
+/** The rule a call matched. `name` of a built-in is the English fallback. */
+export interface WatchHit {
+  id: string;
+  name: string;
+}
+
+export interface WatchProblem {
+  line?: number;
+  message: string;
+}
+
+export interface WatchProject {
+  root: string;
+  trusted: boolean;
+  ruleCount: number;
+  problems: WatchProblem[];
+}
+
+/** `GET /v1/watch`. */
+export interface WatchOverview {
+  builtins: WatchRule[];
+  user: WatchRule[];
+  projects: WatchProject[];
+  problems: { ruleId: string; message: string }[];
+}
+
+/** `POST /v1/watch/test` body; the hub never logs it. */
+export interface WatchTestRequest {
+  tool?: string;
+  command?: string;
+  path?: string;
+  root?: string;
+}
+
+export interface WatchTestResult {
+  matches: WatchHit[];
 }
 
 // ---------------------------------------------------------------------------

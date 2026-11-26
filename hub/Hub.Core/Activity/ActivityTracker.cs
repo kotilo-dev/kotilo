@@ -1,5 +1,6 @@
 using Hub.Core.Hooks;
 using Hub.Core.Sessions;
+using Hub.Core.Watch;
 
 namespace Hub.Core.Activity;
 
@@ -38,12 +39,19 @@ public sealed record ActivityEntry(
     IReadOnlyList<string>? Paths,
     DateTimeOffset At,
     long? DurationMs,
-    ActivityStatus? Status);
+    ActivityStatus? Status)
+{
+    /// <summary>The watch rule this call matched (memory only), or null.</summary>
+    public WatchHit? Watch { get; init; }
+}
 
 public sealed record ActivityPlan(IReadOnlyList<TodoItem> Items);
 
 /// <summary>A session's timeline: entries oldest first, and the latest plan (null when the agent never wrote one).</summary>
 public sealed record ActivitySnapshot(IReadOnlyList<ActivityEntry> Entries, ActivityPlan? Plan);
+
+/// <summary>Outcome of <see cref="ActivityTracker.ObserveWatched"/>: whether the timeline changed, the hit of the row the event resolves to, and whether this event had the tool call judged (a new row).</summary>
+public readonly record struct ObserveResult(bool Changed, WatchHit? Watch, bool Evaluated);
 
 /// <summary>What changed in one session since the last <see cref="ActivityTracker.DrainChanges"/>: new or updated entries and the current plan.</summary>
 public sealed record ActivityDelta(string Agent, string SessionId, IReadOnlyList<ActivityEntry> Entries, ActivityPlan? Plan);
@@ -90,7 +98,43 @@ public sealed class ActivityTracker
     }
 
     /// <summary>Applies one accepted hook event. <paramref name="projectRoot"/> is the session's project root. Returns true when the timeline changed.</summary>
-    public bool Observe(HookEvent e, string? projectRoot)
+    public bool Observe(HookEvent e, string? projectRoot) => ObserveCore(e, projectRoot, new Probe());
+
+    /// <summary>
+    /// Like <see cref="Observe(HookEvent, string?)"/>, and tells which watch hit belongs to the row the event resolves to.
+    /// <paramref name="evaluate"/> runs once per newly added tool row, outside the tracker lock; its hit is stored on that row.
+    /// An event that resolves to an existing row (a PermissionRequest after its PreToolUse, Claude's permission Notification
+    /// for the newest running tool) reports that row's hit without evaluating again.
+    /// </summary>
+    public ObserveResult ObserveWatched(HookEvent e, string? projectRoot, Func<WatchHit?> evaluate)
+    {
+        var probe = new Probe();
+        var changed = ObserveCore(e, projectRoot, probe);
+        if (probe.Added is not { } id)
+        {
+            return new ObserveResult(changed, probe.Resolved, Evaluated: false);
+        }
+
+        var hit = evaluate();
+        if (hit is not null)
+        {
+            lock (_gate)
+            {
+                if (_rings.TryGetValue((e.Agent, e.SessionId), out var ring))
+                {
+                    var index = ring.Entries.FindIndex(x => x.Id == id);
+                    if (index >= 0)
+                    {
+                        Replace(ring, index, ring.Entries[index] with { Watch = hit });
+                    }
+                }
+            }
+        }
+
+        return new ObserveResult(changed, hit, Evaluated: true);
+    }
+
+    private bool ObserveCore(HookEvent e, string? projectRoot, Probe probe)
     {
         lock (_gate)
         {
@@ -113,7 +157,7 @@ public sealed class ActivityTracker
                 ring.Root = projectRoot;
             }
 
-            var changed = Apply(ring, e);
+            var changed = Apply(ring, e, probe);
             if (e.Todos is { } todos)
             {
                 ring.Plan = new ActivityPlan(todos);
@@ -235,30 +279,31 @@ public sealed class ActivityTracker
         or HookEventKind.PostToolUseFailure or HookEventKind.PermissionRequest or HookEventKind.UserPromptSubmit
         || e.Todos is not null;
 
-    private bool Apply(Ring ring, HookEvent e)
+    private bool Apply(Ring ring, HookEvent e, Probe probe)
     {
         switch (e.Kind)
         {
             case HookEventKind.PreToolUse:
-                return Start(ring, e, permission: false);
+                return Start(ring, e, permission: false, probe);
 
             case HookEventKind.PermissionRequest:
-                return Start(ring, e, permission: true);
+                return Start(ring, e, permission: true, probe);
 
             case HookEventKind.Notification when NotificationClassifier.Classify(e.NotificationType, e.Message) == NotificationKind.Permission:
                 // Claude's permission_prompt notification names no tool: the newest running entry is the one asking.
                 if (ring.Running.LastOrDefault() is { } asking)
                 {
+                    probe.Resolved = WatchOf(ring, asking.EntryId);
                     asking.Permission = true;
                 }
 
                 return false;
 
             case HookEventKind.PostToolUse:
-                return Finish(ring, e, ActivityStatus.Ok);
+                return Finish(ring, e, ActivityStatus.Ok, probe);
 
             case HookEventKind.PostToolUseFailure:
-                return Finish(ring, e, ActivityStatus.Failed);
+                return Finish(ring, e, ActivityStatus.Failed, probe);
 
             case HookEventKind.UserPromptSubmit:
                 EndTurn(ring, interrupted: false);
@@ -280,7 +325,7 @@ public sealed class ActivityTracker
         }
     }
 
-    private bool Start(Ring ring, HookEvent e, bool permission)
+    private bool Start(Ring ring, HookEvent e, bool permission, Probe probe)
     {
         var tool = e.ToolName ?? "unknown";
         var existing = e.ToolUseId is { } id ? ring.Running.FirstOrDefault(r => r.ToolUseId == id) : null;
@@ -291,6 +336,7 @@ public sealed class ActivityTracker
             : ring.Running.LastOrDefault(r => r.Tool == tool && r.FromPermission && r.ToolUseId is null);
         if (existing is not null)
         {
+            probe.Resolved = WatchOf(ring, existing.EntryId);
             existing.Permission |= permission;
             existing.ToolUseId ??= e.ToolUseId;
             return false;
@@ -298,12 +344,13 @@ public sealed class ActivityTracker
 
         var (target, paths) = TargetOf(e, ring.Root);
         var entry = new ActivityEntry(NextId(), KindOf(tool), tool, target, paths, e.ReceivedAt, null, ActivityStatus.Running);
+        probe.Added = entry.Id;
         Add(ring, entry);
         ring.Running.Add(new RunningTool(entry.Id, tool, e.ToolUseId) { Permission = permission, FromPermission = permission });
         return true;
     }
 
-    private bool Finish(Ring ring, HookEvent e, ActivityStatus status)
+    private bool Finish(Ring ring, HookEvent e, ActivityStatus status, Probe probe)
     {
         var tool = e.ToolName ?? "unknown";
         var running = (e.ToolUseId is { } id ? ring.Running.FirstOrDefault(r => r.ToolUseId == id) : null)
@@ -334,7 +381,9 @@ public sealed class ActivityTracker
         }
 
         var startedAt = e.ToolDurationMs is { } ms && ms > 0 ? e.ReceivedAt - TimeSpan.FromMilliseconds(ms) : e.ReceivedAt;
-        Add(ring, new ActivityEntry(NextId(), kind, tool, t, p, startedAt, e.ToolDurationMs, status));
+        var added = new ActivityEntry(NextId(), kind, tool, t, p, startedAt, e.ToolDurationMs, status);
+        Add(ring, added);
+        probe.Added = added.Id;
         return true;
     }
 
@@ -419,6 +468,16 @@ public sealed class ActivityTracker
 
         var oldest = _rings.MinBy(kv => kv.Value.LastEventAt).Key;
         _rings.Remove(oldest);
+    }
+
+    private static WatchHit? WatchOf(Ring ring, long entryId) => ring.Entries.Find(x => x.Id == entryId)?.Watch;
+
+    /// <summary>What one event did to the rows: the row it added (still to be judged) or the hit of the row it resolved to.</summary>
+    private sealed class Probe
+    {
+        public long? Added { get; set; }
+
+        public WatchHit? Resolved { get; set; }
     }
 
     private sealed class Ring

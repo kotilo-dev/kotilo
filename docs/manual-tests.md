@@ -392,3 +392,17 @@ Preparation: at least four workspaces, two agents in different states (one waiti
 | UI-5 | Interface font "Segoe UI", then a made-up name, then empty | Segoe UI applies at once; the made-up name falls back to the default font; empty restores the default |
 | UI-6 | Settings → Appearance, Editor and Terminal: open "Installed fonts…" and pick a font | The list shows the installed families; the pick applies at once and shows in the text field |
 
+## Watch rules (D-083)
+
+Preparation: `tauri dev` after `dotnet build hub/AgentHub.sln` (dev app closed), a test repository, Claude Code with the integration installed.
+
+| # | Steps | Expected |
+|---|---|---|
+| WR-1 | Create a dummy `.env`, ask the agent to run `cat .env`, allow it | Permission card shows "Rule: Secret file"; no separate watch toast, the permission toast names the rule; the timeline row has the warning mark |
+| WR-2 | Allow-list `Bash(git push:*)` in the agent, ask for `git push --force` to a throwaway remote | No card; a toast "Force push · Bash" (unless the pane is visible in the focused window) |
+| WR-3 | Ask for `rm -rf node_modules`, then `rm -rf /tmp/x` (or `Remove-Item -Recurse -Force C:\temp\x`) | First: nothing; second: "Wide delete" |
+| WR-4 | Trigger the same rule twice within 5 minutes | Only one toast |
+| WR-5 | Settings → Notifications → Watch rules: add a user rule (command `npm\s+publish`), type `npm publish` into "Test a command" | The test lists the new rule; the agent running it shows the badge and toast |
+| WR-6 | Put a `.kotilo/watch.json` with one rule into the repo | Settings lists the project as not used; no match until "Use this project's rules" is on, then it matches |
+| WR-7 | Break the JSON in that file; add a user rule with an invalid regex | Settings shows the problem (with the line for the file); other rules keep working |
+| WR-8 | After the runs: search the Kotilo logs and the hub database for the test commands | No command text, only rule ids |
