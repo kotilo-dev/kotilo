@@ -45,7 +45,7 @@ beforeEach(() => {
 describe("ReportsPage", () => {
   it("daily tab explains that generation needs the assistant and shows the day's metrics", async () => {
     render(<ReportsPage />);
-    expect(await screen.findByText(/Generating summaries arrives with the assistant/)).toBeInTheDocument();
+    expect(await screen.findByText(/aren.t being generated/)).toBeInTheDocument();
     expect(await screen.findByText("47m 00s")).toBeInTheDocument();
   });
 

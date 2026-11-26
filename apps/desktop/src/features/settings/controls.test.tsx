@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { DebouncedNumber, DebouncedText, parseIntegerInRange } from "./controls";
+import { DebouncedNumber, DebouncedText, Dialog, parseIntegerInRange } from "./controls";
 
 describe("parseIntegerInRange (review #8)", () => {
   it("accepts integers within [min, max]", () => {
@@ -155,5 +155,26 @@ describe("DebouncedText (review #8: same focus rule for text inputs)", () => {
     fireEvent.blur(input);
 
     expect(onCommit).toHaveBeenCalledWith("Cascadia");
+  });
+});
+
+describe("Dialog", () => {
+  it("cancels on outside click by default, not when outsideClickCancels is false", () => {
+    const onCancel = vi.fn();
+    const { rerender } = render(
+      <Dialog title="T" onCancel={onCancel} footer={null}>
+        body
+      </Dialog>,
+    );
+    const backdrop = screen.getByRole("dialog").parentElement!;
+    fireEvent.mouseDown(backdrop);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    rerender(
+      <Dialog title="T" onCancel={onCancel} footer={null} outsideClickCancels={false}>
+        body
+      </Dialog>,
+    );
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

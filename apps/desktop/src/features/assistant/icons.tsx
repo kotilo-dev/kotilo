@@ -82,6 +82,16 @@ export function SparkIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+/** Assistant unavailable or off: a still "disabled" mark, not the spark. */
+export function OffIcon({ size = 16 }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m5.6 5.6 12.8 12.8" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon() {
   return (
     <Svg size={14}>

@@ -128,26 +128,18 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start gap-3">
-        <span className="min-w-0 flex-1 text-body text-text-2">{t.intro}</span>
-        <span tabIndex={0} aria-describedby="ai-local-tip" className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-          {fullyLocal ? (
-            <Badge tone="local" title={t.fullyLocalTooltip}>
-              {t.fullyLocal}
-            </Badge>
-          ) : (
-            <Badge title={t.notFullyLocalTooltip}>{t.notFullyLocal}</Badge>
-          )}
-          <span id="ai-local-tip" className="sr-only">
-            {fullyLocal ? t.fullyLocalTooltip : t.notFullyLocalTooltip}
-          </span>
-        </span>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {fullyLocal ? <Badge tone="local">{t.fullyLocal}</Badge> : <Badge>{t.notFullyLocal}</Badge>}
+          <span className="min-w-0 flex-1 text-small text-muted">{fullyLocal ? t.fullyLocalTooltip : t.notFullyLocalTooltip}</span>
+        </div>
+        <span className="text-body text-text-2">{t.intro}</span>
       </div>
 
       {res.unavailable && <Notice tone="warning">{s.settingsPage.hubUnavailable}</Notice>}
       {res.error && !res.unavailable && <Notice tone="error">{t.loadFailed(res.error.message)}</Notice>}
 
-      <section aria-labelledby="ai-features" className="flex flex-col gap-3">
+      <section aria-labelledby="ai-features" className="flex flex-col gap-4 border-t border-border-subtle pt-5">
         <SectionLabel id="ai-features">{t.features}</SectionLabel>
         {AI_FEATURES.map((f) => (
           <FeatureRow
@@ -161,6 +153,7 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
             test={tests[`f:${f}`]}
             onTest={() => void runTest(`f:${f}`, ai[f].provider, ai[f].model)}
             onChange={(patch) => setChoice(f, patch)}
+            dim={(f === "dictationCleanup" && !draft.dictation.enabled) || (f === "dailySummary" && !draft.insights.dailySummaryEnabled)}
           >
             {f === "assistant" && <AssistantSettings draft={draft} update={update} errors={errors} />}
             {f === "dailySummary" && (
@@ -183,7 +176,7 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
         ))}
       </section>
 
-      <section aria-labelledby="ai-cli" className="flex flex-col gap-3">
+      <section aria-labelledby="ai-cli" className="flex flex-col gap-4 border-t border-border-subtle pt-5">
         <SectionLabel id="ai-cli">{t.cliProviders}</SectionLabel>
         <span className="text-small text-muted">{t.cliHint}</span>
         {res.data && cli.length === 0 && <span className="text-body text-muted">{t.noCli}</span>}
@@ -196,9 +189,12 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
                   <span className="text-ui font-medium text-text">{p.displayName}</span>
                   <span className="font-mono text-meta text-muted">{p.id}</span>
                   {!p.verified && (
-                    <Badge tone="warning" title={t.notVerifiedTooltip}>
-                      {t.notVerified}
-                    </Badge>
+                    <>
+                      <Badge tone="warning" title={t.notVerifiedTooltip}>
+                        {t.notVerified}
+                      </Badge>
+                      <span className="text-meta text-muted">{t.notVerifiedHint}</span>
+                    </>
                   )}
                   <span className="flex-1" />
                   <TestOutcome state={tests[`p:${p.id}`]} t={t} />
@@ -212,7 +208,7 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
         )}
       </section>
 
-      <section aria-labelledby="ai-endpoints" className="flex flex-col gap-3">
+      <section aria-labelledby="ai-endpoints" className="flex flex-col gap-4 border-t border-border-subtle pt-5">
         <SectionLabel id="ai-endpoints">{t.endpoints}</SectionLabel>
         <span className="text-small text-muted">{t.endpointsHint}</span>
         {ai.providers.length === 0 ? (
@@ -241,14 +237,14 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
                         {t.test}
                       </Button>
                       {hasKey && (
-                        <Button small variant="ghost" onClick={() => void removeKey(p.name)} ariaLabel={t.removeKeyNamed(p.name)}>
+                        <Button small onClick={() => void removeKey(p.name)} ariaLabel={t.removeKeyNamed(p.name)}>
                           {t.removeKey}
                         </Button>
                       )}
-                      <Button small variant="ghost" onClick={() => setEditing({ endpoint: p })} ariaLabel={t.editNamed(p.name)}>
+                      <Button small onClick={() => setEditing({ endpoint: p })} ariaLabel={t.editNamed(p.name)}>
                         {t.edit}
                       </Button>
-                      <Button small variant="danger" onClick={() => setDeleting(p.name)} ariaLabel={t.deleteNamed(p.name)}>
+                      <Button small onClick={() => setDeleting(p.name)} ariaLabel={t.deleteNamed(p.name)}>
                         {t.delete}
                       </Button>
                     </div>
@@ -293,6 +289,7 @@ export function AiSection({ draft, update, errors, commitAi }: HubSectionProps) 
       )}
       {deleting !== null && (
         <ConfirmModal
+          tone="danger"
           title={t.deleteTitle(deleting)}
           body={t.deleteBody(featuresUsing(ai, deleting).map(featureName), cli[0]?.displayName ?? fallback.provider)}
           confirmLabel={t.delete}
@@ -315,6 +312,7 @@ function FeatureRow({
   onTest,
   onChange,
   children,
+  dim,
 }: {
   feature: AiFeature;
   choice: AiFeatureChoice;
@@ -326,6 +324,8 @@ function FeatureRow({
   onTest: () => void;
   onChange: (patch: Partial<AiFeatureChoice>) => void;
   children?: React.ReactNode;
+  /** The feature is switched off elsewhere: its provider controls are disabled and faded. */
+  dim?: boolean;
 }) {
   const options: { value: string; label: string }[] = [
     ...cli.map((p) => ({ value: p.id, label: p.verified ? t.cliOption(p.displayName) : t.cliOptionUnverified(p.displayName) })),
@@ -344,7 +344,7 @@ function FeatureRow({
         <span className="text-small text-muted">{t.featureHints[feature]}</span>
       </div>
       {children}
-      <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <fieldset disabled={dim} className="m-0 grid min-w-0 items-start gap-3 border-0 p-0 disabled:opacity-50 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         <Field label={t.provider} error={errors[`ai.${feature}.provider`]}>
           {(ids) => <Select {...ids} value={choice.provider} onChange={(provider) => onChange({ provider })} options={options} />}
         </Field>
@@ -363,7 +363,7 @@ function FeatureRow({
             {t.test}
           </Button>
         </div>
-      </div>
+      </fieldset>
       <TestOutcome state={test} t={t} />
     </Card>
   );

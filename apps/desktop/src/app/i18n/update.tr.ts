@@ -41,5 +41,6 @@ export const updateTr: typeof updateEn = {
   ready: "Yükleniyor – uygulama birazdan yeniden başlayacak.",
   installFailed: (message: string) => `Güncelleme yüklenemedi: ${message}`,
   retry: "Yeniden dene",
-  close: "Kapat",
+  hide: "Gizle",
+  failedTitle: "Güncelleme başarısız",
 };

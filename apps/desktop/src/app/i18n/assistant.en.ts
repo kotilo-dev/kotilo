@@ -49,14 +49,20 @@ export const assistantEn = {
     hubUnavailable: `${APP_NAME}'s background service isn't running.`,
     invalid: "The request was rejected.",
   },
+  /** The two CLI-specific errors, with the CLI's name instead of "the agent CLI". */
+  cliErrors: {
+    notInstalled: (cli: string) => `${cli} isn't installed.`,
+    notLoggedIn: (cli: string) => `${cli} isn't signed in. Sign in to it in a terminal first.`,
+  },
+  retry: "Try again",
   errorGeneric: (detail: string) => `Something went wrong: ${detail}`,
   errorGenericNoDetail: "Something went wrong.",
   // Footer
-  nothingSaved: "Nothing is saved",
+  nothingSaved: `${APP_NAME} saves nothing`,
   toolsOff: "tools off",
   sentTo: (provider: string) => `sent to ${provider}`,
-  keepsCopy: (provider: string) => `${provider} keeps its own copy of this chat in its session files.`,
-  mayKeepCopy: (provider: string) => `${provider} may keep its own copy of this chat.`,
+  keepsCopy: (provider: string) => `${APP_NAME} saves nothing, but ${provider} keeps its own copy of this chat in its session files.`,
+  mayKeepCopy: (provider: string) => `${APP_NAME} saves nothing, but ${provider} may keep its own copy of this chat.`,
   // Settings → AI (assistant row) and the mascot menu
   settings: {
     enabled: "Turn on the assistant",

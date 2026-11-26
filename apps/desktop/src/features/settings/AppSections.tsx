@@ -15,7 +15,7 @@ import { useTerminalStore } from "../../stores/terminalStore";
 import { effectiveTerminalFont, getTerminalFontSuggestion } from "../terminal/terminalRegistry";
 import { applyWindowOpacity } from "../../app/theme/applyTheme";
 import { DEFAULT_UI_SCALE, snapUiScale, UI_SCALES } from "../../app/ui/uiScale";
-import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, RangeSlider, Select } from "./controls";
+import { Button, Checkbox, DebouncedNumber, DebouncedText, Field, RangeSlider, Segmented, Select, SettingsGroup } from "./controls";
 import { EditableList } from "./EditableList";
 import { FontField } from "./FontField";
 import { TerminalSchemePicker, ThemePicker, WtSchemeImport } from "./ThemeSettings";
@@ -26,111 +26,133 @@ const MIN_WINDOW_OPACITY = 30;
 
 export function AppearanceSection() {
   const s = useStrings();
+  const t = s.settingsPage.groups;
   const features = platformFeatures();
   const theme = useSettingsStore((st) => st.settings.theme);
   const appearance = useSettingsStore((st) => st.settings.appearance);
+  const checkUpdatesOnStart = useSettingsStore((st) => st.settings.updates?.checkOnStart !== false);
+  const closeToTray = useSettingsStore((st) => st.settings.window?.closeToTray === true);
   const update = useSettingsStore((st) => st.update);
   const language = useI18nStore((st) => st.preference);
   const setLanguage = useI18nStore((st) => st.setPreference);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
-      <div className="flex max-w-md flex-col gap-5">
-        <Field label={s.settings.appearance.theme} hint={theme === "system" ? s.settings.appearance.themeSystemHint : undefined}>
-          {(ids) => (
-            <Select<ThemeName>
-              {...ids}
-              value={theme}
-              onChange={(v) => update({ theme: v })}
-              options={[
-                { value: "dark", label: s.settings.appearance.themeDark },
-                { value: "light", label: s.settings.appearance.themeLight },
-                { value: "system", label: s.settings.appearance.themeSystem },
-              ]}
-            />
-          )}
-        </Field>
-        <Field label={s.settings.appearance.language}>
-          {(ids) => (
-            <Select<LanguagePreference>
-              {...ids}
-              value={language}
-              onChange={setLanguage}
-              options={[
-                { value: "system", label: s.settings.appearance.languageSystem },
-                { value: "en", label: s.settings.appearance.languageEnglish },
-                { value: "tr", label: s.settings.appearance.languageTurkish },
-              ]}
-            />
-          )}
-        </Field>
-        <Field label={s.settings.appearance.uiScale} hint={s.settings.appearance.uiScaleHint}>
-          {(ids) => (
-            <Select<string>
-              {...ids}
-              value={String(snapUiScale(appearance?.uiScale ?? DEFAULT_UI_SCALE))}
-              onChange={(v) => update({ appearance: { uiScale: Number(v) } })}
-              options={UI_SCALES.map((p) => ({ value: String(p), label: `${p}%` }))}
-            />
-          )}
-        </Field>
-        <Field label={s.settings.appearance.uiFontFamily}>
-          {({ id }) => (
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <FontField
-                  id={id}
-                  value={appearance?.uiFontFamily ?? ""}
-                  placeholder={s.settings.appearance.uiFontFamilyPlaceholder}
-                  onCommit={(v) => update({ appearance: { uiFontFamily: v.trim() } })}
-                />
-              </div>
-              {(appearance?.uiFontFamily ?? "") !== "" && (
-                <Button small onClick={() => update({ appearance: { uiFontFamily: "" } })}>
-                  {s.settings.appearance.uiFontFamilyReset}
-                </Button>
-              )}
-            </div>
-          )}
-        </Field>
-        <Field label={s.settings.appearance.windowOpacity} hint={s.settings.appearance.windowOpacityHint}>
-          {({ id }) => (
-            <RangeSlider
-              id={id}
-              value={appearance?.windowOpacity ?? 100}
-              min={MIN_WINDOW_OPACITY}
-              max={100}
-              format={(v) => `${v}%`}
-              onPreview={(v) => applyWindowOpacity(v)}
-              onCommit={(v) => update({ appearance: { windowOpacity: v } })}
-            />
-          )}
-        </Field>
-        {features.windowAcrylic && (
-          <Checkbox
-            checked={appearance?.acrylic ?? false}
-            onChange={(v) => update({ appearance: { acrylic: v } })}
-            label={s.settings.appearance.acrylic}
-            hint={s.settings.appearance.acrylicHint}
+    <div className="flex max-w-3xl flex-col gap-6">
+      <SettingsGroup title={t.mode}>
+        <div className="flex w-fit max-w-full flex-col gap-1.5">
+          <Segmented<ThemeName>
+            ariaLabel={s.settings.appearance.mode}
+            value={theme}
+            onChange={(v) => update({ theme: v })}
+            options={[
+              { value: "dark", label: s.settings.appearance.themeDark },
+              { value: "light", label: s.settings.appearance.themeLight },
+              { value: "system", label: s.settings.appearance.themeSystem },
+            ]}
+          />
+          {theme === "system" && <span className="text-meta text-muted">{s.settings.appearance.themeSystemHint}</span>}
+        </div>
+        {theme !== "light" && (
+          <ThemePicker
+            label={s.settings.appearance.darkTheme}
+            kind="dark"
+            value={appearance?.darkTheme ?? ""}
+            onChange={(id) => update({ appearance: { darkTheme: id } })}
           />
         )}
-      </div>
-      {theme !== "light" && (
-        <ThemePicker
-          label={s.settings.appearance.darkTheme}
-          kind="dark"
-          value={appearance?.darkTheme ?? ""}
-          onChange={(id) => update({ appearance: { darkTheme: id } })}
-        />
-      )}
-      {theme !== "dark" && (
-        <ThemePicker
-          label={s.settings.appearance.lightTheme}
-          kind="light"
-          value={appearance?.lightTheme ?? ""}
-          onChange={(id) => update({ appearance: { lightTheme: id } })}
-        />
-      )}
+        {theme !== "dark" && (
+          <ThemePicker
+            label={s.settings.appearance.lightTheme}
+            kind="light"
+            value={appearance?.lightTheme ?? ""}
+            onChange={(id) => update({ appearance: { lightTheme: id } })}
+          />
+        )}
+      </SettingsGroup>
+
+      <SettingsGroup title={t.text}>
+        <div className="flex max-w-md flex-col gap-5">
+          <Field label={s.settings.appearance.language}>
+            {(ids) => (
+              <Select<LanguagePreference>
+                {...ids}
+                value={language}
+                onChange={setLanguage}
+                options={[
+                  { value: "system", label: s.settings.appearance.languageSystem },
+                  { value: "en", label: s.settings.appearance.languageEnglish },
+                  { value: "tr", label: s.settings.appearance.languageTurkish },
+                ]}
+              />
+            )}
+          </Field>
+          <Field label={s.settings.appearance.uiScale} hint={s.settings.appearance.uiScaleHint}>
+            {(ids) => (
+              <Select<string>
+                {...ids}
+                value={String(snapUiScale(appearance?.uiScale ?? DEFAULT_UI_SCALE))}
+                onChange={(v) => update({ appearance: { uiScale: Number(v) } })}
+                options={UI_SCALES.map((p) => ({ value: String(p), label: `${p}%` }))}
+              />
+            )}
+          </Field>
+          <Field label={s.settings.appearance.uiFontFamily}>
+            {({ id }) => (
+              <FontField
+                id={id}
+                value={appearance?.uiFontFamily ?? ""}
+                placeholder={s.settings.appearance.uiFontFamilyPlaceholder}
+                onCommit={(v) => update({ appearance: { uiFontFamily: v.trim() } })}
+                trailing={
+                  (appearance?.uiFontFamily ?? "") !== "" ? (
+                    <Button small onClick={() => update({ appearance: { uiFontFamily: "" } })}>
+                      {s.settings.appearance.uiFontFamilyReset}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            )}
+          </Field>
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title={t.window}>
+        <div className="flex max-w-md flex-col gap-5">
+          <Field label={s.settings.appearance.windowOpacity} hint={s.settings.appearance.windowOpacityHint}>
+            {({ id }) => (
+              <RangeSlider
+                id={id}
+                value={appearance?.windowOpacity ?? 100}
+                min={MIN_WINDOW_OPACITY}
+                max={100}
+                format={(v) => `${v}%`}
+                onPreview={(v) => applyWindowOpacity(v)}
+                onCommit={(v) => update({ appearance: { windowOpacity: v } })}
+              />
+            )}
+          </Field>
+          {features.windowAcrylic && (
+            <Checkbox
+              checked={appearance?.acrylic ?? false}
+              onChange={(v) => update({ appearance: { acrylic: v } })}
+              label={s.settings.appearance.acrylic}
+              hint={s.settings.appearance.acrylicHint}
+            />
+          )}
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title={t.general}>
+        <div className="flex max-w-md flex-col gap-5">
+          <Checkbox
+            checked={closeToTray}
+            onChange={(v) => update({ window: { closeToTray: v } })}
+            label={s.settings.about.closeToTray}
+            hint={s.settings.about.closeToTrayHint}
+          />
+          <Checkbox checked={checkUpdatesOnStart} onChange={(v) => update({ updates: { checkOnStart: v } })} label={s.update.checkOnStart} />
+        </div>
+      </SettingsGroup>
     </div>
   );
 }
@@ -260,8 +282,6 @@ export { AgentsSection } from "./AgentsSection";
 export function AboutSection() {
   const s = useStrings();
   const verbose = useSettingsStore((st) => st.settings.diagnostics.verboseLogging);
-  const checkUpdatesOnStart = useSettingsStore((st) => st.settings.updates?.checkOnStart !== false);
-  const closeToTray = useSettingsStore((st) => st.settings.window?.closeToTray === true);
   const update = useSettingsStore((st) => st.update);
   const [openingLogs, setOpeningLogs] = useState(false);
 
@@ -280,18 +300,7 @@ export function AboutSection() {
           {s.settings.about.openLogsFolder}
         </Button>
       </div>
-      <Checkbox
-        checked={closeToTray}
-        onChange={(v) => update({ window: { closeToTray: v } })}
-        label={s.settings.about.closeToTray}
-        hint={s.settings.about.closeToTrayHint}
-      />
-      <Checkbox
-        checked={checkUpdatesOnStart}
-        onChange={(v) => update({ updates: { checkOnStart: v } })}
-        label={s.update.checkOnStart}
-      />
-      <Checkbox checked={verbose}onChange={(v) => update({ diagnostics: { verboseLogging: v } })} label={s.settings.about.verboseLogging} />
+      <Checkbox checked={verbose} onChange={(v) => update({ diagnostics: { verboseLogging: v } })} label={s.settings.about.verboseLogging} />
       <span className="text-small text-muted">{s.settings.about.privacyNote}</span>
     </div>
   );

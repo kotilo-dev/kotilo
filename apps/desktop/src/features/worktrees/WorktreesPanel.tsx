@@ -165,7 +165,7 @@ function WorktreeRow({ workspaceId, wt, tabs }: { workspaceId: string; wt: Workt
             >
               {t.actions.merge}
             </Button>
-            <Button variant="danger" className={ROW_BUTTON} onClick={() => openDialog({ kind: "remove", workspaceId, name: wt.name })}>
+            <Button variant="ghost" className={ROW_BUTTON} onClick={() => openDialog({ kind: "remove", workspaceId, name: wt.name })}>
               {t.actions.remove}
             </Button>
           </>

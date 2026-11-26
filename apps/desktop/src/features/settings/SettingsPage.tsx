@@ -3,23 +3,25 @@
  * section. App sections apply immediately (desktop `settings.json`); hub sections edit a draft
  * of `/v1/settings` that the save bar validates and sends back as a whole.
  */
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { create } from "zustand";
 import { useStrings } from "../../app/i18n";
 import { dictationReload, hubRequest } from "../../lib/ipc";
 import type { AiSettings, HubSettings } from "../../lib/hubTypes";
 import { AiSection } from "./AiSection";
+import { NotificationAppSettings } from "./AgentsSection";
 import { MascotSection } from "./MascotSection";
 import { QuickCommandsSection } from "./QuickCommandsSection";
 import { useMascotSettingsStore } from "./mascotSettings";
 import { AboutSection, AgentsSection, AppearanceSection, EditorSection, FilesSection, TerminalSection } from "./AppSections";
-import { Button, Notice, Page, PageHeader } from "./controls";
+import { Button, Notice, Page, PageHeader, TextInput } from "./controls";
 import { DictationSection, NotificationsSection, ProjectsSection, TasksSection, UsageSection, type HubSectionProps } from "./HubSections";
 import { asAppError, useHubResource } from "./hubData";
 import { platformFeatures } from "../../lib/platform";
 import type { PlatformFeatures } from "../../lib/ipc";
 import { validateHubSettings } from "./hubSettings";
 import { validateAi } from "./aiSettings";
+import { sectionMatches } from "./settingsSearch";
 
 export type SettingsSectionId =
   | "appearance"
@@ -74,6 +76,8 @@ export const useSettingsPageStore = create<{ section: SettingsSectionId; setSect
 export function sectionForField(field: string): SettingsSectionId | null {
   if (field === "tasksGlob" || field === "insights.uncommittedThreshold") return "projects";
   if (field === "insights.dailySummaryTime") return "usage";
+  if (field === "insights.gitEnabled") return "projects";
+  if (field === "dictation.aiCleanup") return "ai";
   // M7: the assistant's on/off and shortcut sit in the AI section; the rest of `buddy` is the mascot.
   if (field === "buddy.enabled" || field === "buddy.hotkey") return "ai";
   const head = field.split(".")[0];
@@ -96,6 +100,37 @@ export function sectionForField(field: string): SettingsSectionId | null {
   }
 }
 
+/** Nav groups (faint labels above the section buttons). */
+const NAV_GROUPS: readonly { key: "interface" | "agentsAi" | "workspace"; ids: readonly SettingsSectionId[] }[] = [
+  { key: "interface", ids: ["appearance", "mascot", "editor", "terminal", "quickCommands", "files"] },
+  { key: "agentsAi", ids: ["agents", "ai", "notifications", "usage"] },
+  { key: "workspace", ids: ["projects", "tasks", "dictation", "about"] },
+];
+
+/** Hub sections whose draft differs from the saved settings (for the unsaved dot). */
+export function sectionsWithEdits(draft: HubSettings | null, base: HubSettings | null): Set<SettingsSectionId> {
+  const out = new Set<SettingsSectionId>();
+  if (!draft || !base) return out;
+  const d = draft as unknown as Record<string, unknown>;
+  const b = base as unknown as Record<string, unknown>;
+  const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
+  for (const key of new Set([...Object.keys(d), ...Object.keys(b)])) {
+    if (!differs(d[key], b[key])) continue;
+    if (key === "insights" || key === "buddy" || key === "dictation") {
+      const dv = (d[key] ?? {}) as Record<string, unknown>;
+      const bv = (b[key] ?? {}) as Record<string, unknown>;
+      for (const sub of new Set([...Object.keys(dv), ...Object.keys(bv)])) {
+        if (!differs(dv[sub], bv[sub])) continue;
+        // Mascot settings are saved at once elsewhere; only the assistant's fields live in the draft.
+        out.add(sub === "dailySummaryWithoutAi" ? "ai" : (sectionForField(`${key}.${sub}`) ?? (key === "insights" ? "usage" : key === "dictation" ? "dictation" : "mascot")));
+      }
+    } else {
+      out.add(sectionForField(key) ?? "notifications");
+    }
+  }
+  return out;
+}
+
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved" } | { kind: "failed"; message: string };
 
 export function SettingsPage() {
@@ -104,6 +139,8 @@ export function SettingsPage() {
   const section = useSettingsPageStore((st) => st.section);
   const setSection = useSettingsPageStore((st) => st.setSection);
   const sections = visibleSections();
+  const [filter, setFilter] = useState("");
+  const shown = sections.filter((x) => sectionMatches(s, x.id, filter));
   const current = sections.find((x) => x.id === section) ?? sections[0]!;
 
   const hub = useHubResource<HubSettings>("/v1/settings");
@@ -137,6 +174,7 @@ export function SettingsPage() {
   const clientErrors = useMemo(() => (draft ? { ...validateHubSettings(draft, t), ...validateAi(draft.ai, s.ai.validation) } : {}), [draft, t, s.ai.validation]);
   const errors = useMemo(() => ({ ...serverErrors, ...clientErrors }), [serverErrors, clientErrors]);
   const sectionsWithErrors = useMemo(() => new Set(Object.keys(errors).map(sectionForField)), [errors]);
+  const editedSections = useMemo(() => sectionsWithEdits(draft, base), [draft, base]);
 
   const update = useCallback((change: (d: HubSettings) => HubSettings) => {
     setDraft((d) => (d ? change(d) : d));
@@ -184,41 +222,61 @@ export function SettingsPage() {
       const C = current.app;
       return <C />;
     }
-    if (hub.unavailable) return <Notice tone="warning">{t.hubUnavailable}</Notice>;
-    if (hub.error) return <Notice tone="error">{t.loadFailed(hub.error.message)}</Notice>;
-    if (!draft) return null;
+    // The desktop-stored notification switches do not depend on the hub: show them even when it is down.
+    const appPart = current.id === "notifications" ? <NotificationAppSettings /> : null;
+    const withApp = (node: ReactNode) => (appPart ? <div className="flex flex-col gap-6">{appPart}{node}</div> : node);
+    if (hub.unavailable) return withApp(<Notice tone="warning">{t.hubUnavailable}</Notice>);
+    if (hub.error) return withApp(<Notice tone="error">{t.loadFailed(hub.error.message)}</Notice>);
+    if (!draft) return appPart;
     const C = current.hub;
-    return <C draft={draft} update={update} errors={errors} commitAi={commitAi} />;
+    return withApp(<C draft={draft} update={update} errors={errors} commitAi={commitAi} />);
   }
 
   return (
     <Page>
       <PageHeader title={t.title} />
       <div className="flex min-h-0 flex-1 gap-6">
-        <nav aria-label={t.sectionsLabel} className="w-52 shrink-0">
-          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {sections.map((x) => (
-              <li key={x.id}>
-                <button
-                  type="button"
-                  aria-current={x.id === section ? "page" : undefined}
-                  onClick={() => setSection(x.id)}
-                  className={`w-full rounded-control px-3 py-2 text-left text-ui focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                    x.id === section ? "bg-surface-4 font-medium text-text" : "bg-transparent text-text-3 hover:bg-surface-3 hover:text-text"
-                  }`}
-                >
-                  {t.sections[x.id]}
-                  {sectionsWithErrors.has(x.id) && (
-                    <span role="img" aria-label={t.sectionHasErrors} title={t.sectionHasErrors} className="ml-2 inline-block size-1.5 rounded-full bg-blocked align-middle" />
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label={t.sectionsLabel} className="flex w-52 shrink-0 flex-col gap-3">
+          <TextInput type="search" value={filter} onChange={setFilter} ariaLabel={t.filterLabel} placeholder={t.filterPlaceholder} />
+          {filter.trim() !== "" && shown.length === 0 && <span className="px-1 text-small text-muted">{t.noMatch}</span>}
+          {NAV_GROUPS.map((g) => {
+            const items = shown.filter((x) => g.ids.includes(x.id));
+            if (items.length === 0) return null;
+            return (
+              <div key={g.key} className="flex flex-col gap-0.5">
+                <span className="px-3 pb-1 text-label font-semibold uppercase tracking-[0.08em] text-faint">{t.navGroups[g.key]}</span>
+                <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                  {items.map((x) => (
+                    <li key={x.id}>
+                      <button
+                        type="button"
+                        aria-current={x.id === section ? "page" : undefined}
+                        aria-description={editedSections.has(x.id) ? t.hasUnsavedChanges : undefined}
+                        onClick={() => setSection(x.id)}
+                        className={`relative w-full rounded-control px-3 py-2 text-left text-ui focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                          x.id === section ? "bg-accent-soft font-medium text-text" : "bg-transparent text-text-3 hover:bg-surface-3 hover:text-text"
+                        }`}
+                      >
+                        {x.id === section && <span aria-hidden="true" className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" />}
+                        {t.sections[x.id]}
+                        {sectionsWithErrors.has(x.id) && (
+                          <span role="img" aria-label={t.sectionHasErrors} title={t.sectionHasErrors} className="ml-2 inline-block size-1.5 rounded-full bg-blocked align-middle" />
+                        )}
+                        {editedSections.has(x.id) && (
+                          <span aria-hidden="true" title={t.hasUnsavedChanges} className="ml-2 inline-block size-1.5 rounded-full bg-accent align-middle" />
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <h2 className="m-0 text-title font-semibold text-text">{t.sections[current.id]}</h2>
           {"app" in current && current.id !== "about" && <span className="text-small text-muted">{t.appliedImmediately}</span>}
+          {"hub" in current && current.id !== "ai" && <span className="text-small text-muted">{t.needsSaveNote}</span>}
           {renderSection()}
           {"hub" in current && draft && (dirty || save.kind !== "idle") && (
             <div role="region" aria-label={t.save} className="sticky bottom-0 flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface-4 px-4 py-3 shadow-float">

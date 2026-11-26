@@ -65,6 +65,7 @@ export function MascotSection() {
         <Preview scale={scale} />
       </div>
 
+      <fieldset disabled={!buddy.mascotEnabled} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0 disabled:opacity-50">
       <div className="flex flex-col gap-2">
         <SectionLabel>{t.size}</SectionLabel>
         <Segmented<"2" | "3" | "4">
@@ -93,6 +94,7 @@ export function MascotSection() {
       </div>
 
       <Checkbox checked={buddy.celebrate} onChange={(celebrate) => set({ celebrate })} label={t.celebrate} hint={t.celebrateHint} />
+      </fieldset>
     </div>
   );
 }

@@ -47,14 +47,20 @@ export const assistantTr: typeof assistantEn = {
     hubUnavailable: `${APP_NAME} arka plan hizmeti çalışmıyor.`,
     invalid: "İstek reddedildi.",
   },
+  /** The two CLI-specific errors, with the CLI's name instead of "the agent CLI". */
+  cliErrors: {
+    notInstalled: (cli: string) => `${cli} kurulu değil.`,
+    notLoggedIn: (cli: string) => `${cli} için oturum açılmamış. Önce bir terminalde oturum açın.`,
+  },
+  retry: "Tekrar dene",
   errorGeneric: (detail: string) => `Bir sorun oluştu: ${detail}`,
   errorGenericNoDetail: "Bir sorun oluştu.",
   // Alt bilgi
-  nothingSaved: "Hiçbir şey kaydedilmez",
+  nothingSaved: `${APP_NAME} hiçbir şey kaydetmez`,
   toolsOff: "araçlar kapalı",
   sentTo: (provider: string) => `${provider} sağlayıcısına gider`,
-  keepsCopy: (provider: string) => `${provider} bu sohbetin bir kopyasını kendi oturum dosyalarında saklar.`,
-  mayKeepCopy: (provider: string) => `${provider} bu sohbetin bir kopyasını kendi tarafında saklayabilir.`,
+  keepsCopy: (provider: string) => `${APP_NAME} hiçbir şey kaydetmez ama ${provider} bu sohbetin bir kopyasını kendi oturum dosyalarında saklar.`,
+  mayKeepCopy: (provider: string) => `${APP_NAME} hiçbir şey kaydetmez ama ${provider} bu sohbetin bir kopyasını kendi tarafında saklayabilir.`,
   // Ayarlar → Yapay zekâ (asistan satırı) ve maskot menüsü
   settings: {
     enabled: "Asistanı kullan",

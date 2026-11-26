@@ -4,6 +4,7 @@
  */
 import { useDeferredValue, useEffect, useId, useMemo, useState } from "react";
 import { useStrings } from "./strings";
+import { Button } from "./ui/Button";
 import { filterNotices, loadThirdPartyNotices } from "./licenses";
 
 type LoadState = { phase: "loading" } | { phase: "ready"; text: string } | { phase: "error" };
@@ -15,15 +16,9 @@ export function LicensesViewer() {
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={regionId}
-        onClick={() => setOpen((v) => !v)}
-        className="self-start rounded border border-border px-1.5 py-0.5 text-label text-text"
-      >
+      <Button className="self-start" aria-expanded={open} aria-controls={regionId} onClick={() => setOpen((v) => !v)}>
         {open ? s.licensesHide : s.licensesShow}
-      </button>
+      </Button>
       {open && (
         <div id={regionId}>
           <LicensesBody />

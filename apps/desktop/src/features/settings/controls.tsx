@@ -9,7 +9,8 @@ import { pushModalOpen } from "../../app/modalStack";
 // Shared screen primitives (app/ui), re-exported so the Settings / Projects / Tasks / Dictation
 // screens import their whole kit from one place.
 export { Page, PageHeader } from "../../app/ui/PageHeader";
-export { SectionLabel } from "../../app/ui/Card";
+import { SectionLabel } from "../../app/ui/Card";
+export { SectionLabel };
 export { EmptyState } from "../../app/ui/EmptyState";
 export { Segmented } from "../../app/ui/Segmented";
 
@@ -42,6 +43,7 @@ export function Button({
   ariaLabel,
   title,
   small,
+  initialFocus,
 }: {
   variant?: ButtonVariant;
   children: ReactNode;
@@ -51,10 +53,13 @@ export function Button({
   ariaLabel?: string;
   title?: string;
   small?: boolean;
+  /** Marks the button a surrounding Dialog should focus when it opens. */
+  initialFocus?: boolean;
 }) {
   return (
     <button
       type={type}
+      data-autofocus={initialFocus ? "" : undefined}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
@@ -220,7 +225,7 @@ export function Checkbox({
 }) {
   return (
     <label className="flex items-start gap-2.5 text-ui text-text">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-accent disabled:opacity-60" />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-accent disabled:opacity-60" />
       <span className="flex flex-col gap-0.5">
         {label}
         {hint && <span className="text-meta text-muted">{hint}</span>}
@@ -427,7 +432,7 @@ export function DebouncedNumber({
 }
 
 /**
- * Modal dialog shell (role="dialog", Esc and outside click cancel, registered in the modal
+ * Modal dialog shell (role="dialog", Esc and, by default, outside click cancel, registered in the modal
  * stack so F1 stays a no-op). Focus goes to the first focusable control on open.
  */
 export function Dialog({
@@ -436,6 +441,7 @@ export function Dialog({
   children,
   footer,
   wide,
+  outsideClickCancels = true,
 }: {
   title: string;
   onCancel: () => void;
@@ -443,23 +449,29 @@ export function Dialog({
   footer: ReactNode;
   /** 720px instead of 520px (multi-step forms). */
   wide?: boolean;
+  /** Set false for dialogs holding unsaved input: only Esc / the buttons close them. */
+  outsideClickCancels?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // Inline callers re-create onCancel on every render: keep it in a ref so the focus logic runs once, on mount.
+  const cancelRef = useRef(onCancel);
+  cancelRef.current = onCancel;
   useEffect(() => {
-    const first = panelRef.current?.querySelector<HTMLElement>("input, textarea, select, button");
+    const panel = panelRef.current;
+    const first = panel?.querySelector<HTMLElement>("[data-autofocus]") ?? panel?.querySelector<HTMLElement>("input, textarea, select, button");
     first?.focus();
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        onCancel();
+        cancelRef.current();
       }
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [onCancel]);
+  }, []);
 
   useEffect(() => pushModalOpen(), []);
 
@@ -467,7 +479,7 @@ export function Dialog({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-scrim"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (outsideClickCancels && e.target === e.currentTarget) onCancel();
       }}
     >
       <div
@@ -484,5 +496,16 @@ export function Dialog({
         <div className="flex flex-wrap justify-end gap-2">{footer}</div>
       </div>
     </div>
+  );
+}
+
+/** A titled block inside a settings section: faint label, hairline above, one gap rhythm. */
+export function SettingsGroup({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
+  const labelId = useId();
+  return (
+    <section id={id} aria-labelledby={labelId} className="flex flex-col gap-4 border-t border-border-subtle pt-5 first:border-t-0 first:pt-0">
+      <SectionLabel id={labelId}>{title}</SectionLabel>
+      {children}
+    </section>
   );
 }

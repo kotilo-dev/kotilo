@@ -222,6 +222,20 @@ export function HelpModal() {
       <div
         className="flex h-[85vh] w-[90vw] flex-col overflow-hidden rounded border border-border bg-surface-1 shadow-lg"
       >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+          <h2 className="m-0 text-title font-semibold text-text">{strings.help.dialogLabel}</h2>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={strings.help.close}
+            title={strings.help.closeTooltip}
+            className="inline-flex size-7 items-center justify-center rounded-button text-muted hover:bg-surface-5 hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M3 3l8 8M11 3l-8 8" />
+            </svg>
+          </button>
+        </div>
         <div className="flex shrink-0 items-center gap-2 border-b border-border p-2">
           <input
             ref={searchInputRef}
@@ -238,9 +252,6 @@ export function HelpModal() {
             }}
             className="min-w-0 flex-1 rounded-sm border border-border bg-bg px-2 py-1 text-xs text-text"
           />
-          <button type="button" onClick={close} className="text-muted">
-            {strings.help.close}
-          </button>
         </div>
 
         <div className="flex min-h-0 flex-1">

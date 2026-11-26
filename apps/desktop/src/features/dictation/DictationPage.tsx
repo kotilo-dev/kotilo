@@ -125,7 +125,7 @@ export function DictationPage() {
                       {m.partialBytes > 0 ? s.dictation.resume : s.dictation.download}
                     </Button>
                   ) : (
-                    <Button small variant="danger" onClick={() => setConfirm({ kind: "model", model: m })}>
+                    <Button small onClick={() => setConfirm({ kind: "model", model: m })}>
                       {s.dictation.delete}
                     </Button>
                   )}
@@ -141,7 +141,7 @@ export function DictationPage() {
           <SectionLabel id="dictation-history">{s.dictation.history}</SectionLabel>
           <span className="flex-1" />
           {(history.data?.length ?? 0) > 0 && (
-            <Button small variant="danger" onClick={() => setConfirm({ kind: "clear" })}>
+            <Button small onClick={() => setConfirm({ kind: "clear" })}>
               {s.dictation.clearAll}
             </Button>
           )}
@@ -158,7 +158,6 @@ export function DictationPage() {
                     <span className="flex-1" />
                     <Button
                       small
-                      variant="ghost"
                       onClick={() =>
                         void clipboardWriteText(r.finalText).then(() => {
                           setCopiedId(r.id);
@@ -168,7 +167,7 @@ export function DictationPage() {
                     >
                       {copiedId === r.id ? s.dictation.copied : s.dictation.copy}
                     </Button>
-                    <Button small variant="ghost" ariaLabel={s.dictation.deleteEntryLabel} onClick={() => void act(() => hubRequest("DELETE", `/v1/dictations/${r.id}`), history.reload)}>
+                    <Button small variant="danger" ariaLabel={s.dictation.deleteEntryLabel} onClick={() => void act(() => hubRequest("DELETE", `/v1/dictations/${r.id}`), history.reload)}>
                       {s.dictation.deleteEntry}
                     </Button>
                   </div>
@@ -188,6 +187,7 @@ export function DictationPage() {
 
       {confirm?.kind === "model" && (
         <ConfirmModal
+          tone="danger"
           title={s.dictation.deleteTitle}
           body={s.dictation.deleteBody(s.dictation.modelNames[confirm.model.id])}
           confirmLabel={s.dictation.delete}
@@ -201,6 +201,7 @@ export function DictationPage() {
       )}
       {confirm?.kind === "clear" && (
         <ConfirmModal
+          tone="danger"
           title={s.dictation.clearTitle}
           body={s.dictation.clearBody}
           confirmLabel={s.dictation.clearAll}

@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useStrings } from "../../app/i18n";
+import { ContextMenu } from "../workspaces/ContextMenu";
 import {
   clipboardSaveImage,
   dictationStartComposer,
@@ -16,6 +17,7 @@ import {
   fsQuickOpen,
   isAppError,
   onDictationComposer,
+  pickFiles,
   ptyWrite,
   toAppError,
   type QuickOpenItem,
@@ -40,6 +42,8 @@ import {
   findMentionQuery,
   hasImage,
   insertText,
+  mentionPathFor,
+  mentionToken,
   moveIndex,
   newPromptId,
   pastePayload,
@@ -90,6 +94,25 @@ function SendIcon() {
   );
 }
 
+/** Below this width the composer shows one "+" menu instead of the attach and prompts buttons. */
+const NARROW_WIDTH_PX = 420;
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function PaperclipIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7L14 4.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3L15 7.5" />
+    </svg>
+  );
+}
+
 function BookmarkIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -119,9 +142,12 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [promptFilter, setPromptFilter] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [plusMenu, setPlusMenu] = useState<{ x: number; y: number; above?: boolean } | null>(null);
   const caretRef = useRef<number | null>(null);
   const dictationRef = useRef<DictationState>("idle");
   dictationRef.current = dictation;
@@ -229,6 +255,15 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
     [],
   );
 
+  // Narrow pane: attach and saved prompts fold into one "+" menu so the row never wraps.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setNarrow(el.clientWidth < NARROW_WIDTH_PX));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Saved prompts popover: closes on an outside click.
   useEffect(() => {
     if (!promptsOpen) return;
@@ -322,6 +357,30 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
       setNotice(c.imageFailed(toAppError(e).message));
     } finally {
       setAttaching(false);
+    }
+  }
+
+  /** File dialog → one `@path` per picked file at the caret (workspace-relative when inside it). */
+  async function attachFiles() {
+    setPicking(true);
+    try {
+      const picked = await pickFiles(c.pickFilesTitle, workspacePath);
+      if (picked.length === 0) return;
+      const tokens = picked.map((p) => mentionToken(mentionPathFor(p, workspacePath))).join(" ");
+      const el = inputRef.current;
+      setText((current) => {
+        const next = insertText(current, el?.selectionStart ?? current.length, el?.selectionEnd ?? current.length, tokens);
+        // Like an accepted `@` suggestion: the caret lands after a space, ready for the next word.
+        const spaced = next.caret === next.text.length ? `${next.text} ` : next.text;
+        caretRef.current = next.caret === next.text.length ? spaced.length : next.caret;
+        return spaced;
+      });
+      setMention(null);
+      el?.focus();
+    } catch (e) {
+      setNotice(toAppError(e).message);
+    } finally {
+      setPicking(false);
     }
   }
 
@@ -499,10 +558,10 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
             rows={1}
             value={text}
             aria-label={c.region(agentName)}
-            placeholder={attaching ? c.attachingImage : c.placeholder}
+            placeholder={attaching ? c.attachingImage : narrow ? c.placeholderShort : c.placeholder}
             title={c.hint}
             spellCheck={false}
-            className="block max-h-40 min-h-[22px] w-full resize-none bg-transparent text-ui leading-[22px] text-text outline-none placeholder:text-faint focus-visible:outline-none"
+            className="block max-h-40 min-h-[22px] w-full resize-none bg-transparent text-ui leading-[22px] text-text outline-none! placeholder:text-faint focus-visible:outline-none!"
             onChange={(e) => updateText(e.target.value, e.target.selectionStart)}
             onSelect={(e) => setMention(findMentionQuery(e.currentTarget.value, e.currentTarget.selectionStart))}
             onBlur={() => setMention(null)}
@@ -510,19 +569,48 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
             onPaste={onPaste}
           />
         </div>
-        <button
-          type="button"
-          aria-label={c.savedPrompts}
-          title={c.savedPrompts}
-          aria-expanded={promptsOpen}
-          className={iconButton}
-          onClick={() => {
-            setPromptFilter("");
-            setPromptsOpen((o) => !o);
-          }}
-        >
-          <BookmarkIcon />
-        </button>
+        {narrow ? (
+          <button
+            type="button"
+            aria-label={c.moreActions}
+            title={c.moreActions}
+            aria-haspopup="menu"
+            data-menu-toggle
+            className={iconButton}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setPlusMenu((m) => (m ? null : { x: rect.left, y: rect.top - 4, above: true }));
+            }}
+          >
+            <PlusIcon />
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              aria-label={c.attachFiles}
+              title={c.attachFiles}
+              disabled={picking}
+              className={iconButton}
+              onClick={() => void attachFiles()}
+            >
+              <PaperclipIcon />
+            </button>
+            <button
+              type="button"
+              aria-label={c.savedPrompts}
+              title={c.savedPrompts}
+              aria-expanded={promptsOpen}
+              className={iconButton}
+              onClick={() => {
+                setPromptFilter("");
+                setPromptsOpen((o) => !o);
+              }}
+            >
+              <BookmarkIcon />
+            </button>
+          </>
+        )}
         <button
           type="button"
           aria-label={micLabel}
@@ -545,6 +633,25 @@ export function Composer({ workspaceId, tabId, paneId, agentName }: ComposerProp
           <SendIcon />
         </button>
       </div>
+
+      {plusMenu && (
+        <ContextMenu
+          state={{
+            ...plusMenu,
+            items: [
+              { label: c.attachFiles, onClick: () => void attachFiles(), disabled: picking },
+              {
+                label: c.savedPrompts,
+                onClick: () => {
+                  setPromptFilter("");
+                  setPromptsOpen(true);
+                },
+              },
+            ],
+          }}
+          onClose={() => setPlusMenu(null)}
+        />
+      )}
 
       {pendingConfirm !== null && (
         <PasteWarningModal

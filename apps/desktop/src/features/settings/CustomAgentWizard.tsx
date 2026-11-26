@@ -353,6 +353,7 @@ export function CustomAgentWizard({ editing, builtinIds, userIds, onClose, initi
   return (
     <Dialog
       wide
+      outsideClickCancels={false}
       title={editing ? t.titleEdit(editing.displayName) : t.titleNew}
       onCancel={onClose}
       footer={

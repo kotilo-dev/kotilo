@@ -28,6 +28,8 @@ declare global {
     __e2eCompanion: { agents: unknown[]; usage: unknown[]; sent: unknown[]; keys: { paneId: string; keys: string }[] };
     /** D-075: the tray menus (item texts, "---" for separators) and tooltips in order. */
     __e2eTray: { menus: string[][]; tooltips: string[] };
+    /** What the mocked `pick_files` dialog returns (absolute paths); unset → cancelled. */
+    __e2ePickedFiles?: string[];
   }
 }
 window.__e2eTray = { menus: [], tooltips: [] };
@@ -97,13 +99,20 @@ function moveToGroup(workspaceId: string, groupId: string | null) {
 const paneIds = params.get("panes")?.split(",") ?? ["pane-claude", "pane-codex"];
 let spawned = 0;
 
-function hubRoute(method: string, path: string): unknown {
+// The hub keeps what the app saves with PUT /v1/settings (the mascot saves each change on top of a fresh GET).
+let savedHubSettings: unknown = null;
+
+function hubRoute(method: string, path: string, body?: unknown): unknown {
   const url = new URL(path, "http://hub");
   const p = url.pathname;
   const q = url.searchParams;
   if (method === "POST" && p === "/v1/ai/test") return { ok: true, errorKind: "none", latencyMs: 840 };
   if (method === "GET" && p === "/v1/adapters/claude-code/statusline") {
     return { state: "missing", configPath: "C:/Users/demo/.claude/settings.json", wrappedCommand: null, helperAvailable: true };
+  }
+  if (method === "PUT" && p === "/v1/settings") {
+    savedHubSettings = body ?? null;
+    return null;
   }
   if (method !== "GET") return p.startsWith("/v1/tasks") ? fx.tasks[0] : null;
   switch (p) {
@@ -142,7 +151,7 @@ function hubRoute(method: string, path: string): unknown {
     case "/v1/dictation/models":
       return fx.dictationModels;
     case "/v1/settings":
-      return aiLocal ? fx.hubSettingsAiLocal : fx.hubSettings;
+      return savedHubSettings ?? (aiLocal ? fx.hubSettingsAiLocal : fx.hubSettings);
     case "/v1/ai/providers":
       return fx.aiProviders(aiLocal);
     case "/v1/adapters":
@@ -327,6 +336,8 @@ mockIPC(
       }
       case "pick_folders":
         return [];
+      case "pick_files":
+        return window.__e2ePickedFiles ?? [];
       case "pty_busy":
         return { busy: false, processes: [] };
       case "pty_stop_leftovers":
@@ -382,7 +393,7 @@ mockIPC(
         window.__e2eCompanion.keys.push({ paneId: String(args.paneId), keys: String(args.keys) });
         return null;
       case "hub_request":
-        return hubRoute(String(args.method ?? "GET"), String(args.path ?? ""));
+        return hubRoute(String(args.method ?? "GET"), String(args.path ?? ""), args.body);
       case "plugin:notification|is_permission_granted":
         return false;
       // D-075: tray icon and its menu (Tauri resources are `[rid, id]` pairs).

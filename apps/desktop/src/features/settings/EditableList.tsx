@@ -56,7 +56,7 @@ export function EditableList({
                 </Button>
               </>
             )}
-            <Button small variant="danger" ariaLabel={`${removeLabel}: ${item}`} onClick={() => onChange(items.filter((_, idx) => idx !== i))}>
+            <Button small ariaLabel={`${removeLabel}: ${item}`} onClick={() => onChange(items.filter((_, idx) => idx !== i))}>
               {removeLabel}
             </Button>
           </li>

@@ -82,10 +82,10 @@ test("workspace panel · tabs, list click, switcher, manage", async ({ page }) =
 
   // Right click on a row: workspace actions only, "Make active" is gone.
   await wsRow(page, "billing-api").click({ button: "right" });
-  await expect(page.getByRole("button", { name: "Rename" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Move up" })).toBeEnabled();
+  await expect(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Make active" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "New File", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "New File", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   expect(errors, errors.join("\n")).toEqual([]);
 });
@@ -118,9 +118,9 @@ test("workspace panel · files header buttons and the empty-area menu", async ({
   const box = await tree.boundingBox();
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height - 8, { button: "right" });
   for (const name of ["New File", "New Folder", "Save clipboard image here", "Open terminal here"]) {
-    await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name, exact: true })).toBeVisible();
   }
-  await page.getByRole("button", { name: "New Folder", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New Folder", exact: true }).click();
   await expect(page.getByPlaceholder("New folder name")).toBeVisible();
   await page.keyboard.press("Escape");
   expect(errors, errors.join("\n")).toEqual([]);
@@ -158,8 +158,8 @@ for (const theme of ["dark", "light"] as const) {
 // so the collapsed state is asserted within one page load (persistence has unit tests).
 async function createGroupFrom(page: Page, wsName: string, group: string) {
   await wsRow(page, wsName).click({ button: "right" });
-  await page.getByRole("button", { name: "Move to group…", exact: true }).click();
-  await page.getByRole("button", { name: "New group…", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Move to group…", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New group…", exact: true }).click();
   await page.getByPlaceholder("Group name").fill(group);
   await page.keyboard.press("Enter");
 }
@@ -178,9 +178,9 @@ test("workspace groups · create, move in, collapse, keyboard, Ctrl+digit order,
 
   // Move a second workspace in through the swapped menu; the current group is offered.
   await wsRow(page, "blog").click({ button: "right" });
-  await page.getByRole("button", { name: "Move to group…", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove from group", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Work", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Remove from group", exact: true })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Move to group…", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Work", exact: true }).click();
   await expect(work).toContainText("2");
 
   // Ctrl+digit follows the display order: orders-service, blog, billing-api, space-game.
@@ -215,9 +215,15 @@ test("workspace groups · create, move in, collapse, keyboard, Ctrl+digit order,
 
   await page.screenshot({ path: "test-results/screens/workspace-groups-dark-en.png" });
 
+  // "Remove from group" is on the first menu level of a grouped workspace.
+  await wsRow(page, "blog").click({ button: "right" });
+  await page.screenshot({ path: "test-results/screens/workspace-groups-menu-dark-en.png" });
+  await page.getByRole("menuitem", { name: "Remove from group", exact: true }).click();
+  await expect(work).toContainText("1");
+
   // Delete the group from its menu: everybody is ungrouped again and the headers go away.
   await work.click({ button: "right" });
-  await page.getByRole("button", { name: "Delete group", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete group", exact: true }).click();
   await expect(page.getByRole("group")).toHaveCount(0);
   await expect(page.getByRole("option")).toHaveCount(4);
   expect(errors, errors.join("\n")).toEqual([]);
@@ -253,8 +259,8 @@ for (const theme of ["dark", "light"] as const) {
       const errors = await open(page, `theme=${theme}&lang=${lang}&workspaces=4`);
       await workspacesTab(page).click();
       await wsRow(page, "orders-service").click({ button: "right" });
-      await page.getByRole("button", { name: lang === "en" ? "Move to group…" : "Gruba taşı…", exact: true }).click();
-      await page.getByRole("button", { name: lang === "en" ? "New group…" : "Yeni grup…", exact: true }).click();
+      await page.getByRole("menuitem", { name: lang === "en" ? "Move to group…" : "Gruba taşı…", exact: true }).click();
+      await page.getByRole("menuitem", { name: lang === "en" ? "New group…" : "Yeni grup…", exact: true }).click();
       await page.getByPlaceholder(lang === "en" ? "Group name" : "Grup adı").fill(lang === "en" ? "Work" : "İş");
       await page.keyboard.press("Enter");
       await expect(page.getByRole("group")).toHaveCount(2);
@@ -279,3 +285,17 @@ for (const theme of ["dark", "light"] as const) {
     });
   }
 }
+
+test("workspace groups · the header button opens the new-group input, also from Files", async ({ page }) => {
+  const errors = await open(page, "theme=dark&lang=en&workspaces=4");
+  await filesTab(page).click();
+  await page.getByRole("button", { name: "New group", exact: true }).click();
+  await expect(workspacesTab(page)).toHaveAttribute("aria-selected", "true");
+  const input = page.getByPlaceholder("Group name");
+  await expect(input).toBeFocused();
+  await page.screenshot({ path: "test-results/screens/workspace-groups-header-button-dark-en.png" });
+  await input.fill("Side projects");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("group", { name: "Side projects" })).toBeVisible();
+  expect(errors, errors.join("\n")).toEqual([]);
+});

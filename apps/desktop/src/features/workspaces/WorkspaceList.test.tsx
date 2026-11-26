@@ -98,28 +98,37 @@ describe("WorkspaceList groups", () => {
   it("Move to group swaps the menu in place; the current group is disabled", () => {
     setup([ws("a", "alpha", "g1"), ws("b", "beta")], [{ id: "g1", name: "Work" }]);
     fireEvent.contextMenu(screen.getByRole("option", { name: /alpha/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Move to group…" }));
-    expect(screen.getByRole("button", { name: "Work" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "New group…" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Remove from group" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move to group…" }));
+    expect(screen.getByRole("menuitem", { name: "Work" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "New group…" })).toBeEnabled();
+    expect(screen.queryByRole("menuitem", { name: "Remove from group" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Rename" })).toBeNull();
+  });
+
+  it("Remove from group sits on the first menu level, only for a grouped workspace", () => {
+    setup([ws("a", "alpha", "g1"), ws("b", "beta")], [{ id: "g1", name: "Work" }]);
+    fireEvent.contextMenu(screen.getByRole("option", { name: /beta/ }));
+    expect(screen.queryByRole("menuitem", { name: "Remove from group" })).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.contextMenu(screen.getByRole("option", { name: /alpha/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove from group" }));
+    expect(ipcModule.workspaceSetGroup).toHaveBeenCalledWith("a", null);
   });
 
   it("picking a group calls workspaceSetGroup and closes the menu", () => {
     setup([ws("a", "alpha", "g1"), ws("b", "beta")], [{ id: "g1", name: "Work" }]);
     fireEvent.contextMenu(screen.getByRole("option", { name: /beta/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Move to group…" }));
-    expect(screen.getByRole("button", { name: "Remove from group" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move to group…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Work" }));
     expect(ipcModule.workspaceSetGroup).toHaveBeenCalledWith("b", "g1");
-    expect(screen.queryByRole("button", { name: "Work" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Work" })).toBeNull();
   });
 
   it("New group from a workspace creates the group with that workspace", async () => {
     setup([ws("a", "alpha")], []);
     fireEvent.contextMenu(screen.getByRole("option", { name: /alpha/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Move to group…" }));
-    fireEvent.click(screen.getByRole("button", { name: "New group…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move to group…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New group…" }));
     const input = screen.getByPlaceholderText("Group name");
     fireEvent.change(input, { target: { value: "Work" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -129,7 +138,7 @@ describe("WorkspaceList groups", () => {
   it("the empty-area menu offers New group without a workspace", async () => {
     setup([ws("a", "alpha")], []);
     fireEvent.contextMenu(screen.getByRole("listbox", { name: "Workspaces" }));
-    fireEvent.click(screen.getByRole("button", { name: "New group…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New group…" }));
     const input = screen.getByPlaceholderText("Group name");
     fireEvent.change(input, { target: { value: "Work" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -143,16 +152,32 @@ describe("WorkspaceList groups", () => {
     );
     fireEvent.contextMenu(screen.getByRole("option", { name: /beta/ }));
     // beta is not the global last, but it is the last of its group.
-    expect(screen.getByRole("button", { name: "Move up" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Move down" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Move up" })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "Move down" })).toBeDisabled();
   });
 
   it("group header menu: Delete group, Move up disabled on the first group", () => {
     setup([ws("a", "alpha", "g1")], [{ id: "g1", name: "One" }, { id: "g2", name: "Two" }]);
     fireEvent.contextMenu(screen.getByRole("group", { name: "One" }));
-    expect(screen.getByRole("button", { name: "Move up" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Move down" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Delete group" }));
+    expect(screen.getByRole("menuitem", { name: "Move up" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Move down" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete group" }));
     expect(ipcModule.workspaceGroupRemove).toHaveBeenCalledWith("g1");
+  });
+  it("the row's menu button and Shift+F10 open the menu; Remove workspace is last and the first item has focus", () => {
+    setup([ws("a", "alpha"), ws("b", "beta")], []);
+    fireEvent.click(screen.getAllByRole("button", { name: "Workspace actions" })[1]!);
+    const items = screen.getAllByRole("menuitem");
+    expect(items[items.length - 1]).toHaveAccessibleName("Remove workspace");
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
+    expect(items[items.length - 1]).toHaveFocus(); // wraps from the first to the last
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Home" });
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole("listbox", { name: "Workspaces" }), { key: "F10", shiftKey: true });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 });

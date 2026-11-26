@@ -30,8 +30,7 @@ export function CompanionSettings() {
   const shown: CompanionStatus = enabled ? status : { state: "off" };
   const warn = shown.state === "rejected" || shown.state === "untrusted" || shown.state === "tokenError";
   return (
-    <div data-companion-settings className="flex max-w-lg flex-col gap-1.5">
-      <span className="text-small font-medium text-text-3">{s.companion.title}</span>
+    <div data-companion-settings className="flex max-w-lg flex-col gap-2">
       <Checkbox checked={enabled} onChange={(v) => update({ companion: { enabled: v } })} label={s.companion.enabled} hint={s.companion.hint} />
       {enabled && (
         <span data-companion-status={shown.state} role="status" className={`pl-6 text-small ${warn ? "text-blocked-ink" : "text-muted"}`}>

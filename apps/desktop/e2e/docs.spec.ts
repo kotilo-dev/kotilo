@@ -61,7 +61,7 @@ for (const theme of ["dark", "light"] as const) {
 
     // Workspace context menu → Check docs.
     await openWorkspaceMenu(page, "orders-service");
-    await page.getByRole("button", { name: "Check docs" }).click();
+    await page.getByRole("menuitem", { name: "Check docs" }).click();
     const view = page.getByTestId("docs-view");
     await expect(view).toBeVisible();
     await expect(view.getByTestId("docs-summary")).toHaveText("6 docs scanned · 2 with missing paths · 2 stale");
@@ -118,7 +118,7 @@ for (const theme of ["dark", "light"] as const) {
 
     // Update with agent: the prompt lands in the Claude pane's composer, nothing is sent.
     await docRow(page, "AGENTS.md").getByRole("button", { name: "Update with agent…" }).click();
-    await page.getByRole("button", { name: "Claude Code", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Claude Code", exact: true }).click();
     const composer = page.getByRole("textbox", { name: "Message Claude Code" });
     await expect(composer).toBeFocused();
     const text = await composer.inputValue();
@@ -140,8 +140,8 @@ test("docs · palette, empty state with a copyable example, Turkish", async ({ p
     if (!(await palette.isVisible())) await page.keyboard.press("Control+Shift+P");
     await expect(palette).toBeVisible({ timeout: 1000 });
   }).toPass();
-  await palette.fill(">Denetle");
-  await expect(page.getByText("Dokümanlar: Denetle").first()).toBeVisible();
+  await palette.fill(">Dokümanları denetle");
+  await expect(page.getByText("Çalışma alanları: Dokümanları denetle").first()).toBeVisible();
   await page.keyboard.press("Enter");
   const view = page.getByTestId("docs-view");
   await expect(view.getByTestId("docs-empty")).toContainText("Henüz koda bağlanan bir doküman yok");
@@ -156,7 +156,7 @@ test("docs · palette, empty state with a copyable example, Turkish", async ({ p
 test("docs · tab in Turkish", async ({ page }) => {
   const errors = await open(page, "theme=light&lang=tr&docs=demo");
   await openWorkspaceMenu(page, "orders-service");
-  await page.getByRole("button", { name: "Dokümanları denetle" }).click();
+  await page.getByRole("menuitem", { name: "Dokümanları denetle" }).click();
   const view = page.getByTestId("docs-view");
   await expect(view.getByTestId("docs-summary")).toHaveText("6 doküman tarandı · 2 dokümanda eksik yol · 2 doküman güncel değil");
   await page.getByRole("button", { name: "AGENTS.md ayrıntıları" }).click();

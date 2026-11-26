@@ -12,6 +12,7 @@ import { Tree, type TreeHandle } from "./Tree";
 import { WorkspaceList } from "./WorkspaceList";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { blockedElsewhereCount } from "./panelLogic";
+import { openDocsCheck } from "../docs/docsActions";
 
 const SEARCH_DEBOUNCE_MS = 150;
 const SEARCH_LIMIT = 50;
@@ -126,6 +127,7 @@ export function WorkspacesPanel() {
   const agents = useAgentStore((s) => s.agents);
   const userTab = useWorkspacePanelStore((s) => s.tab);
   const setTab = useWorkspacePanelStore((s) => s.setTab);
+  const requestNewGroup = useWorkspacePanelStore((s) => s.requestNewGroup);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeId) ?? null;
   const tab = effectivePanelTab(userTab, activeWorkspace !== null);
@@ -200,6 +202,15 @@ export function WorkspacesPanel() {
         <div className="flex shrink-0 flex-col gap-2 border-b border-border-subtle px-2.5 py-2">
           <div className="flex min-w-0 items-center gap-1">
             <WorkspaceSwitcher workspace={activeWorkspace} />
+            <button
+              type="button"
+              title={strings.workspaces.docsEntryTooltip}
+              aria-label={strings.workspaces.docsEntryTooltip}
+              onClick={() => openDocsCheck(activeWorkspace.id)}
+              className="h-6 shrink-0 cursor-pointer rounded-sm border-0 bg-transparent px-1.5 text-label font-semibold text-text-3 hover:bg-surface-4 hover:text-text"
+            >
+              {strings.workspaces.docsEntry}
+            </button>
             <IconButton
               label={strings.workspaces.newFileTooltip}
               disabled={trimmedFilter !== ""}
@@ -275,7 +286,18 @@ export function WorkspacesPanel() {
             {strings.panels.files}
           </TabButton>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
+          <HeaderButton
+            aria-label={strings.workspaces.newGroupTooltip}
+            title={strings.workspaces.newGroupTooltip}
+            disabled={!ready || workspaces.length === 0}
+            onClick={requestNewGroup}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2 4h7M2 8h5M2 12h4" />
+              <path d="M12 8v6M9 11h6" />
+            </svg>
+          </HeaderButton>
           <HeaderButton
             aria-label={strings.workspaces.addTooltip}
             title={strings.workspaces.addTooltip}

@@ -1,15 +1,16 @@
 /**
  * Tasks screen (M2, CCC spec §21.2): personal notes and to-dos kept by the hub. Quick add
- * (Enter = general note, no due date), "New task" dialog, Open / Completed / All, search,
+ * (Enter = general note, no due date) with "Details…" opening the full dialog, Open / Completed / All, search,
  * groups (general notes first, then projects), edit on click, delete with confirmation.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStrings } from "../../app/i18n";
 import { ConfirmModal } from "../../app/ConfirmModal";
+import { IconButton, PencilIcon, Select, Toolbar, TrashIcon } from "../../app/ui";
 import { hubRequest } from "../../lib/ipc";
 import type { PersonalTask, ProjectDto, TaskInput, TaskPriority } from "../../lib/hubTypes";
 import { useToastStore } from "../../stores/toastStore";
-import { Button, Card, Dialog, EmptyState, Field, Notice, Page, PageHeader, SectionLabel, Segmented, Select, TextArea, TextInput } from "../settings/controls";
+import { Button, Card, Dialog, EmptyState, Field, Notice, Page, PageHeader, SectionLabel, Segmented, TextArea, TextInput } from "../settings/controls";
 import { asAppError, useHubResource } from "../settings/hubData";
 import { formatDue, formatRelative, groupTasks, isoDatePlusDays, splitNote } from "./taskLogic";
 import { formatKeybinding, isModPressed } from "../../lib/keys";
@@ -56,6 +57,8 @@ export function TasksPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [quick, setQuick] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
+  // The open editor was started from the quick-add text: clear that text only once the editor saves.
+  const draftFromQuick = useRef(false);
   const [toDelete, setToDelete] = useState<PersonalTask | null>(null);
 
   useEffect(() => {
@@ -86,22 +89,34 @@ export function TasksPage() {
 
   return (
     <Page>
-      <PageHeader title={s.tasks.title} subtitle={s.tasks.subtitle} actions={<Button variant="primary" onClick={() => setDraft(EMPTY_DRAFT)}>{s.tasks.newTask}</Button>} />
+      <PageHeader title={s.tasks.title} subtitle={s.tasks.subtitle} />
 
-      <TextInput
-        value={quick}
-        onChange={setQuick}
-        ariaLabel={s.tasks.quickAddLabel}
-        placeholder={s.tasks.quickAddPlaceholder}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            quickAdd();
-          }
-        }}
-      />
+      <div className="flex items-center gap-3">
+        <TextInput
+          value={quick}
+          onChange={setQuick}
+          ariaLabel={s.tasks.quickAddLabel}
+          placeholder={s.tasks.quickAddPlaceholder}
+          className="h-9 min-w-0 flex-1"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              quickAdd();
+            }
+          }}
+        />
+        <span className="hidden shrink-0 text-small text-muted sm:inline">{s.tasks.enterHint}</span>
+        <Button
+          onClick={() => {
+            draftFromQuick.current = true;
+            setDraft({ ...EMPTY_DRAFT, text: quick });
+          }}
+        >
+          {s.tasks.details}
+        </Button>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <Toolbar>
         <Segmented
           value={filter}
           onChange={setFilter}
@@ -112,10 +127,10 @@ export function TasksPage() {
             { value: "all", label: s.tasks.filters.all },
           ]}
         />
-        <div className="min-w-[220px] flex-1">
-          <TextInput type="search" value={query} onChange={setQuery} ariaLabel={s.tasks.searchLabel} placeholder={s.tasks.searchPlaceholder} />
+        <div className="min-w-[220px] max-w-[320px] flex-1">
+          <TextInput type="search" value={query} onChange={setQuery} ariaLabel={s.tasks.searchLabel} placeholder={s.tasks.searchPlaceholder} className="h-9 w-full" />
         </div>
-      </div>
+      </Toolbar>
 
       {tasks.unavailable && <Notice tone="warning">{s.errors.forCode("hub_unavailable")}</Notice>}
       {tasks.error && !tasks.unavailable && <Notice tone="error">{tasks.error.message}</Notice>}
@@ -134,7 +149,10 @@ export function TasksPage() {
                     key={task.id}
                     task={task}
                     onToggle={() => void run(() => hubRequest("POST", `/v1/tasks/${task.id}/complete`, { completed: task.completedAt === null }))}
-                    onEdit={() => setDraft(draftFrom(task))}
+                    onEdit={() => {
+                      draftFromQuick.current = false;
+                      setDraft(draftFrom(task));
+                    }}
                     onDelete={() => setToDelete(task)}
                   />
                 ))}
@@ -151,6 +169,8 @@ export function TasksPage() {
           onCancel={() => setDraft(null)}
           onSave={(d) => {
             setDraft(null);
+            if (draftFromQuick.current) setQuick("");
+            draftFromQuick.current = false;
             const body = inputFrom(d);
             void run(() => (d.id === null ? hubRequest("POST", "/v1/tasks", body) : hubRequest("PUT", `/v1/tasks/${d.id}`, body)));
           }}
@@ -159,6 +179,7 @@ export function TasksPage() {
 
       {toDelete && (
         <ConfirmModal
+          tone="danger"
           title={s.tasks.deleteTitle}
           body={s.tasks.deleteBody(toDelete.title)}
           confirmLabel={s.tasks.delete}
@@ -212,9 +233,14 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: { task: PersonalTask; onT
           <span>{done && task.completedAt ? s.tasks.completed(formatRelative(task.completedAt)) : s.tasks.added(formatRelative(task.createdAt))}</span>
         </span>
       </button>
-      <Button variant="ghost" small onClick={onDelete} ariaLabel={`${s.tasks.delete}: ${task.title}`}>
-        {s.tasks.delete}
-      </Button>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <IconButton label={`${s.tasks.edit}: ${task.title}`} onClick={onEdit}>
+          <PencilIcon />
+        </IconButton>
+        <IconButton danger label={`${s.tasks.delete}: ${task.title}`} onClick={onDelete}>
+          <TrashIcon />
+        </IconButton>
+      </div>
     </li>
   );
 }
@@ -236,6 +262,7 @@ function TaskEditor({ draft, projects, onCancel, onSave }: { draft: Draft; proje
     <Dialog
       title={d.id === null ? s.tasks.newTask : s.tasks.editTask}
       onCancel={onCancel}
+      outsideClickCancels={false}
       footer={
         <>
           <Button onClick={onCancel}>{s.tasks.cancel}</Button>

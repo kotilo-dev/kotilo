@@ -65,10 +65,11 @@ describe("OverviewPage", () => {
     });
     useRouteStore.setState({ route: "overview" });
     render(<OverviewPage />);
-    expect(screen.getByText("Needs you · 1")).toBeInTheDocument();
-    expect(screen.getByText("Sessions · 2")).toBeInTheDocument();
-    // The session tiles moved to Mission control.
-    expect(screen.queryByText("payments-gateway")).not.toBeInTheDocument();
+    expect(screen.getByText("Waiting for you")).toBeInTheDocument();
+    // Only the waiting agent is listed (project, state, wait time); the working one is not.
+    expect(screen.getByText("payments-gateway")).toBeInTheDocument();
+    expect(screen.queryByText("orders-service")).not.toBeInTheDocument();
+    expect(screen.getByText(/^waiting /)).toBeInTheDocument();
     expect(screen.getByRole("meter", { name: "Codex CLI · Weekly" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open mission control" }));
     expect(useRouteStore.getState().route).toBe("mission");

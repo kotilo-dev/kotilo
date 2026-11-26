@@ -54,7 +54,8 @@ export function needsSettings(kind: string | null): boolean {
   return kind !== null && SETTINGS_KINDS.has(kind);
 }
 
-export function errorText(t: T, kind: string | null, error: string | null): string {
+export function errorText(t: T, kind: string | null, error: string | null, cli?: string | null): string {
+  if (cli && (kind === "notInstalled" || kind === "notLoggedIn")) return t.cliErrors[kind](cli);
   const known = kind !== null && Object.prototype.hasOwnProperty.call(t.errors, kind) ? t.errors[kind as keyof T["errors"]] : null;
   // `invalid` carries the hub's own message.
   if (known) return kind === "invalid" && error ? `${known} ${error}` : known;

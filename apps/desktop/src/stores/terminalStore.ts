@@ -52,7 +52,7 @@ export interface TerminalTab {
   autoStart?: boolean;
 }
 
-interface WorkspaceTerminalState {
+export interface WorkspaceTerminalState {
   tabs: TerminalTab[];
   activeTabId: string | null;
   /** M4 split pane (§7.3): the tab shown on the right half; the left half is `activeTabId`. */

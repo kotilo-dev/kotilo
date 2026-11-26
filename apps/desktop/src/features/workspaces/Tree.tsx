@@ -495,6 +495,7 @@ export const Tree = forwardRef<TreeHandle>(function Tree(_props, ref) {
 
       {pendingDelete && (
         <ConfirmModal
+          tone="danger"
           title={strings.confirm.deleteTitle(pendingDelete.name)}
           body={strings.confirm.deleteBody}
           confirmLabel={strings.confirm.deleteConfirm}

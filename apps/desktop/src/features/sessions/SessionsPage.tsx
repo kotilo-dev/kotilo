@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from "react";
 import { useStrings } from "../../app/i18n";
-import { AgentAvatar, agentDisplayName } from "../../app/ui";
+import { AgentAvatar, IconButton, MoreIcon, Select, Toolbar, agentDisplayName } from "../../app/ui";
 import { formatCost, formatDuration, formatTokenCount } from "../../app/ui/format";
 import { StatusPill } from "../../app/ui/StatusPill";
 import { clipboardWriteText, fsExists, type Agent } from "../../lib/ipc";
@@ -18,7 +18,7 @@ import { useTerminalStore } from "../../stores/terminalStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { navigateToAgent } from "../agents/navigate";
-import { Button, EmptyState, Notice, Page, PageHeader, SectionLabel, Segmented, Select, TextInput } from "../settings/controls";
+import { Button, EmptyState, Notice, Page, PageHeader, SectionLabel, Segmented, TextInput } from "../settings/controls";
 import { useHubResource } from "../settings/hubData";
 import { formatRelative } from "../tasks/taskLogic";
 import { ContextMenu, type ContextMenuState } from "../workspaces/ContextMenu";
@@ -74,7 +74,7 @@ export function SessionsPage() {
         subtitle={history.data ? t.subtitle(history.data.length, Number(days)) : undefined}
         actions={<Button onClick={() => void history.reload()}>{t.refresh}</Button>}
       />
-      <div className="flex flex-wrap items-center gap-3">
+      <Toolbar>
         <TextInput type="search" value={query} onChange={setQuery} placeholder={t.search} ariaLabel={t.search} className="w-72" />
         <Segmented<Scope>
           ariaLabel={t.scopeLabel}
@@ -95,15 +95,14 @@ export function SessionsPage() {
             { value: "none", label: t.groupNone },
           ]}
         />
-        <div className="w-44">
-          <Select<Days>
-            ariaLabel={t.rangeLabel}
-            value={days}
-            onChange={setDays}
-            options={(["7", "30", "90"] as const).map((d) => ({ value: d, label: t.range(Number(d)) }))}
-          />
-        </div>
-      </div>
+        <Select<Days>
+          ariaLabel={t.rangeLabel}
+          className="w-44"
+          value={days}
+          onChange={setDays}
+          options={(["7", "30", "90"] as const).map((d) => ({ value: d, label: t.range(Number(d)) }))}
+        />
+      </Toolbar>
 
       {history.unavailable && <Notice tone="warning">{s.errors.forCode("hub_unavailable")}</Notice>}
       {history.error && !history.unavailable && <Notice tone="error">{history.error.message}</Notice>}
@@ -204,9 +203,11 @@ function SessionRow({ row, agentName, showProject }: { row: SessionHistoryRow; a
         </div>
       </div>
       <div className="hidden shrink-0 flex-col items-end gap-0.5 text-small sm:flex">
-        <span className="num text-text-2">{formatTokenCount(row.tokens)}</span>
+        <span className="num text-text-2" title={t.tokensTitle}>
+          {formatTokenCount(row.tokens)}
+        </span>
         <span className="num text-faint">
-          {formatCost(row.costUsd)} · {formatDuration(seconds)}
+          <span title={t.costTitle}>{formatCost(row.costUsd)}</span> · <span title={t.durationTitle}>{formatDuration(seconds)}</span>
         </span>
       </div>
       {/* Running outside Kotilo's terminals: no Resume, a second client on the same session would clash. */}
@@ -218,16 +219,18 @@ function SessionRow({ row, agentName, showProject }: { row: SessionHistoryRow; a
       <div className="flex shrink-0 items-center gap-1.5">
         {row.live && paneTab ? (
           <Button onClick={goTo}>{t.goTo}</Button>
-        ) : row.live ? null : (
+        ) : row.live ? (
+          <Button variant="ghost" disabled title={t.runningElsewhere}>
+            {t.runningElsewhereLabel}
+          </Button>
+        ) : (
           <Button variant="primary" disabled={!command} title={command ? t.resumeTitle(command) : t.noResume} onClick={() => void resume()}>
             {t.resume}
           </Button>
         )}
-        <button
-          type="button"
-          aria-label={t.copy}
-          title={t.copy}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-button text-text-2 hover:bg-surface-4"
+        <IconButton
+          label={t.copy}
+          aria-haspopup="menu"
           onClick={(e) => {
             const box = e.currentTarget.getBoundingClientRect();
             setMenu({
@@ -241,8 +244,8 @@ function SessionRow({ row, agentName, showProject }: { row: SessionHistoryRow; a
             });
           }}
         >
-          …
-        </button>
+          <MoreIcon />
+        </IconButton>
       </div>
       {menu && <ContextMenu state={menu} onClose={() => setMenu(null)} />}
     </div>

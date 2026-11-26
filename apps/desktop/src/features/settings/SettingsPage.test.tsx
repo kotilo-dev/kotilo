@@ -127,7 +127,7 @@ describe("SettingsPage", () => {
       expect(screen.queryByRole("button", { name: strings.settingsPage.sections.mascot })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: strings.settingsPage.sections.dictation })).not.toBeInTheDocument();
       // A stored section that is gone here falls back to the first one.
-      expect(screen.getByLabelText(strings.settings.appearance.theme)).toBeInTheDocument();
+      expect(screen.getByRole("radiogroup", { name: strings.settings.appearance.mode })).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: strings.settingsPage.sections.terminal }));
       expect(screen.queryByLabelText(strings.settings.terminal.bundledConpty)).not.toBeInTheDocument();
     } finally {
@@ -137,7 +137,7 @@ describe("SettingsPage", () => {
 
   it("theme changes apply immediately to the app settings", async () => {
     render(<SettingsPage />);
-    fireEvent.change(screen.getByLabelText(strings.settings.appearance.theme), { target: { value: "light" } });
+    fireEvent.click(screen.getByRole("radio", { name: strings.settings.appearance.themeLight }));
     await waitFor(() => expect(useSettingsStore.getState().settings.theme).toBe("light"));
   });
 
@@ -354,5 +354,17 @@ describe("SettingsPage", () => {
       );
       expect(screen.queryByRole("button", { name: strings.mascot.showNow })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("SettingsPage filter", () => {
+  it("filters sections by name or field label and shows an empty note", () => {
+    render(<SettingsPage />);
+    const filter = screen.getByRole("searchbox", { name: strings.settingsPage.filterLabel });
+    fireEvent.change(filter, { target: { value: "ConPTY" } });
+    expect(screen.getByRole("button", { name: strings.settingsPage.sections.terminal })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: strings.settingsPage.sections.editor })).not.toBeInTheDocument();
+    fireEvent.change(filter, { target: { value: "zzzz-nothing" } });
+    expect(screen.getByText(strings.settingsPage.noMatch)).toBeInTheDocument();
   });
 });

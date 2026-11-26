@@ -9,6 +9,7 @@ const ipc = vi.hoisted(() => ({
   fsCreateDir: vi.fn(),
   fsQuickOpen: vi.fn(),
   onDictationComposer: vi.fn(),
+  pickFiles: vi.fn(),
   ptyWrite: vi.fn(),
   settingsGet: vi.fn(),
   settingsSet: vi.fn(),
@@ -195,5 +196,24 @@ describe("Composer", () => {
     renderComposer();
     fireEvent.click(screen.getByRole("button", { name: "Saved prompts" }));
     expect(screen.getByText(/No saved prompts yet/)).toBeInTheDocument();
+  });
+
+  it("file button: picked files land as @mentions at the caret", async () => {
+    useWorkspaceStore.setState({ workspaces: [{ id: "ws1", name: "app", path: "C:\\src\\app", expandedDirs: [] }] });
+    ipc.pickFiles.mockResolvedValue(["C:\\src\\app\\src\\a.ts", "D:\\docs\\my notes.md"]);
+    const input = renderComposer();
+    type(input, "look at");
+    fireEvent.click(screen.getByRole("button", { name: "Add files (@)" }));
+    await waitFor(() => expect(input.value).toBe('look at @src/a.ts @"D:/docs/my notes.md" '));
+    expect(ipc.pickFiles).toHaveBeenCalledWith("Add files to the message", "C:\\src\\app");
+  });
+
+  it("file button: a cancelled dialog leaves the text alone", async () => {
+    ipc.pickFiles.mockResolvedValue([]);
+    const input = renderComposer();
+    type(input, "hello");
+    fireEvent.click(screen.getByRole("button", { name: "Add files (@)" }));
+    await waitFor(() => expect(ipc.pickFiles).toHaveBeenCalled());
+    expect(input.value).toBe("hello");
   });
 });

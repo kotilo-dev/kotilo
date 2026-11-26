@@ -78,10 +78,10 @@ export function parsePromptOptions(rows: readonly string[]): PromptOption[] {
 const MAX_BUTTON_LABEL = 44;
 
 /** "Yes, and don't ask again for npm commands in C:\x (shift+tab)" → "Don't ask again for npm commands…". */
-export function shortAlwaysLabel(label: string): string {
+export function shortAlwaysLabel(label: string, max = MAX_BUTTON_LABEL): string {
   let text = label.replace(/\s*\((?:esc|shift\+tab|tab|[a-z])\)\s*$/i, "").replace(/^yes,\s*(and\s+)?/i, "");
   text = text.charAt(0).toUpperCase() + text.slice(1);
-  return text.length > MAX_BUTTON_LABEL ? `${text.slice(0, MAX_BUTTON_LABEL - 1).trimEnd()}…` : text;
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
 function isDigitKey(key: string | undefined): boolean {

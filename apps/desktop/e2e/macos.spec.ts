@@ -64,6 +64,6 @@ test("macOS · the workspace context menu names Finder", async ({ page }) => {
   await openMac(page, "&workspaces=2");
   await page.getByTestId("workspace-panel-tabs").getByRole("tab").first().click();
   await page.getByTitle("billing-api", { exact: true }).click({ button: "right" });
-  await expect(page.getByRole("button", { name: "Open in Finder" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Open in Finder" })).toBeVisible();
   await page.screenshot({ path: "test-results/screens/macos-context-menu.png" });
 });

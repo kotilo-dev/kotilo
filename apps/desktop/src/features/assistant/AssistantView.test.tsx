@@ -130,6 +130,18 @@ describe("AssistantView", () => {
     expect(screen.queryAllByTestId("assistant-turn")).toHaveLength(0);
   });
 
+  it("Try again resends the failed question; the error names the CLI", async () => {
+    await renderView();
+    type("hi");
+    press("Enter");
+    pushEvent({ type: "done", errorKind: "notLoggedIn" });
+    expect(screen.getByRole("alert")).toHaveTextContent("Claude Code isn't signed in");
+    const calls = ipc.assistantChat.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(ipc.assistantChat.mock.calls.length).toBe(calls + 1);
+    expect(screen.getAllByTestId("assistant-turn")).toHaveLength(1);
+  });
+
   it("shows turn errors inline with the Settings → AI hint", async () => {
     await renderView();
     type("hi");
@@ -187,13 +199,15 @@ describe("AssistantView", () => {
 
   it.each([
     [true, "ephemeral", null],
-    [false, "keeps", "Claude Code keeps its own copy of this chat in its session files."],
-    [null, "mayKeep", "Claude Code may keep its own copy of this chat."],
+    [false, "keeps", "Kotilo saves nothing, but Claude Code keeps its own copy of this chat in its session files."],
+    [null, "mayKeep", "Kotilo saves nothing, but Claude Code may keep its own copy of this chat."],
   ] as const)("footer for ephemeral=%s", async (ephemeral, variant, note) => {
     await renderView({ ...INFO, ephemeral });
     const footer = screen.getByTestId("assistant-footer");
     expect(footer).toHaveAttribute("data-variant", variant);
-    expect(footer).toHaveTextContent("Nothing is saved · tools off · sent to Claude Code");
+    expect(footer).toHaveTextContent("tools off · sent to Claude Code");
+    // One statement: "saves nothing" is never shown next to a contradicting provider note.
+    if (ephemeral === true) expect(footer).toHaveTextContent("Kotilo saves nothing · tools off");
     if (note) expect(footer).toHaveTextContent(note);
     else expect(footer.textContent).not.toContain("copy");
   });

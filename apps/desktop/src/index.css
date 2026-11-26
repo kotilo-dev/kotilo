@@ -204,6 +204,23 @@
 }
 
 /*
+ * Light theme secondary buttons: card-white with the strong outline, so a grey fill only
+ * ever means "disabled". Unlayered on purpose: it wins over the utility classes of both
+ * Button components without touching them (a layered rule would lose to them). Toggle buttons that show
+ * their on state with their own classes (aria-pressed, e.g. the recording mic) are excluded.
+ */
+:root[data-theme="light"] button.bg-surface-5:not([aria-pressed="true"]) {
+  background-color: var(--surface-2);
+  border-color: var(--border-strong);
+}
+:root[data-theme="light"] button.bg-surface-5:not([aria-pressed="true"]):hover:not(:disabled) {
+  background-color: var(--surface-4);
+}
+:root[data-theme="light"] button.bg-surface-5:not([aria-pressed="true"]):disabled {
+  background-color: var(--surface-4);
+}
+
+/*
  * M6 mascot tokens (D-052). The robot snail sits on the user's desktop or taskbar, not in the
  * app, so these are fixed values that do NOT follow the app theme (no light override). Concept
  * B: dark shell + metal, accent visor/spiral, status colours = the dark §2.3 values. Used only
@@ -441,7 +458,9 @@ html[data-view="dictation-overlay"] body {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  height: 1.25rem;
+  height: 1.625rem;
+  min-width: 1.625rem;
+  justify-content: center;
   padding: 0 0.4rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-badge);

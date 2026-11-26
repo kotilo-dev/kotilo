@@ -7,9 +7,9 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export const contextEn = {
   tabTitle: "Agent context",
   title: "Agent context",
-  /** Palette: "Agent: Show context". */
+  /** Palette: "Agents: Show agent context". */
   commandCategory: "Agent",
-  commandTitle: "Show context",
+  commandTitle: "Show agent context",
   contextMenu: "Agent context…",
   /** Agent pane header button and terminal tab menu. */
   paneButton: "Agent context",

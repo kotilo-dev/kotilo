@@ -180,6 +180,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::dialog::pick_folders,
+            commands::dialog::pick_files,
             load_state,
             save_state_slice,
             pty::pty_profiles,

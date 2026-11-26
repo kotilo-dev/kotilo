@@ -5,7 +5,7 @@ import { startAtFixtureTime } from "./clock";
 startAtFixtureTime(test);
 
 // D-078: Claude Code plan limits (fed by the status line helper) render exactly where Codex's do:
-// Overview and Mission control meters, and the agent header strip in the workspace.
+// the Overview meters (shown once; Mission control no longer repeats them) and the agent header strip.
 for (const theme of ["dark", "light"] as const) {
   test(`claude plan limits · overview + header strip · ${theme}`, async ({ page }) => {
     const errors: string[] = [];
@@ -24,7 +24,7 @@ for (const theme of ["dark", "light"] as const) {
     await page.screenshot({ path: `test-results/screens/limits-overview-${theme}.png` });
 
     await page.keyboard.press("Alt+3");
-    await expect(page.getByRole("meter", { name: "Claude Code · Weekly" })).toBeVisible();
+    await expect(page.getByRole("meter", { name: "Claude Code · Weekly" })).toHaveCount(0);
 
     await page.keyboard.press("Alt+1");
     await page.getByRole("button", { name: "New terminal" }).first().click();

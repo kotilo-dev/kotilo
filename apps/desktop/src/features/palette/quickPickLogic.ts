@@ -43,6 +43,18 @@ export function commandLabel(command: Pick<Command, "title" | "category">): stri
   return category ? `${category}: ${title}` : title;
 }
 
+/** Empty-query order: destructive last, "Go" commands in shortcut order, the rest by label. */
+function compareForEmptyQuery(a: Command, b: Command): number {
+  if (!!a.destructive !== !!b.destructive) return a.destructive ? 1 : -1;
+  const catA = resolveCommandText(a.category) ?? "";
+  const catB = resolveCommandText(b.category) ?? "";
+  if (catA !== catB) return commandLabel(a).localeCompare(commandLabel(b));
+  if (a.id.startsWith("navigate.") && b.id.startsWith("navigate.")) {
+    return (a.keybinding ?? "~").localeCompare(b.keybinding ?? "~", undefined, { numeric: true });
+  }
+  return commandLabel(a).localeCompare(commandLabel(b));
+}
+
 export interface ScoredCommand {
   command: Command;
   /** `null` — boş sorguda (MRU/alfabetik sırada) vurgulanacak indeks yok. */
@@ -67,7 +79,7 @@ export function filterCommands(commands: Command[], query: string): ScoredComman
     const mruIds = new Set(mruCommands.map((c) => c.id));
     const rest = enabled
       .filter((c) => !mruIds.has(c.id))
-      .sort((a, b) => commandLabel(a).localeCompare(commandLabel(b)));
+      .sort(compareForEmptyQuery);
     return [...mruCommands, ...rest].map((command) => ({ command, indices: null }));
   }
 

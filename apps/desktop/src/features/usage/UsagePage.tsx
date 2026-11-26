@@ -82,7 +82,6 @@ export function UsagePage() {
             <BlocksCard blocks={blocks.data} loading={blocks.loading} />
             <BreakdownCard rows={breakdown.data} loading={breakdown.loading} by={by} onBy={setBy} />
           </div>
-          <p className="m-0 text-small text-muted">{s.usage.unpricedNote}</p>
         </>
       )}
     </Page>
@@ -162,6 +161,11 @@ function formatDelta(ratio: number): string {
   return formatNumber(ratio, { style: "percent", signDisplay: "exceptZero", maximumFractionDigits: 0 });
 }
 
+/** `HH:mm–HH:mm`; a weekday is added only where the day is not today / the end falls on another day than the start. */
+function blockRange(start: string, end: string): string {
+  return `${formatClock(start)}–${formatClock(end, new Date(start))}`;
+}
+
 function BlocksCard({ blocks, loading }: { blocks: UsageBlockDto[] | null; loading: boolean }) {
   const s = useStrings();
   const rows = (blocks ?? []).filter((b) => !b.isGap || b.isActive);
@@ -186,7 +190,7 @@ function BlocksCard({ blocks, loading }: { blocks: UsageBlockDto[] | null; loadi
               <tr key={b.id} className="border-t border-border-subtle">
                 <td className="px-4 py-2 text-text-2">
                   <span className="font-mono">
-                    {formatClock(b.start)}–{formatClock(b.end)}
+                    {blockRange(b.start, b.end)}
                   </span>
                   {b.isActive && (
                     <span className="ml-2 rounded-badge bg-accent-soft px-1.5 py-0.5 text-label text-accent">{s.usage.active}</span>
@@ -277,6 +281,7 @@ function BreakdownCard({
           </tbody>
         </table>
       )}
+      {list.length > 0 && <p className="m-0 border-t border-border-subtle px-4 py-2.5 text-small text-muted">{s.usage.unpricedNote}</p>}
     </Card>
   );
 }

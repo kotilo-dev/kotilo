@@ -25,7 +25,8 @@ for (const theme of ["dark", "light"] as const) {
     await expect(page.getByText("Hover a line and click +")).toBeVisible();
 
     // Mouse: the "+" in the glyph margin of the hovered line.
-    await modified.locator(".view-line").nth(5).hover();
+    // Near the line start: in the narrow viewer the line centre can sit under the scrollbar / overview ruler.
+    await modified.locator(".view-line").nth(5).hover({ position: { x: 10, y: 5 } });
     await modified.locator(".review-add-glyph").click();
     const editor = page.getByTestId("review-note-editor");
     await expect(editor).toContainText(/Line \d+/);
@@ -35,7 +36,7 @@ for (const theme of ["dark", "light"] as const) {
     await expect(page.getByTestId("review-note")).toHaveCount(1);
 
     // Keyboard: C on the cursor line.
-    await modified.locator(".view-line").nth(1).click();
+    await modified.locator(".view-line").nth(1).click({ position: { x: 10, y: 5 } });
     await page.keyboard.press("c");
     await page.getByTestId("review-note-editor").getByRole("textbox", { name: "Add review note" }).fill("Drop this blank line.");
     await page.keyboard.press("Enter");
@@ -49,7 +50,7 @@ for (const theme of ["dark", "light"] as const) {
     await page.screenshot({ path: `test-results/screens/review-notes-${theme}.png` });
 
     await page.getByRole("button", { name: "Send 1 note to…" }).click();
-    await page.getByRole("button", { name: "Claude Code", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Claude Code", exact: true }).click();
     const composer = page.getByRole("textbox", { name: "Message Claude Code" });
     await expect(composer).toBeFocused();
     const text = await composer.inputValue();

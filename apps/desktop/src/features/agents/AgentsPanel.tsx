@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { HeaderButton } from "../../app/HeaderButton";
 import { PanelHeader } from "../../app/PanelHeader";
 import { agentLabel } from "../../app/ui/agents";
+import { AgentAvatar } from "../../app/ui";
 import { useStrings } from "../../app/strings";
 import { useNow } from "../../app/ui/useNow";
 import { useRouteStore } from "../../stores/routeStore";
@@ -87,7 +88,9 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
   const strings = useStrings();
   const workspaceName = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === agent.workspaceId)?.name ?? "");
   const byWorkspace = useTerminalStore((s) => s.byWorkspace);
-  const tabTitle = findTabByPaneIdInMap(byWorkspace, agent.paneId)?.tab.title ?? strings.agents.noTab;
+  // Only a title the user chose adds information; the default one would repeat the row.
+  const tab = findTabByPaneIdInMap(byWorkspace, agent.paneId)?.tab;
+  const tabTitle = tab ? (tab.titleEdited ? tab.title : null) : strings.agents.noTab;
   const background =
     agent.state === "working" && agent.backgroundTasks && agent.backgroundTasks.length > 0
       ? strings.workspace.background(agent.backgroundTasks.join(", "))
@@ -111,13 +114,10 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
           label={background ? `${strings.status.working} · ${background}` : undefined}
           background={!!background}
         />
-        <span className="shrink-0 text-muted">
-          {agentLabel(agent)}
-        </span>
-        <span className="min-w-0 flex-1 truncate">{workspaceName}</span>
-        <span className="min-w-0 max-w-[8rem] truncate text-muted">
-          {tabTitle}
-        </span>
+        <AgentAvatar agent={agent.adapterId ?? agent.kind} size={16} />
+        <span className="shrink-0 font-medium text-text">{agentLabel(agent)}</span>
+        <span className="min-w-0 flex-1 truncate text-muted">{workspaceName}</span>
+        {tabTitle && <span className="min-w-0 max-w-[8rem] truncate text-muted">{tabTitle}</span>}
         <span className="shrink-0 tabular-nums text-muted">
           {formatElapsed(now, agent.sinceMs)}
         </span>

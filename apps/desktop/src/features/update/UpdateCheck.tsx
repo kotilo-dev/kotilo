@@ -1,5 +1,6 @@
 /** About → "Check for updates" with the last result (M5). The install itself runs in `UpdatePrompt`. */
 import { useStrings } from "../../app/strings";
+import { Button } from "../../app/ui/Button";
 import type { Strings } from "../../app/i18n";
 import type { UpdateCheckResult } from "../../lib/ipc";
 import { useUpdateStore, type CheckState } from "./updateStore";
@@ -28,14 +29,9 @@ export function UpdateCheck() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        disabled={checking}
-        onClick={() => void checkNow()}
-        className="shrink-0 rounded border border-border px-2 py-1 text-xs text-text disabled:opacity-40"
-      >
+      <Button disabled={checking} onClick={() => void checkNow()}>
         {s.checkNow}
-      </button>
+      </Button>
       <span role="status" aria-live="polite" data-testid="update-check-status" className={result ? TONE[result.tone] : "text-muted"}>
         {checking ? s.checking : (result?.text ?? "")}
       </span>

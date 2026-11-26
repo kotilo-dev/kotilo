@@ -112,11 +112,11 @@ describe("MissionControlPage", () => {
     expect(screen.getByText("Background service not running")).toBeInTheDocument();
   });
 
-  it("summarises, shows limits and tiles with needs-you first", () => {
+  it("summarises and tiles with needs-you first; plan limits live on Overview only", () => {
     render(<MissionControlPage />);
     expect(screen.getByRole("heading", { name: "Mission control" })).toBeInTheDocument();
     expect(screen.getByText("3 agents · 1 need you · 1 working · 1 done")).toBeInTheDocument();
-    expect(screen.getByRole("meter", { name: "Codex CLI · Weekly" })).toBeInTheDocument();
+    expect(screen.queryByRole("meter", { name: "Codex CLI · Weekly" })).not.toBeInTheDocument();
     const names = screen.getAllByText(/^(payments-gateway|orders-service|docs-site)$/).map((el) => el.textContent);
     expect(names).toEqual(["payments-gateway", "orders-service", "docs-site"]);
     expect(screen.queryByText("old")).not.toBeInTheDocument();
@@ -152,6 +152,13 @@ describe("MissionControlPage", () => {
     expect(screen.getByText("Claude is waiting for your input")).toBeInTheDocument();
     expect(screen.getAllByText(/Running outside Kotilo/)).toHaveLength(2);
     expect(screen.getByText("88k tok")).toBeInTheDocument();
+  });
+
+  it("shows an action row on cards that need you", () => {
+    render(<MissionControlPage />);
+    // payments-gateway needs you and runs outside the app: a plain line, no button.
+    expect(screen.getByTestId("mission-actions")).toHaveTextContent("Answer in its own terminal");
+    expect(screen.queryByRole("button", { name: "Go to agent" })).not.toBeInTheDocument();
   });
 
   it("filters by group", () => {

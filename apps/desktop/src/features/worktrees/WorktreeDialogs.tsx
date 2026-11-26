@@ -22,7 +22,7 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useWorktreeStore, type WorktreeDialog } from "../../stores/worktreeStore";
 import { useLaunchOptions } from "../agents/launch";
 import { Button, Checkbox, Dialog, Field, Notice, Segmented, Select, TextInput } from "../settings/controls";
-import { createWorktreeAndStart, openWorktreeDiff, removeWorktreeClosingTabs } from "./worktreeActions";
+import { createWorktreeAndStart, openWorktreeDiff, openWorktreeTerminal, removeWorktreeClosingTabs } from "./worktreeActions";
 import {
   DEFAULT_BRANCH_PREFIX,
   defaultSquashMessage,
@@ -252,6 +252,7 @@ function MergeDialog({ dialog, onClose }: { dialog: Extract<WorktreeDialog, { ki
   const [error, setError] = useState<string | null>(null);
 
   const done = result !== null && offersCleanup(result);
+  const conflict = result?.status === "conflict";
   const text = result ? mergeMessage(s, result, branch, base) : null;
 
   async function merge() {
@@ -283,6 +284,25 @@ function MergeDialog({ dialog, onClose }: { dialog: Extract<WorktreeDialog, { ki
               {t.cleanup}
             </Button>
           </>
+        ) : conflict ? (
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              {t.close}
+            </Button>
+            <Button variant="secondary" disabled={busy || !base} onClick={() => void merge()}>
+              {busy ? t.merging : t.tryAgain}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!wt}
+              onClick={() => {
+                if (wt) openWorktreeTerminal(dialog.workspaceId, wt.rel);
+                onClose();
+              }}
+            >
+              {t.openTerminal}
+            </Button>
+          </>
         ) : (
           <>
             <Button variant="ghost" onClick={onClose}>
@@ -296,7 +316,21 @@ function MergeDialog({ dialog, onClose }: { dialog: Extract<WorktreeDialog, { ki
       }
     >
       {!base && <Notice tone="warning">{t.noBase}</Notice>}
-      {!done && (
+      {conflict && text && <ResultNotice message={text} />}
+      {conflict && result.conflicts.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="text-small font-medium text-text-3">{t.result.conflictFiles}</span>
+          <ul className="m-0 list-none rounded-control border border-border-subtle bg-surface-3 p-2 font-mono text-small text-blocked-ink" data-testid="merge-conflicts">
+            {result.conflicts.map((path) => (
+              <li key={path} className="truncate">
+                {path}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {conflict && <GitDetail detail={result.detail} />}
+      {!done && !conflict && (
         <>
           <p className="m-0 text-body text-muted">{t.intro}</p>
           <div className="flex flex-col gap-1.5">
@@ -316,20 +350,8 @@ function MergeDialog({ dialog, onClose }: { dialog: Extract<WorktreeDialog, { ki
           )}
         </>
       )}
-      {text && <ResultNotice message={text} />}
-      {result?.status === "conflict" && result.conflicts.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-small font-medium text-text-3">{t.result.conflictFiles}</span>
-          <ul className="m-0 list-none rounded-control border border-border-subtle bg-surface-3 p-2 font-mono text-small text-blocked-ink" data-testid="merge-conflicts">
-            {result.conflicts.map((path) => (
-              <li key={path} className="truncate">
-                {path}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {result && result.status !== "merged" && result.status !== "upToDate" && <GitDetail detail={result.detail} />}
+      {!conflict && text && <ResultNotice message={text} />}
+      {result && !conflict && result.status !== "merged" && result.status !== "upToDate" && <GitDetail detail={result.detail} />}
       {done && <p className="m-0 text-body text-text-2">{t.cleanupOffer}</p>}
       {error && <Notice tone="error">{error}</Notice>}
     </Dialog>
@@ -410,13 +432,12 @@ function RemoveDialog({ dialog, onClose }: { dialog: Extract<WorktreeDialog, { k
     >
       <p className="m-0 text-body text-text-2">{t.body}</p>
       {tabCount > 0 && <Notice tone="warning">{t.closesTabs(tabCount)}</Notice>}
-      {branch && <Checkbox checked={deleteBranch} onChange={setDeleteBranch} label={t.deleteBranch(branch)} />}
       {askForce && (
-        <div className="flex flex-col gap-2" data-testid="remove-confirm-dirty">
-          <Notice tone="error">{info && info.dirty > 0 ? t.dirty(info.dirty) : t.dirtyUnknown}</Notice>
-          <Checkbox checked={force} onChange={setForce} label={t.forceRemove} />
+        <div data-testid="remove-confirm-dirty">
+          <Checkbox checked={force} onChange={setForce} label={info && info.dirty > 0 ? t.discardChanges(info.dirty) : t.discardUnknown} />
         </div>
       )}
+      {branch && <Checkbox checked={deleteBranch} onChange={setDeleteBranch} label={t.deleteBranch(branch)} />}
       {askForceBranch && branch && (
         <div className="flex flex-col gap-2" data-testid="remove-confirm-unmerged">
           <Notice tone="error">{t.unmerged(branch)}</Notice>

@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { formatNumber, useStrings } from "../../app/i18n";
+import { Select, Toolbar } from "../../app/ui";
 import { hubRequest, pickFolders } from "../../lib/ipc";
 import type { Customer, ProjectDto, TodoFileDto } from "../../lib/hubTypes";
 import { useRouteStore } from "../../stores/routeStore";
@@ -13,7 +14,7 @@ import { useToastStore } from "../../stores/toastStore";
 import { useViewerStore } from "../../stores/viewerStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { formatRelative } from "../tasks/taskLogic";
-import { Button, Card, Checkbox, EmptyState, Field, Notice, Page, PageHeader, ProgressBar, SectionLabel, Select, TextInput } from "../settings/controls";
+import { Button, Card, Checkbox, EmptyState, Field, Notice, Page, PageHeader, ProgressBar, SectionLabel, TextInput } from "../settings/controls";
 import { asAppError, useHubResource } from "../settings/hubData";
 import { findWorkspaceFile, joinProjectPath } from "./projectLogic";
 
@@ -46,13 +47,11 @@ export function ProjectsPage() {
       <PageHeader
         title={s.projects.title}
         subtitle={projects.data ? s.projects.subtitle(projects.data.length) : undefined}
-        actions={
-          <>
-            <Checkbox checked={showHidden} onChange={setShowHidden} label={s.projects.showHidden} />
-            <Button onClick={() => void addFolder()}>{s.projects.addFolder}</Button>
-          </>
-        }
+        actions={<Button onClick={() => void addFolder()}>{s.projects.addFolder}</Button>}
       />
+      <Toolbar>
+        <Checkbox checked={showHidden} onChange={setShowHidden} label={s.projects.showHidden} />
+      </Toolbar>
       {projects.unavailable && <Notice tone="warning">{s.errors.forCode("hub_unavailable")}</Notice>}
       {projects.error && !projects.unavailable && <Notice tone="error">{projects.error.message}</Notice>}
       {projects.data && projects.data.length === 0 && <EmptyState title={s.projects.empty} body={s.projects.emptyBody} />}
@@ -133,7 +132,7 @@ function ProjectDetail({ project: p, customers, onChanged }: { project: ProjectD
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <ProjectEditor project={p} customers={customers} onChanged={onChanged} />
+      <ProjectHeader project={p} onChanged={onChanged} />
       {!inWorkspace && (
         <Notice>
           <span className="flex flex-wrap items-center gap-3">
@@ -203,6 +202,7 @@ function ProjectDetail({ project: p, customers, onChanged }: { project: ProjectD
           </Card>
         ))}
       </section>
+      <ProjectSettings project={p} customers={customers} onChanged={onChanged} />
     </div>
   );
 }
@@ -212,10 +212,40 @@ function folderName(root: string): string {
   return root.split(/[\\/]/).filter(Boolean).pop() ?? root;
 }
 
-function ProjectEditor({ project: p, customers, onChanged }: { project: ProjectDto; customers: Customer[]; onChanged: () => void }) {
+function ProjectHeader({ project: p, onChanged }: { project: ProjectDto; onChanged: () => void }) {
+  const s = useStrings();
+
+  async function toggleHidden() {
+    try {
+      await hubRequest("PUT", "/v1/projects/hidden", { root: p.root, hidden: !p.hidden });
+      onChanged();
+    } catch (e) {
+      useToastStore.getState().show(asAppError(e).message);
+    }
+  }
+
+  return (
+    <Card className="flex items-start gap-3 p-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h2 className="m-0 text-title font-semibold text-text">{p.name}</h2>
+        <span className="truncate font-mono text-meta text-muted" title={p.root}>
+          {p.root}
+        </span>
+        {p.git && <GitSummary git={p.git} />}
+      </div>
+      <Button variant="ghost" onClick={() => void toggleHidden()}>
+        {p.hidden ? s.projects.unhide : s.projects.hide}
+      </Button>
+    </Card>
+  );
+}
+
+/** Display name and customer; the todo overview comes first, this form is rarely needed. */
+function ProjectSettings({ project: p, customers, onChanged }: { project: ProjectDto; customers: Customer[]; onChanged: () => void }) {
   const s = useStrings();
   const [alias, setAlias] = useState(p.alias ?? "");
   const [customerId, setCustomerId] = useState(p.customerId === null ? "" : String(p.customerId));
+  const dirty = alias.trim() !== (p.alias ?? "") || (customerId === "" ? null : Number(customerId)) !== p.customerId;
 
   async function save() {
     try {
@@ -233,24 +263,9 @@ function ProjectEditor({ project: p, customers, onChanged }: { project: ProjectD
     }
   }
 
-  async function toggleHidden() {
-    try {
-      await hubRequest("PUT", "/v1/projects/hidden", { root: p.root, hidden: !p.hidden });
-      onChanged();
-    } catch (e) {
-      useToastStore.getState().show(asAppError(e).message);
-    }
-  }
-
   return (
     <Card className="flex flex-col gap-4 p-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="m-0 text-title font-semibold text-text">{p.name}</h2>
-        <span className="truncate font-mono text-meta text-muted" title={p.root}>
-          {p.root}
-        </span>
-        {p.git && <GitSummary git={p.git} />}
-      </div>
+      <SectionLabel>{s.projects.details}</SectionLabel>
       <div className="grid gap-4 md:grid-cols-2">
         <Field label={s.projects.alias} hint={s.projects.aliasHint}>
           {(ids) => <TextInput {...ids} value={alias} onChange={setAlias} placeholder={folderName(p.root)} />}
@@ -266,12 +281,9 @@ function ProjectEditor({ project: p, customers, onChanged }: { project: ProjectD
           )}
         </Field>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={() => void save()}>
+      <div className="flex">
+        <Button variant="primary" disabled={!dirty} onClick={() => void save()}>
           {s.projects.save}
-        </Button>
-        <Button variant="ghost" onClick={() => void toggleHidden()}>
-          {p.hidden ? s.projects.unhide : s.projects.hide}
         </Button>
       </div>
     </Card>

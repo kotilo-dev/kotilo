@@ -18,6 +18,7 @@ import {
   PageHeader,
   Segmented,
   StatTile,
+  Toolbar,
   agentDisplayName,
   formatClock,
   formatCost,
@@ -36,7 +37,9 @@ import type {
   WaitReport,
 } from "../../lib/hubTypes";
 import { hubExport, toAppError } from "../../lib/ipc";
+import { useRouteStore } from "../../stores/routeStore";
 import { useToastStore } from "../../stores/toastStore";
+import { useSettingsPageStore } from "../settings/SettingsPage";
 import { BarChart } from "../usage/BarChart";
 import { costPath, defaultCostRange, exportFileName, hourLabel, type ExportFormat } from "./reportsLogic";
 
@@ -50,19 +53,19 @@ export function ReportsPage() {
       <PageHeader
         title={s.nav.reports}
         subtitle={s.reports.subtitle}
-        actions={
-          <Segmented
-            ariaLabel={s.reports.tabsLabel}
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: "daily", label: s.reports.tabs.daily },
-              { value: "waits", label: s.reports.tabs.waits },
-              { value: "cost", label: s.reports.tabs.cost },
-            ]}
-          />
-        }
       />
+      <Toolbar>
+        <Segmented
+          ariaLabel={s.reports.tabsLabel}
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "daily", label: s.reports.tabs.daily },
+            { value: "waits", label: s.reports.tabs.waits },
+            { value: "cost", label: s.reports.tabs.cost },
+          ]}
+        />
+      </Toolbar>
       {tab === "daily" && <DailyTab />}
       {tab === "waits" && <WaitsTab />}
       {tab === "cost" && <CostTab />}
@@ -125,7 +128,19 @@ function DailyTab() {
         )}
       </Card>
       <div className="flex min-w-0 flex-col gap-3.5">
-        {note && <p className="m-0 rounded-card border border-border-subtle bg-surface-2 px-4 py-3 text-body text-text-3">{note}</p>}
+        {note && (
+          <div className="flex flex-wrap items-center gap-3 rounded-card border border-border-subtle bg-surface-2 px-4 py-3">
+            <p className="m-0 min-w-0 flex-1 text-body text-text-3">{note}</p>
+            <Button
+              onClick={() => {
+                useSettingsPageStore.getState().setSection("ai");
+                useRouteStore.getState().navigate("settings");
+              }}
+            >
+              {s.reports.daily.setUpAi}
+            </Button>
+          </div>
+        )}
         <DayDetail detail={detail.data} date={date} />
       </div>
     </div>
@@ -143,11 +158,11 @@ function DayDetail({ detail, date }: { detail: DailySummaryDetail | null; date: 
           <EmptyState title={s.reports.daily.noActivity} />
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <Metric label={s.reports.daily.activeTime} value={input ? formatDuration(input.activeMinutes * 60) : "—"} />
-            <Metric label={s.reports.daily.sessions} value={input ? formatNumber(input.sessions) : "—"} />
-            <Metric label={s.reports.daily.tokens} value={formatTokenCount(input?.tokens ?? null)} />
-            <Metric label={s.reports.daily.cost} value={formatCost(input?.costUsd ?? null)} />
-            <Metric label={s.reports.daily.waiting} value={input ? formatDuration(input.waitMinutes * 60) : "—"} />
+            <StatTile label={s.reports.daily.activeTime} value={input ? formatDuration(input.activeMinutes * 60) : "—"} />
+            <StatTile label={s.reports.daily.sessions} value={input ? formatNumber(input.sessions) : "—"} />
+            <StatTile label={s.reports.daily.tokens} value={formatTokenCount(input?.tokens ?? null)} />
+            <StatTile label={s.reports.daily.cost} value={formatCost(input?.costUsd ?? null)} />
+            <StatTile label={s.reports.daily.waiting} value={input ? formatDuration(input.waitMinutes * 60) : "—"} />
           </div>
         )}
       </Card>
@@ -166,15 +181,6 @@ function DayDetail({ detail, date }: { detail: DailySummaryDetail | null; date: 
         )}
       </Card>
     </>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-small text-text-3">{label}</span>
-      <span className="font-mono text-[18px] font-semibold text-text">{value}</span>
-    </div>
   );
 }
 

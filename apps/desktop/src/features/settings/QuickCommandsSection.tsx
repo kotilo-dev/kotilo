@@ -158,7 +158,6 @@ export function QuickCommandsSection() {
               </span>
               <Button
                 small
-                variant="ghost"
                 ariaLabel={`${t.edit}: ${entry.title}`}
                 disabled={editing !== null}
                 onClick={() => setEditing({ id: entry.id, kind: kindOf(entry), title: entry.title, text: entry.text, project: entry.project ?? "" })}

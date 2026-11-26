@@ -27,7 +27,7 @@ test("quick commands · add in settings, run a command, hand a prompt to the age
 
   // Empty menu: only "Manage…", which opens the settings section.
   await page.getByRole("button", { name: "Quick commands" }).click();
-  await page.getByRole("button", { name: "Manage quick commands…" }).click();
+  await page.getByRole("menuitem", { name: "Manage quick commands…" }).click();
   await expect(page.getByText(/Shell commands are typed into the current terminal/)).toBeVisible();
 
   await page.getByRole("button", { name: "Add", exact: true }).click();
@@ -48,9 +48,9 @@ test("quick commands · add in settings, run a command, hand a prompt to the age
   // Header menu: the prompt is disabled while no agent runs; the command goes to the shell.
   await page.keyboard.press("Alt+1");
   await page.getByRole("button", { name: "Quick commands" }).click();
-  await expect(page.getByRole("button", { name: "Review changes" })).toBeDisabled();
+  await expect(page.getByRole("menuitem", { name: "Review changes" })).toBeDisabled();
   await page.screenshot({ path: "test-results/screens/quick-commands-menu.png" });
-  await page.getByRole("button", { name: "Unit tests" }).click();
+  await page.getByRole("menuitem", { name: "Unit tests" }).click();
   await expect.poll(() => page.evaluate(() => window.__e2ePtyWrites.at(-1))).toBe("npm test -- --run\r");
 
   // An agent starts in that terminal: the palette hands the prompt to its composer.

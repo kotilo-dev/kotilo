@@ -510,6 +510,11 @@ export async function pickFolders(title: string): Promise<string[]> {
   return invoke<string[]>("pick_folders", { title });
 }
 
+/** Çoklu dosya seçici (composer `@` ekleri) — `pickFolders` ile aynı sahipsiz diyalog; `directory` başlangıç klasörü. İptal → `[]`. */
+export async function pickFiles(title: string, directory: string | null): Promise<string[]> {
+  return invoke<string[]>("pick_files", { title, directory });
+}
+
 /** §5.7: yalnızca `http://`/`https://` — aksi `invalid_name`. Markdown önizlemesindeki dış linkler. */
 export async function openExternalUrl(url: string): Promise<void> {
   await invoke<void>("open_external_url", { url });

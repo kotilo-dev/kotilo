@@ -44,7 +44,7 @@ describe("mascot state", () => {
 
   it("maps states to speech bubbles", () => {
     expect(bubbleFor("perm")).toBe("!");
-    expect(bubbleFor("error")).toBe("!");
+    expect(bubbleFor("error")).toBe("×");
     expect(bubbleFor("input")).toBe("?");
     for (const s of ["sleep", "done", "work", "sweat"] as const) expect(bubbleFor(s)).toBeNull();
   });

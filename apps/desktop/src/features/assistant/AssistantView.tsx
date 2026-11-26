@@ -20,7 +20,7 @@ import {
 } from "./assistantIpc";
 import { errorText, footerVariant, keyAction, needsSettings } from "./assistantLogic";
 import { conversationReducer, INITIAL_CONVERSATION, isRunning, lastUserText, messagesFor, runningTurn, type ChatMeta, type Turn } from "./conversation";
-import { CloseIcon, NewChatIcon, SendIcon, SettingsIcon, SparkIcon, StopIcon } from "./icons";
+import { CloseIcon, NewChatIcon, OffIcon, SendIcon, SettingsIcon, SparkIcon, StopIcon } from "./icons";
 import { formatKeybinding } from "../../lib/keys";
 import "./assistant.css";
 
@@ -64,7 +64,7 @@ function SettingsButton({ t }: { t: T }) {
   );
 }
 
-function TurnView({ turn, t }: { turn: Turn; t: T }) {
+function TurnView({ turn, t, cli, onRetry }: { turn: Turn; t: T; cli: string | null; onRetry?: () => void }) {
   const streaming = turn.status === "streaming";
   return (
     <li className="flex flex-col gap-2" data-testid="assistant-turn" data-status={turn.status}>
@@ -85,8 +85,19 @@ function TurnView({ turn, t }: { turn: Turn; t: T }) {
         {turn.status === "stopped" && <span className="text-small text-muted">{t.stopped}</span>}
         {turn.status === "error" && (
           <div role="alert" className="flex flex-col gap-2 rounded-control border border-blocked/35 bg-blocked-bg px-3 py-2">
-            <span className="text-body text-blocked-ink">{errorText(t, turn.errorKind, turn.error)}</span>
-            {needsSettings(turn.errorKind) && <SettingsButton t={t} />}
+            <span className="text-body text-blocked-ink">{errorText(t, turn.errorKind, turn.error, cli)}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="inline-flex h-7 items-center rounded-control border border-border bg-surface-5 px-2.5 text-small text-text-2 transition-colors duration-150 hover:bg-surface-selected hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  {t.retry}
+                </button>
+              )}
+              {needsSettings(turn.errorKind) && <SettingsButton t={t} />}
+            </div>
           </div>
         )}
         {turn.status === "done" && (
@@ -104,16 +115,18 @@ function Footer({ t, meta }: { t: T; meta: ChatMeta | null }) {
   const variant = footerVariant(meta.ephemeral);
   return (
     <div className="flex flex-col gap-1 px-4 pb-3 text-meta" data-testid="assistant-footer" data-variant={variant}>
-      <span className="text-muted">
-        {t.nothingSaved} · {t.toolsOff} · {t.sentTo(meta.providerLabel)}
-      </span>
       {variant === "keeps" && <span className="text-working-ink">{t.keepsCopy(meta.providerLabel)}</span>}
       {variant === "mayKeep" && <span className="text-faint">{t.mayKeepCopy(meta.providerLabel)}</span>}
+      <span className="text-muted">
+        {variant === "ephemeral" ? `${t.nothingSaved} · ` : ""}
+        {t.toolsOff} · {t.sentTo(meta.providerLabel)}
+      </span>
     </div>
   );
 }
 
-function reasonText(t: T, reason: string | null, fallback: string): string {
+function reasonText(t: T, reason: string | null, fallback: string, cli: string | null): string {
+  if (cli && (reason === "notInstalled" || reason === "notLoggedIn")) return t.cliErrors[reason](cli);
   if (reason && Object.prototype.hasOwnProperty.call(t.errors, reason)) return t.errors[reason as keyof T["errors"]];
   return reason || fallback;
 }
@@ -173,9 +186,9 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
     };
   }, [loadInfo, focusInput, reset]);
 
-  const send = useCallback(() => {
+  const sendText = useCallback((raw: string) => {
     const current = stateRef.current;
-    const text = draft.trim();
+    const text = raw.trim();
     if (text === "" || isRunning(current) || !usable) return;
     const messages = messagesFor(current, text);
     const turnId = current.nextId;
@@ -189,7 +202,16 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
       },
       (e: unknown) => dispatch({ type: "failed", turnId, error: toAppError(e).message }),
     );
-  }, [draft, usable]);
+  }, [usable]);
+  const send = useCallback(() => sendText(draft), [sendText, draft]);
+
+  // "Try again": drop the failed turn and send its question once more.
+  const retry = useCallback(() => {
+    const text = lastUserText(stateRef.current);
+    if (text === null) return;
+    dispatch({ type: "editLast" });
+    sendText(text);
+  }, [sendText]);
 
   const stop = useCallback(() => {
     const turn = runningTurn(stateRef.current);
@@ -260,15 +282,17 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
           <h1 className="m-0 text-title font-semibold text-text">
             {t.title}
           </h1>
-          {meta && (
+          {meta && (usable || info === null) && (
             <span className="truncate text-meta text-muted" data-testid="assistant-provider">
               {t.providerModel(meta.providerLabel, meta.model)}
             </span>
           )}
         </div>
-        <IconButton label={t.newChat} title={`${t.newChat} (${formatKeybinding("Mod+N")})`} onClick={newChat}>
-          <NewChatIcon />
-        </IconButton>
+        {(usable || info === null) && (
+          <IconButton label={t.newChat} title={`${t.newChat} (${formatKeybinding("Mod+N")})`} onClick={newChat}>
+            <NewChatIcon />
+          </IconButton>
+        )}
         <IconButton label={t.close} title={`${t.close} (Esc)`} onClick={() => void assistantHide().catch(() => {})}>
           <CloseIcon />
         </IconButton>
@@ -277,10 +301,10 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
       {info !== null && !usable ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center" data-testid="assistant-unavailable">
           <span className="text-muted" aria-hidden="true">
-            <SparkIcon size={28} />
+            <OffIcon size={28} />
           </span>
           <span className="text-title font-semibold text-text">{info.enabled ? t.unavailableTitle : t.offTitle}</span>
-          <span className="text-body text-muted">{info.enabled ? reasonText(t, info.unavailableReason, t.unavailableText) : t.offText}</span>
+          <span className="text-body text-muted">{info.enabled ? reasonText(t, info.unavailableReason, t.unavailableText, meta?.providerLabel ?? null) : t.offText}</span>
           <div className="flex justify-center">
             <SettingsButton t={t} />
           </div>
@@ -304,7 +328,13 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
             ) : (
               <ol aria-label={t.messagesLabel} aria-live="polite" className="m-0 flex list-none flex-col gap-5 p-0">
                 {state.turns.map((turn) => (
-                  <TurnView key={turn.id} turn={turn} t={t} />
+                  <TurnView
+                    key={turn.id}
+                    turn={turn}
+                    t={t}
+                    cli={meta?.providerLabel ?? null}
+                    onRetry={turn.status === "error" && turn.id === state.turns[state.turns.length - 1]?.id ? retry : undefined}
+                  />
                 ))}
               </ol>
             )}
@@ -327,7 +357,7 @@ export function AssistantView({ onOpened }: { onOpened?: () => void }) {
                   type="button"
                   onClick={stop}
                   disabled={runningTurn(state)?.stopping}
-                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-button border border-blocked/35 bg-transparent px-2.5 text-small text-blocked-ink transition-colors duration-150 hover:bg-blocked-bg disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-button border border-border bg-surface-5 px-2.5 text-small text-text transition-colors duration-150 hover:bg-surface-selected disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <StopIcon />
                   {runningTurn(state)?.stopping ? t.stopping : t.stop}

@@ -128,7 +128,7 @@ for (const theme of ["dark", "light"] as const) {
 
     // "Split right" from the tab menu; the half's × returns to a single pane (tabs stay).
     await tabs.nth(1).click({ button: "right" });
-    await page.getByRole("button", { name: "Split right" }).last().click();
+    await page.getByRole("menuitem", { name: "Split right" }).last().click();
     await expect(page.locator('[data-split-side="right"]')).toBeVisible();
     await page.getByRole("button", { name: /^Close the split/ }).first().click();
     await expect(page.locator('[data-split-side="left"], [data-split-side="right"]')).toHaveCount(0);
@@ -136,3 +136,19 @@ for (const theme of ["dark", "light"] as const) {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 }
+
+test("composer · file button adds picked files as @mentions", async ({ page }) => {
+  const errors = await openAgents(page, "dark");
+  await page.locator("[data-tab-id]").first().click();
+  const input = page.getByRole("textbox", { name: "Message Claude Code" });
+  await expect(input).toBeVisible();
+  await page.evaluate(() => {
+    window.__e2ePickedFiles = ["C:\\src\\orders-service\\src\\approval\\approval.ts", "C:\\Users\\me\\Desktop\\spec notes.md"];
+  });
+  await input.click();
+  await input.pressSequentially("review");
+  await page.getByRole("button", { name: "Add files (@)" }).first().click();
+  await expect(input).toHaveValue('review @src/approval/approval.ts @"C:/Users/me/Desktop/spec notes.md" ');
+  await page.screenshot({ path: "test-results/screens/composer-file-button-dark.png" });
+  expect(errors).toEqual([]);
+});

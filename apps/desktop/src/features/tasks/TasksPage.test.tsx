@@ -70,7 +70,7 @@ describe("TasksPage", () => {
 
   it("creates a task with a due date from the dialog", async () => {
     render(<TasksPage />);
-    fireEvent.click(screen.getByRole("button", { name: strings.tasks.newTask }));
+    fireEvent.click(screen.getByRole("button", { name: strings.tasks.details }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(strings.tasks.noteLabel), { target: { value: "Renew passport" } });
     fireEvent.click(within(dialog).getByRole("button", { name: strings.tasks.dueToday }));
@@ -82,7 +82,7 @@ describe("TasksPage", () => {
 
   it("does not save an empty note", async () => {
     render(<TasksPage />);
-    fireEvent.click(screen.getByRole("button", { name: strings.tasks.newTask }));
+    fireEvent.click(screen.getByRole("button", { name: strings.tasks.details }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(strings.tasks.save) }));
     expect(await within(dialog).findByText(strings.tasks.noteRequired)).toBeInTheDocument();

@@ -23,4 +23,6 @@ export const missionEn = {
   open: "Open mission control",
   markAllSeen: "Mark all as seen",
   markSeen: "Mark as seen",
+  goToAgent: "Go to agent",
+  answerInTerminal: "Answer in its own terminal",
 };

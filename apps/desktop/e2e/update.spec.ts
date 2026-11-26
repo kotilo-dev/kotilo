@@ -30,7 +30,9 @@ for (const theme of ["dark", "light"] as const) {
     await openAbout(page);
     await expect(page.getByText("Free and open source under the Apache License 2.0.")).toBeVisible();
     await expect(page.getByText(/is not affiliated with or endorsed by their makers/)).toBeVisible();
+    await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
     await expect(page.getByRole("checkbox", { name: "Check for updates on start" })).toBeChecked();
+    await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "About & diagnostics" }).click();
     // brand.json names the repository: project links point at it (updates stay not-configured until the
     // updater public key is set).
     const links = page.getByRole("navigation", { name: "Project links" });
@@ -75,7 +77,8 @@ for (const theme of ["dark", "light"] as const) {
 
     await prompt.getByRole("button", { name: "Install and restart" }).click();
     await expect(prompt).toContainText("Downloading… 62%");
-    await expect(prompt.getByRole("button", { name: "Later" })).toBeDisabled();
+    await expect(prompt.getByRole("button", { name: "Hide" })).toBeVisible();
+    await expect(prompt.getByRole("button", { name: "Later" })).toHaveCount(0);
     await page.screenshot({ path: `test-results/screens/update-progress-${theme}.png` });
     await expect(prompt).toContainText("the app restarts in a moment", { timeout: 5_000 });
     await page.screenshot({ path: `test-results/screens/update-ready-${theme}.png` });
@@ -88,10 +91,11 @@ test("update prompt · install error, then Later", async ({ page }) => {
   const prompt = page.getByTestId("update-prompt");
   await expect(prompt).toBeVisible({ timeout: 20_000 });
   await prompt.getByRole("button", { name: "Install and restart" }).click();
+  await expect(prompt).toContainText("Update failed");
   await expect(prompt.getByRole("alert")).toHaveText(/could not be installed: The update signature could not be verified\./);
   await expect(prompt.getByRole("button", { name: "Try again" })).toBeEnabled();
   await page.screenshot({ path: "test-results/screens/update-error-dark.png" });
-  await prompt.getByRole("button", { name: "Close" }).click();
+  await prompt.getByRole("button", { name: "Later" }).click();
   await expect(prompt).toHaveCount(0);
   expect(errors, errors.join("\n")).toEqual([]);
 });
@@ -100,7 +104,10 @@ test("update prompt · manual check from About, Later hides it", async ({ page }
   const errors = await open(page, "theme=dark&lang=en&update=available");
   await openAbout(page);
   // Turning the setting off before the startup check fires keeps the start silent.
+  const settingsNav = page.getByRole("navigation", { name: "Settings sections" });
+  await settingsNav.getByRole("button", { name: "Appearance" }).click();
   await page.getByRole("checkbox", { name: "Check for updates on start" }).uncheck();
+  await settingsNav.getByRole("button", { name: "About & diagnostics" }).click();
   await page.waitForTimeout(4500);
   await expect(page.getByTestId("update-prompt")).toHaveCount(0);
   await page.getByRole("button", { name: "Check for updates" }).click();

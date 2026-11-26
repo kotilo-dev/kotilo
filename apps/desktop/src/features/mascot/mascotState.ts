@@ -87,9 +87,10 @@ export function parseDemoParams(search: string): MascotStatePayload | null {
   );
 }
 
-/** Which speech bubble a state shows, if any. */
-export function bubbleFor(state: MascotStateName): "!" | "?" | null {
-  if (state === "perm" || state === "error") return "!";
+/** Which speech bubble a state shows, if any. Error gets its own glyph so it never reads as "needs you". */
+export function bubbleFor(state: MascotStateName): "!" | "?" | "×" | null {
+  if (state === "perm") return "!";
+  if (state === "error") return "×";
   if (state === "input") return "?";
   return null;
 }

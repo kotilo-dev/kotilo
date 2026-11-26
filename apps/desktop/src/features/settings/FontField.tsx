@@ -3,7 +3,7 @@
  * families to pick from. The list comes from the platform layer once per app run; where it is
  * empty (no platform list yet) only the text field shows.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useStrings } from "../../app/i18n";
 import { fontsInstalled } from "../../lib/ipc";
 import { DebouncedText, Select } from "./controls";
@@ -45,6 +45,7 @@ export function FontField({
   onCommit,
   placeholder,
   fallback,
+  trailing,
 }: {
   id?: string;
   value: string;
@@ -52,6 +53,8 @@ export function FontField({
   placeholder?: string;
   /** Appended to a picked family (e.g. `monospace`); without it the bare name is stored. */
   fallback?: string;
+  /** Extra control beside the text input (e.g. a reset button). */
+  trailing?: ReactNode;
 }) {
   const s = useStrings();
   const fonts = useInstalledFonts();
@@ -59,12 +62,15 @@ export function FontField({
   const picked = fonts.find((f) => f.toLowerCase() === current) ?? "";
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <DebouncedText id={id} value={value} placeholder={placeholder} onCommit={onCommit} />
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <DebouncedText id={id} value={value} placeholder={placeholder} onCommit={onCommit} />
+        </div>
+        {trailing}
       </div>
       {fonts.length > 0 && (
-        <div className="w-44 shrink-0">
+        <>
           <Select<string>
             ariaLabel={s.settings.appearance.installedFonts}
             value={picked}
@@ -73,7 +79,8 @@ export function FontField({
             }}
             options={[{ value: "", label: s.settings.appearance.installedFonts }, ...fonts.map((f) => ({ value: f, label: f }))]}
           />
-        </div>
+          <span className="text-meta text-muted">{s.settings.appearance.fontPickHint}</span>
+        </>
       )}
     </div>
   );

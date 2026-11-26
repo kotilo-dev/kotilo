@@ -228,7 +228,7 @@ export function QuickPick() {
             {strings.quickPick.noActiveWorkspace}
           </div>
         ) : (
-          <div ref={listRef} className="overflow-auto py-1" style={{ maxHeight: `${MAX_VISIBLE_ROWS * ROW_HEIGHT_PX}px` }}>
+          <div ref={listRef} className="overflow-auto py-1" style={{ maxHeight: `min(${MAX_VISIBLE_ROWS * ROW_HEIGHT_PX}px, calc(100vh - 13rem))` }}>
             {mode === "file" &&
               fileRows.map((row, i) => {
                 // MEDIUM fix #7: `row.indices` always refer to the FULL `rel` path
@@ -292,6 +292,10 @@ export function QuickPick() {
             )}
           </div>
         )}
+
+        <div className="border-t border-border px-3 py-1 text-label text-muted">
+          {mode === "command" ? strings.quickPick.footerCommand : strings.quickPick.footerFile(formatKeybinding("Mod+Enter"))}
+        </div>
 
         {mode === "file" && truncated && (
           <div className="border-t border-border px-3 py-1 text-label text-muted">

@@ -10,6 +10,7 @@ import {
   insertText,
   MAX_PROMPT_TITLE_CHARS,
   MAX_SAVED_PROMPTS,
+  mentionPathFor,
   mentionToken,
   moveIndex,
   PASTE_END,
@@ -149,5 +150,20 @@ describe("helpers", () => {
   it("hasImage looks for image files only", () => {
     expect(hasImage([{ kind: "string", type: "text/plain" }])).toBe(false);
     expect(hasImage([{ kind: "file", type: "image/png" }])).toBe(true);
+  });
+});
+
+describe("mentionPathFor", () => {
+  it("is workspace-relative with / inside the workspace (Windows paths ignore case)", () => {
+    expect(mentionPathFor("C:\\src\\app\\lib\\a.ts", "C:\\src\\app")).toBe("lib/a.ts");
+    expect(mentionPathFor("c:\\SRC\\app\\b.md", "C:\\src\\app\\")).toBe("b.md");
+    expect(mentionPathFor("/home/u/app/x.ts", "/home/u/app")).toBe("x.ts");
+  });
+
+  it("stays absolute outside the workspace or without one", () => {
+    expect(mentionPathFor("C:\\src\\app2\\a.ts", "C:\\src\\app")).toBe("C:/src/app2/a.ts");
+    expect(mentionPathFor("D:\\notes\\n.txt", "C:\\src\\app")).toBe("D:/notes/n.txt");
+    expect(mentionPathFor("/home/u/App/x.ts", "/home/u/app")).toBe("/home/u/App/x.ts");
+    expect(mentionPathFor("C:\\x\\y.ts", null)).toBe("C:/x/y.ts");
   });
 });

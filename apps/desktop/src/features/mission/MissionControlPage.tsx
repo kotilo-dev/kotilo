@@ -36,10 +36,9 @@ import type { SessionDto } from "../../lib/hubTypes";
 import type { Agent } from "../../lib/ipc";
 import { useAgentStore } from "../../stores/agentStore";
 import { markAllSessionsSeen, markSessionSeen, useHubStore } from "../../stores/hubStore";
-import { findTabByPaneIdInMap, useTerminalStore } from "../../stores/terminalStore";
+import { findTabByPaneIdInMap, useTerminalStore, type WorkspaceTerminalState } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { navigateToAgent } from "../agents/navigate";
-import { LimitStrip } from "../overview/OverviewPage";
 import { readBufferTail } from "../terminal/terminalRegistry";
 import { useWorktreeStore } from "../../stores/worktreeStore";
 import { WorktreeBadge } from "../worktrees/WorktreeBadge";
@@ -69,6 +68,11 @@ interface PaneTarget {
   workspaceId: string;
   /** 0.6: the tab's cwd, for the worktree badge. */
   cwdRel: string;
+}
+
+/** Whether the session's pane is a tab of this app (what Mission control's "in app" means). */
+export function canGoToSession(session: SessionDto, byWorkspace: Record<string, WorkspaceTerminalState>): boolean {
+  return session.paneId !== null && session.paneId !== undefined && findTabByPaneIdInMap(byWorkspace, session.paneId) !== undefined;
 }
 
 /** Workspace route, the session's workspace, its tab, focus the terminal. */
@@ -138,7 +142,6 @@ export function MissionControlPage() {
   const connected = useHubStore((st) => st.connected);
   const sessions = useHubStore((st) => st.sessions);
   const usage = useHubStore((st) => st.usage);
-  const limits = useHubStore((st) => st.limits);
   const byWorkspace = useTerminalStore((st) => st.byWorkspace);
   const workspaces = useWorkspaceStore((st) => st.workspaces);
   const worktreeLists = useWorktreeStore((st) => st.byWorkspace);
@@ -191,7 +194,6 @@ export function MissionControlPage() {
         </Card>
       ) : (
         <>
-          <LimitStrip limits={limits} />
           {shown.length > 0 ? (
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((session) => {
@@ -314,24 +316,49 @@ function MissionTile({
     attention ? "border border-blocked/50 shadow-[var(--halo-blocked)]" : "border border-border-subtle"
   }`;
   const label = unseen ? s.status.done : stateLabel(session.state);
-  const button = `${cls} cursor-pointer hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent`;
-  return inApp ? (
-    <button type="button" aria-label={`${session.projectName} · ${sub} · ${label} ${since}`} className={button} onClick={() => goToSession(session)}>
-      {body}
-    </button>
-  ) : unseen ? (
-    // No pane to open: the click only acknowledges the finished work.
-    <button
-      type="button"
-      aria-label={`${session.projectName} · ${sub} · ${label} ${since} · ${s.mission.markSeen}`}
-      title={s.mission.markSeen}
-      className={button}
-      onClick={() => void markSessionSeen(session)}
-    >
-      {body}
-    </button>
-  ) : (
-    <div className={cls}>{body}</div>
+  const button = "flex w-full cursor-pointer flex-col text-left hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent";
+  // Cards that need you carry a visible action row (outside the tile button: no nested buttons).
+  // Allow/Deny are not offered here: the permission answer path lives in the agent's own pane.
+  const actions = attention ? (
+    <div data-testid="mission-actions" className="flex items-center gap-2 border-t border-border-subtle px-3.5 py-2.5 text-meta">
+      {inApp ? (
+        <Button variant="primary" onClick={() => goToSession(session)}>
+          {s.mission.goToAgent}
+        </Button>
+      ) : (
+        <span className="text-muted">{s.mission.answerInTerminal}</span>
+      )}
+    </div>
+  ) : null;
+  return (
+    <div className={cls}>
+      {inApp ? (
+        // Attention tiles carry the explicit "Go to agent" button below: skip the tile body in the Tab order so two identical controls do not follow each other.
+        <button
+          type="button"
+          tabIndex={attention ? -1 : undefined}
+          aria-label={`${session.projectName} · ${sub} · ${label} ${since}`}
+          className={button}
+          onClick={() => goToSession(session)}
+        >
+          {body}
+        </button>
+      ) : unseen ? (
+        // No pane to open: the click only acknowledges the finished work.
+        <button
+          type="button"
+          aria-label={`${session.projectName} · ${sub} · ${label} ${since} · ${s.mission.markSeen}`}
+          title={s.mission.markSeen}
+          className={button}
+          onClick={() => void markSessionSeen(session)}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="flex flex-col">{body}</div>
+      )}
+      {actions}
+    </div>
   );
 }
 

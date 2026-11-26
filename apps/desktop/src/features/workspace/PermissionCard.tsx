@@ -1,5 +1,6 @@
 /**
- * DESIGN_SYSTEM §7.5 permission card: floats over the bottom of the agent's terminal while
+ * DESIGN_SYSTEM §7.5 permission card: floats over the bottom of the agent's terminal (an overlay, never a
+ * flex sibling: docking would resize the PTY and make the agent redraw) while
  * its agent waits for permission (hub request or a prompt found on screen). Buttons send the
  * agent's own prompt keys (D-016, from its adapter definition) with `pane_send_keys`;
  * "Answer in terminal" hides the card for this request. Enter/Esc act only while focus is
@@ -123,7 +124,7 @@ export function PermissionCard(p: PermissionCardProps) {
         {risk && <span className="rounded-badge bg-blocked-bg px-[9px] py-[3px] text-meta text-blocked-ink">{risk}</span>}
       </div>
       {subject && (
-        <div className="mt-3.5 overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] border border-border-subtle bg-terminal px-3.5 py-3 font-mono text-ui text-text">
+        <div className="mt-3.5 overflow-x-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-[10px] border border-border-subtle bg-terminal px-3.5 py-3 font-mono text-ui text-text">
           {p.permission.command && <span className="text-faint">$ </span>}
           {subject}
         </div>
@@ -146,9 +147,9 @@ export function PermissionCard(p: PermissionCardProps) {
                 type="button"
                 title={p.keys.alwaysLabel}
                 onClick={() => p.onDecide("always", p.keys!.alwaysAllow!)}
-                className="h-[38px] max-w-full truncate rounded-button border border-border bg-surface-5 px-4 text-ui font-medium text-text"
+                className="min-h-[38px] basis-full whitespace-normal rounded-button border border-border bg-surface-5 px-4 py-2 text-left text-ui font-medium text-text [overflow-wrap:anywhere]"
               >
-                {p.keys.alwaysLabel ? shortAlwaysLabel(p.keys.alwaysLabel) : s.permission.alwaysAllow}
+                {p.keys.alwaysLabel ? shortAlwaysLabel(p.keys.alwaysLabel, Infinity) : s.permission.alwaysAllow}
               </button>
             )}
             <button

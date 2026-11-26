@@ -1,5 +1,6 @@
 ## Görev dosyaları
 
+- 2026-11-26 · Tüm ekranların UX/UI gözden geçirmesi · TAMAMLANDI · [dosya](2026-11-26-ux-gozden-gecirme.md)
 - 2026-11-25 · Workspace grupları, durum gruplu ajanlar, arayüz ölçeği ve fontu · TAMAMLANDI · [dosya](2026-11-25-gruplar-ve-olcek.md)
 - 2026-11-22 · Bu sürümün UI düzeltmeleri (0.10.0 olarak yayınlandı) · TAMAMLANDI · [dosya](2026-11-22-ui-surumu.md)
 - 2026-11-22 · Bitmiş turda "Working"de takılan Claude oturumu · TAMAMLANDI · [dosya](2026-11-22-working-stuck.md)

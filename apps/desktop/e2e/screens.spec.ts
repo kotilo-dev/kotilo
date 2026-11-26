@@ -4,8 +4,8 @@ import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
 
-// Every route in dark/light × EN/TR against the fake hub; fails on uncaught page errors.
-const ROUTES = ["workspace", "overview", "mission", "usage", "reports", "projects", "tasks", "dictation", "settings"] as const;
+// Every route (order = src/app/routes.ts; Alt+1…9 reach the first nine, Settings opens with Ctrl+,) in dark/light × EN/TR against the fake hub; fails on uncaught page errors.
+const ROUTES = ["workspace", "overview", "mission", "usage", "reports", "projects", "tasks", "sessions", "dictation", "settings"] as const;
 const VARIANTS = [
   { theme: "dark", lang: "en" },
   { theme: "light", lang: "en" },
@@ -28,7 +28,7 @@ for (const { theme, lang } of VARIANTS) {
   test(`all screens · ${theme} · ${lang}`, async ({ page }) => {
     const errors = await openApp(page, theme, lang);
     for (const [i, route] of ROUTES.entries()) {
-      await page.keyboard.press(`Alt+${i + 1}`);
+      await page.keyboard.press(route === "settings" ? "Control+," : `Alt+${i + 1}`);
       await page.waitForTimeout(700);
       await page.screenshot({ path: `test-results/screens/${route}-${theme}-${lang}.png` });
     }
@@ -239,7 +239,7 @@ for (const theme of ["dark", "light"] as const) {
   });
 }
 
-// M6 — Settings → Mascot (saved at once; the fixture has the mascot off and already offered).
+// M6 — Settings → Mascot (saved at once; the fixture has the mascot off and already offered, so size/placement start disabled).
 for (const { theme, lang } of VARIANTS) {
   test(`settings mascot · ${theme} · ${lang}`, async ({ page }) => {
     const errors = await openApp(page, theme, lang);
@@ -247,7 +247,12 @@ for (const { theme, lang } of VARIANTS) {
     await page.getByRole("navigation").first().getByRole("button", { name: lang === "tr" ? "Ayarlar" : "Settings", exact: true }).click();
     await page.getByRole("button", { name: lang === "tr" ? "Maskot" : "Mascot", exact: true }).click();
     await expect(page.getByTestId("mascot-preview")).toBeVisible();
-    await page.getByRole("radio", { name: lang === "tr" ? "Büyük" : "Large" }).click();
+    // With the mascot off its dependent controls sit in a disabled fieldset; switching it on enables them.
+    const large = page.getByRole("radio", { name: lang === "tr" ? "Büyük" : "Large" });
+    await expect(large).toBeDisabled();
+    await page.getByRole("checkbox", { name: lang === "tr" ? "Robot salyangozu masaüstünde göster" : "Show the robot snail on the desktop" }).check();
+    await expect(large).toBeEnabled();
+    await large.click();
     await expect(page.getByRole("radio", { name: lang === "tr" ? "Büyük" : "Large" })).toHaveAttribute("aria-checked", "true");
     await page.waitForTimeout(300);
     await page.screenshot({ path: `test-results/screens/settings-mascot-${theme}-${lang}.png` });

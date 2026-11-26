@@ -1,7 +1,8 @@
-import { useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAgentStore } from "../../stores/agentStore";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { useWorkspacePanelStore } from "../../stores/workspacePanelStore";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useStrings } from "../../app/strings";
@@ -100,6 +101,7 @@ function WorkspaceRow({
   editing,
   onPick,
   onContextMenu,
+  onOpenMenu,
   onRename,
   onCancelRename,
 }: {
@@ -109,6 +111,8 @@ function WorkspaceRow({
   editing: boolean;
   onPick: () => void;
   onContextMenu: (e: ReactMouseEvent) => void;
+  /** Opens the same menu anchored at the button (keyboard- and pointer-reachable). */
+  onOpenMenu: (x: number, y: number) => void;
   onRename: (name: string) => Promise<AppError | null>;
   onCancelRename: () => void;
 }) {
@@ -122,7 +126,7 @@ function WorkspaceRow({
       aria-selected={isActive}
       data-workspace-id={workspace.id}
       data-active={isActive ? "true" : undefined}
-      className={`flex cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-2 ${bg}`}
+      className={`group flex cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-2 ${bg}`}
       onClick={() => {
         if (!editing) onPick();
       }}
@@ -150,6 +154,26 @@ function WorkspaceRow({
         <AgentStatePill state={urgent} />
         {terminals > 0 && <span className="text-label text-muted">{strings.workspaces.terminalCount(terminals)}</span>}
       </span>
+      {!editing && (
+        <button
+          type="button"
+          aria-label={strings.workspaces.rowActions}
+          title={strings.workspaces.rowActions}
+          aria-haspopup="menu"
+          // Mouse only: the keyboard opens the same menu with Shift+F10 / the Menu key, so no Tab stop per row.
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            const r = e.currentTarget.getBoundingClientRect();
+            onOpenMenu(r.left, r.bottom);
+          }}
+          className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent text-text-3 hover:bg-surface-3 hover:text-text focus-visible:opacity-100 group-hover:opacity-100 ${
+            isActive || isCursor ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span aria-hidden>⋯</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -190,6 +214,14 @@ export function WorkspaceList() {
   // (same as CloseGuard, shared in `unsavedChanges.ts`).
   const [pendingRemoveDirty, setPendingRemoveDirty] = useState<(RemoveRequest & { dirty: DirtyDocRef[] }) | null>(null);
 
+  // The header's "New group" button (WorkspacesPanel) asks for the name input here.
+  const newGroupPending = useWorkspacePanelStore((s) => s.newGroupPending);
+  useEffect(() => {
+    if (!newGroupPending) return;
+    setCreating({});
+    useWorkspacePanelStore.getState().clearNewGroup();
+  }, [newGroupPending]);
+
   const hasGroups = groups.length > 0;
   const collapsed = useMemo(() => new Set(collapsedIds), [collapsedIds]);
   const sections = useMemo(() => groupedWorkspaces(workspaces, groups), [workspaces, groups]);
@@ -227,11 +259,6 @@ export function WorkspaceList() {
         disabled: ws.group === g.id,
       })),
       { label: strings.workspaces.newGroup, onClick: () => setCreating({ workspaceId: ws.id }), separatorBefore: groups.length > 0 },
-      {
-        label: strings.workspaces.removeFromGroup,
-        onClick: () => void setWorkspaceGroup(ws.id, null),
-        disabled: !ws.group || !groups.some((g) => g.id === ws.group),
-      },
     ];
   }
 
@@ -241,13 +268,16 @@ export function WorkspaceList() {
       { label: strings.docs.contextMenu, onClick: () => openDocsCheck(ws.id) },
       { label: strings.agentContext.contextMenu, onClick: () => openAgentContext(ws.id) },
       { label: strings.contextMenu.rename, onClick: () => setRenamingId(ws.id), separatorBefore: true },
-      { label: strings.contextMenu.removeWorkspace, onClick: () => requestRemove(ws) },
       {
         label: strings.workspaces.moveToGroup,
         keepOpen: true,
         separatorBefore: true,
         onClick: () => setContextMenu((m) => (m ? { ...m, items: groupPickerItems(ws) } : m)),
       },
+      // On the first level, not inside "Move to group…": that is where people look for it.
+      ...(ws.group && groups.some((g) => g.id === ws.group)
+        ? [{ label: strings.workspaces.removeFromGroup, onClick: () => void setWorkspaceGroup(ws.id, null) }]
+        : []),
       { label: strings.contextMenu.openInExplorer, onClick: () => void reveal(ws.id, ""), separatorBefore: true },
       {
         label: strings.contextMenu.moveUp,
@@ -260,6 +290,7 @@ export function WorkspaceList() {
         onClick: () => void moveWorkspace(ws.id, "down"),
         disabled: groupNeighbour(workspaces, groups, ws.id, "down") === null,
       },
+      { label: strings.contextMenu.removeWorkspace, onClick: () => requestRemove(ws), separatorBefore: true, danger: true },
     ];
   }
 
@@ -286,6 +317,19 @@ export function WorkspaceList() {
     if (renamingId || renamingGroupId || creating || pendingRemove || pendingRemoveDirty || contextMenu) return;
     if (e.target !== e.currentTarget) return;
     const row = cursorRow;
+    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      e.preventDefault();
+      if (!row) return; // no cursor row: nothing to open a menu for
+      const el = e.currentTarget.querySelector<HTMLElement>(
+        row.kind === "group" ? `[data-group-id="${row.group.id}"]` : `[data-workspace-id="${row.workspace.id}"]`,
+      );
+      const r = el?.getBoundingClientRect();
+      const x = r ? r.left + 24 : 0;
+      const y = r ? r.bottom : 0;
+      if (row?.kind === "group") setContextMenu({ x, y, items: groupMenuItems(row.group) });
+      else if (row) setContextMenu({ x, y, items: menuItems(row.workspace) });
+      return;
+    }
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
@@ -426,6 +470,10 @@ export function WorkspaceList() {
                     setCursorKey(`w:${ws.id}`);
                     setContextMenu({ x: e.clientX, y: e.clientY, items: menuItems(ws) });
                   }}
+                  onOpenMenu={(x, y) => {
+                    setCursorKey(`w:${ws.id}`);
+                    setContextMenu({ x, y, items: menuItems(ws) });
+                  }}
                   onRename={(name) => submitRename(ws.id, name)}
                   onCancelRename={() => setRenamingId(null)}
                 />
@@ -438,6 +486,7 @@ export function WorkspaceList() {
 
       {pendingRemove && (
         <ConfirmModal
+          tone="danger"
           title={strings.confirm.removeWorkspaceTitle(pendingRemove.name)}
           body={strings.confirm.removeWorkspaceBody(useTerminalStore.getState().runningCount(pendingRemove.workspaceId))}
           confirmLabel={strings.confirm.removeConfirm}

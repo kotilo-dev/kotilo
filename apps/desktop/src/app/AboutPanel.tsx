@@ -9,6 +9,7 @@ import appIcon from "../assets/app-icon.png";
 import { useStrings } from "./strings";
 import { CONTACT_EMAIL, CREDITS, projectLinks } from "./about";
 import { collectDiagnostics } from "./diagnosticsActions";
+import { Button } from "./ui/Button";
 import { LicensesViewer } from "./LicensesViewer";
 import { UpdateCheck } from "../features/update/UpdateCheck";
 import { appInfo, clipboardWriteText, openExternalUrl, type AppInfo } from "../lib/ipc";
@@ -16,7 +17,6 @@ import { useToastStore } from "../stores/toastStore";
 import { webviewName } from "../lib/platform";
 
 const LINK_CLASS = "text-accent underline";
-const SMALL_BUTTON_CLASS = "rounded border border-border px-1.5 py-0.5 text-label text-text";
 
 function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -111,37 +111,29 @@ export function AboutPanel() {
           >
             {CONTACT_EMAIL}
           </a>
-          <button type="button" onClick={copyEmail} className={SMALL_BUTTON_CLASS}>
-            {strings.about.copyEmail}
-          </button>
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <span>{strings.about.reportingProblem}</span>
-        <button
-          type="button"
+      <p>{strings.about.reportingProblem}</p>
+      {info && (
+        <span className="text-muted">
+          {strings.about.webview(webviewName(info.platform), info.webview2)} · {strings.about.os(info.os)}
+        </span>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
           disabled={collecting}
           onClick={() => {
             setCollecting(true);
             void collectDiagnostics().finally(() => setCollecting(false));
           }}
-          className="shrink-0 rounded bg-accent px-2 py-1 text-xs text-on-accent disabled:opacity-40"
         >
           {strings.about.collectDiagnostics}
-        </button>
+        </Button>
+        {info && <Button onClick={copyVersionInfo}>{strings.about.copyVersionInfo}</Button>}
+        {CONTACT_EMAIL && <Button onClick={copyEmail}>{strings.about.copyEmail}</Button>}
       </div>
-
-      {info && (
-        <div className="flex items-center gap-2">
-          <span className="text-muted">
-            {strings.about.webview(webviewName(info.platform), info.webview2)} · {strings.about.os(info.os)}
-          </span>
-          <button type="button" onClick={copyVersionInfo} className={SMALL_BUTTON_CLASS}>
-            {strings.about.copyVersionInfo}
-          </button>
-        </div>
-      )}
 
       <div className="text-muted">
         {strings.about.creditsIntro}

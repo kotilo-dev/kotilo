@@ -1,6 +1,6 @@
 /**
  * 0.7 docs check entry points: the workspace context menu ("Check docs") and the palette
- * ("Docs: Check") both open the workspace's Docs tab and run the check.
+ * ("Workspaces: Check docs") both open the workspace's Docs tab and run the check.
  */
 import { registerCommand } from "../../app/commands";
 import { strings } from "../../app/strings";
@@ -21,12 +21,12 @@ export function openDocsCheck(workspaceId?: string | null): void {
   void useDocsStore.getState().refresh(id);
 }
 
-/** "Docs: Check" in the palette; returns the uninstaller. */
+/** "Workspaces: Check docs" in the palette; returns the uninstaller. */
 export function installDocsCommands(): () => void {
   return registerCommand({
     id: "docs.check",
-    title: () => strings.docs.commandTitle,
-    category: () => strings.docs.commandCategory,
+    title: () => strings.docs.contextMenu,
+    category: () => strings.commandCategories.workspaces,
     enabled: () => useWorkspaceStore.getState().activeId !== null,
     run: () => openDocsCheck(),
   });

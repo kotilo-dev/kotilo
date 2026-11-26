@@ -44,7 +44,7 @@ test("sessions page · search, group, copy menu, resume in a new terminal", asyn
   const ended = page.locator('[data-session-id="6f1c2d3e-5b7a-4c1e-9d2f-0a1b2c3d4e5f"]');
   await expect(ended.getByRole("button", { name: "Resume" })).toHaveAttribute("title", /claude --resume 6f1c2d3e-5b7a-4c1e-9d2f-0a1b2c3d4e5f/);
   await ended.getByRole("button", { name: "Copy…" }).click();
-  await expect(page.getByRole("button", { name: "Copy resume command" })).toBeEnabled();
+  await expect(page.getByRole("menuitem", { name: "Copy resume command" })).toBeEnabled();
   await page.keyboard.press("Escape");
 
   // Each agent resumes with its own arguments (OpenCode: --session).

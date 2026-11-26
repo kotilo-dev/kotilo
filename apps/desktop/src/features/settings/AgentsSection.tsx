@@ -17,7 +17,7 @@ import { platformFeatures } from "../../lib/platform";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useHelpStore } from "../help/helpStore";
-import { Button, Card, Checkbox, DebouncedNumber, Field, Notice, SectionLabel } from "./controls";
+import { Button, Card, Checkbox, DebouncedNumber, Field, Notice, SectionLabel, SettingsGroup } from "./controls";
 import { CodeBlock, CustomAgentWizard, userAdapterPath } from "./CustomAgentWizard";
 import { protocolExample } from "./customAgent";
 import { EditableList } from "./EditableList";
@@ -109,7 +109,7 @@ function HookCard({ adapter, installed, onChanged }: { adapter: AdapterDto; inst
             </Button>
           )}
           {isInstalled && (
-            <Button small variant="danger" disabled={busy} onClick={() => void act(false)}>
+            <Button small disabled={busy} onClick={() => void act(false)}>
               {t.uninstall}
             </Button>
           )}
@@ -197,7 +197,7 @@ function ProtocolCard({
               {a.edit}
             </Button>
           )}
-          <Button small variant="danger" onClick={onDelete}>
+          <Button small onClick={onDelete}>
             {a.delete}
           </Button>
         </div>
@@ -227,7 +227,7 @@ function ErrorCard({ adapter, path, onDelete }: { adapter: AdapterDto; path: str
       </span>
       {adapter.source === "user" && (
         <div className="flex flex-wrap gap-2">
-          <Button small variant="danger" onClick={onDelete}>
+          <Button small onClick={onDelete}>
             {a.delete}
           </Button>
         </div>
@@ -306,49 +306,26 @@ export function AgentsSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex max-w-lg flex-col gap-1.5">
-        <span className="text-small font-medium text-text-3">{s.settings.agents.commands}</span>
-        <span className="text-small text-muted">{a.launchHint}</span>
-        <EditableList
-          items={agents.commands}
-          onChange={(next) => update({ agents: { commands: next } })}
-          reorder
-          addPlaceholder={s.settings.agents.addCommandPlaceholder}
-          addLabel={s.settings.agents.addCommand}
-          removeLabel={s.settings.agents.removeCommand}
-          emptyLabel={s.settings.agents.noCommands}
-          listLabel={s.settings.agents.commands}
-        />
-      </div>
-      <Checkbox checked={agents.notifications} onChange={(v) => update({ agents: { notifications: v } })} label={s.settings.agents.notifications} />
-      <CompanionSettings />
-      {platformFeatures().awaySummary && (
-      <div className="flex max-w-lg flex-col gap-3">
-        <Checkbox
-          checked={agents.awaySummary}
-          onChange={(v) => update({ agents: { awaySummary: v } })}
-          label={s.settings.agents.awaySummary}
-          hint={s.settings.agents.awaySummaryHint}
-        />
-        {agents.awaySummary && (
-          <div className="max-w-xs pl-6">
-            <Field label={s.settings.agents.awaySummaryMinutes}>
-              {({ id }) => (
-                <DebouncedNumber
-                  id={id}
-                  value={agents.awaySummaryMinutes}
-                  min={AWAY_MINUTES_MIN}
-                  max={AWAY_MINUTES_MAX}
-                  onCommit={(v) => update({ agents: { awaySummaryMinutes: v } })}
-                />
-              )}
-            </Field>
-          </div>
-        )}
-      </div>
-      )}
+      <SettingsGroup title={s.settingsPage.groups.launch}>
+        <div className="flex max-w-lg flex-col gap-1.5">
+          <span className="text-small text-muted">{a.launchHint}</span>
+          <EditableList
+            items={agents.commands}
+            onChange={(next) => update({ agents: { commands: next } })}
+            reorder
+            addPlaceholder={s.settings.agents.addCommandPlaceholder}
+            addLabel={s.settings.agents.addCommand}
+            removeLabel={s.settings.agents.removeCommand}
+            emptyLabel={s.settings.agents.noCommands}
+            listLabel={s.settings.agents.commands}
+          />
+        </div>
+      </SettingsGroup>
+      <SettingsGroup title={s.settingsPage.groups.deck}>
+        <CompanionSettings />
+      </SettingsGroup>
 
-      <section aria-labelledby="settings-integrations" className="flex flex-col gap-3">
+      <section aria-labelledby="settings-integrations" className="flex flex-col gap-4 border-t border-border-subtle pt-5">
         <div className="flex flex-wrap items-center gap-2">
           <SectionLabel id="settings-integrations">{t.integrations}</SectionLabel>
           <div className="flex-1" />
@@ -391,6 +368,7 @@ export function AgentsSection() {
       {wizard && <CustomAgentWizard editing={wizard.editing} builtinIds={builtinIds} userIds={userIds} onClose={closeWizard} />}
       {confirmDelete && (
         <ConfirmModal
+          tone="danger"
           title={a.deleteTitle(confirmDelete.displayName || confirmDelete.id)}
           body={a.deleteBody}
           confirmLabel={a.delete}
@@ -399,5 +377,48 @@ export function AgentsSection() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Desktop-side notification settings (master switch, away summary). They are stored with the
+ * desktop settings and apply at once, but are shown in Settings → Notifications with the rest.
+ */
+export function NotificationAppSettings() {
+  const s = useStrings();
+  const agents = useSettingsStore((st) => st.settings.agents);
+  const update = useSettingsStore((st) => st.update);
+  return (
+    <SettingsGroup title={s.settingsPage.groups.notifications}>
+      <div className="flex max-w-lg flex-col gap-3">
+        <Checkbox checked={agents.notifications} onChange={(v) => update({ agents: { notifications: v } })} label={s.settings.agents.notifications} />
+        {platformFeatures().awaySummary && (
+          <>
+            <Checkbox
+              checked={agents.awaySummary}
+              onChange={(v) => update({ agents: { awaySummary: v } })}
+              label={s.settings.agents.awaySummary}
+              hint={s.settings.agents.awaySummaryHint}
+            />
+            {agents.awaySummary && (
+              <div className="max-w-xs pl-6">
+                <Field label={s.settings.agents.awaySummaryMinutes}>
+                  {({ id }) => (
+                    <DebouncedNumber
+                      id={id}
+                      value={agents.awaySummaryMinutes}
+                      min={AWAY_MINUTES_MIN}
+                      max={AWAY_MINUTES_MAX}
+                      onCommit={(v) => update({ agents: { awaySummaryMinutes: v } })}
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <span className="text-small text-muted">{s.settingsPage.appliedImmediately}</span>
+    </SettingsGroup>
   );
 }

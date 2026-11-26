@@ -105,7 +105,9 @@ for (const theme of ["dark", "light"] as const) {
     expect(await page.evaluate(() => window.__e2eWorktree.merges)).toEqual([{ name: "fix-login", squash: true, message: "Squash kotilo/fix-login" }]);
     await page.waitForTimeout(400); // the dialog's rise animation
     await page.screenshot({ path: `test-results/screens/worktrees-merge-conflict-${theme}.png` });
-    await merge.getByRole("button", { name: "Cancel" }).click();
+    await expect(merge.getByRole("button", { name: "Open terminal in worktree" })).toBeVisible();
+    await expect(merge.getByRole("button", { name: "Try again" })).toBeVisible();
+    await merge.getByRole("button", { name: "Close" }).click();
 
     // api-docs merges; cleanup is offered and deletes the merged branch by default.
     await row(page, "api-docs").getByRole("button", { name: "Merge" }).click();
@@ -116,7 +118,7 @@ for (const theme of ["dark", "light"] as const) {
     await merge2.getByRole("button", { name: "Remove worktree…" }).click();
     const remove = page.getByRole("dialog", { name: "Remove worktree api-docs" });
     await expect(remove.getByRole("checkbox", { name: "Also delete branch kotilo/api-docs" })).toBeChecked();
-    await remove.getByRole("button", { name: "Remove", exact: true }).click();
+    await remove.getByRole("button", { name: "Remove worktree", exact: true }).click();
     await expect(remove).toHaveCount(0);
     expect(await page.evaluate(() => window.__e2eWorktree.removes)).toEqual([{ name: "api-docs", force: false, deleteBranch: true, forceBranch: false }]);
     await expect(row(page, "api-docs")).toHaveCount(0);
@@ -134,10 +136,10 @@ for (const theme of ["dark", "light"] as const) {
     await row(page, "fix-login").getByRole("button", { name: "Remove" }).click();
     const remove = page.getByRole("dialog", { name: "Remove worktree fix-login" });
     await expect(remove).toContainText("1 terminal in this worktree will be closed first.");
-    await expect(remove.getByTestId("remove-confirm-dirty")).toContainText("2 uncommitted changes");
+    await expect(remove.getByTestId("remove-confirm-dirty")).toContainText("Discard 2 uncommitted changes");
     // Not merged: the branch is kept by default, so no branch confirmation.
     await expect(remove.getByRole("checkbox", { name: "Also delete branch kotilo/fix-login" })).not.toBeChecked();
-    await expect(remove.getByRole("button", { name: "Remove", exact: true })).toBeDisabled();
+    await expect(remove.getByRole("button", { name: "Remove worktree", exact: true })).toBeDisabled();
     await page.waitForTimeout(400); // the dialog's rise animation
     await page.screenshot({ path: `test-results/screens/worktrees-remove-${theme}.png` });
 
@@ -146,8 +148,8 @@ for (const theme of ["dark", "light"] as const) {
     await expect(remove.getByTestId("remove-confirm-unmerged")).toBeVisible();
     await remove.getByRole("checkbox", { name: "Also delete branch kotilo/fix-login" }).uncheck();
 
-    await remove.getByRole("checkbox", { name: "Remove anyway" }).check();
-    await remove.getByRole("button", { name: "Remove", exact: true }).click();
+    await remove.getByRole("checkbox", { name: "Discard 2 uncommitted changes" }).check();
+    await remove.getByRole("button", { name: "Remove worktree", exact: true }).click();
     await expect(remove).toHaveCount(0, { timeout: 5000 });
     expect(await page.evaluate(() => window.__e2eWorktree.removes)).toEqual([{ name: "fix-login", force: true, deleteBranch: false, forceBranch: false }]);
     await expect(row(page, "fix-login")).toHaveCount(0);

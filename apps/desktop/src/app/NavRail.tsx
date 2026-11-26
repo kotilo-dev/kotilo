@@ -34,18 +34,21 @@ function RailButton({ def, index }: { def: RouteDef; index: number }) {
       data-route={def.id}
       onClick={() => navigate(def.id)}
       className={
-        "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-button border transition-colors duration-150 " +
+        "relative flex w-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-button border py-1.5 transition-colors duration-150 " +
         (active
           ? "border-accent/40 bg-surface-4 text-text"
           : "border-transparent bg-transparent text-muted hover:bg-surface-3 hover:text-text-2")
       }
     >
       <Icon name={def.icon} />
+      <span aria-hidden="true" className="max-w-full truncate px-0.5 text-label leading-tight">
+        {s.nav.short[def.label]}
+      </span>
       {badge && (
         <span
           aria-hidden="true"
           data-testid="nav-badge"
-          className={`absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-label font-semibold leading-none tabular-nums text-on-accent ${
+          className={`absolute top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-label font-semibold leading-none tabular-nums text-on-accent ${
             badge.overdue ? "bg-blocked" : "bg-accent"
           }`}
         >
@@ -62,7 +65,7 @@ export function NavRail() {
   return (
     <nav
       aria-label={s.nav.label}
-      className="flex w-14 shrink-0 flex-col items-center gap-1.5 border-r border-border-subtle bg-surface-1 py-3"
+      className="flex w-16 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border-subtle bg-surface-1 py-3"
     >
       <div className="mb-2 flex h-[30px] w-[30px] items-center justify-center rounded-button bg-accent text-on-accent" aria-hidden="true">
         <Icon name="appMark" size={15} strokeWidth={2.5} />

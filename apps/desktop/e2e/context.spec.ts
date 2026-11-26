@@ -34,7 +34,7 @@ for (const theme of ["dark", "light"] as const) {
       const errors = await open(page, `theme=${theme}&lang=${lang}&context=demo`);
       await page.getByTestId("workspace-panel-tabs").getByRole("tab").first().click();
       await workspaceRow(page, "orders-service").click({ button: "right" });
-      await page.getByRole("button", { name: l.menu }).click();
+      await page.getByRole("menuitem", { name: l.menu }).click();
       const view = page.getByTestId("context-view");
       await expect(view).toHaveAttribute("data-agent", "claude-code");
       await expect(view.getByTestId("context-totals")).toContainText(l.always);
@@ -114,8 +114,8 @@ test("context · palette, empty state for an agent without data, Turkish", async
     if (!(await palette.isVisible())) await page.keyboard.press("Control+Shift+P");
     await expect(palette).toBeVisible({ timeout: 1000 });
   }).toPass();
-  await palette.fill(">Bağlamı");
-  await expect(page.getByText("Ajan: Bağlamı göster").first()).toBeVisible();
+  await palette.fill(">Ajan bağlamını");
+  await expect(page.getByText("Ajanlar: Ajan bağlamını göster").first()).toBeVisible();
   await page.keyboard.press("Enter");
   const view = page.getByTestId("context-view");
   await expect(view).toHaveAttribute("data-agent", "claude-code");

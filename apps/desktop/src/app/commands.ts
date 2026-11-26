@@ -36,6 +36,8 @@ export interface Command {
   category?: CommandText;
   /** `false` dönerse komut paletinde görünmez (ör. hooks zaten kurulu/kurulu değil). */
   enabled?: () => boolean;
+  /** Uninstall/delete style commands: listed last in the palette so they are not hit by accident. */
+  destructive?: boolean;
   run: () => void;
 }
 

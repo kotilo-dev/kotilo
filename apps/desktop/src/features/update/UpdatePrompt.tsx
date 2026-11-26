@@ -3,6 +3,7 @@
  * `rise`) with the new version, its notes and "Install and restart" / "Later". Installing shows
  * the download progress; a failure stays in the card with "Try again".
  */
+import { useEffect, useState } from "react";
 import { formatNumber } from "../../app/i18n";
 import { useStrings } from "../../app/strings";
 import { ProgressBar } from "../../app/ui";
@@ -19,9 +20,13 @@ export function UpdatePrompt() {
   const install = useUpdateStore((st) => st.install);
   const installUpdate = useUpdateStore((st) => st.installUpdate);
   const dismiss = useUpdateStore((st) => st.dismissPrompt);
-  if (!prompt) return null;
+  // "Hide" only hides the card: the download keeps running and an error brings it back.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (install.phase === "error" || install.phase === "idle") setHidden(false);
+  }, [install.phase]);
+  if (!prompt || hidden) return null;
 
-  const busy = install.phase === "downloading" || install.phase === "ready";
   const percent =
     install.phase === "downloading" && install.total ? Math.min(100, Math.round((install.downloaded / install.total) * 100)) : null;
 
@@ -33,7 +38,7 @@ export function UpdatePrompt() {
       className="fixed bottom-9 right-3 z-[90] flex w-[360px] animate-rise flex-col gap-3 rounded-panel border border-border bg-surface-4 p-4 text-ui text-text shadow-float"
     >
       <header className="flex flex-col gap-0.5">
-        <h2 className="m-0 text-title font-semibold">{s.promptTitle(prompt.version)}</h2>
+        <h2 className="m-0 text-title font-semibold">{install.phase === "error" ? s.failedTitle : s.promptTitle(prompt.version)}</h2>
         <span className="text-meta text-muted">{s.promptCurrent(prompt.current, prompt.date)}</span>
       </header>
 
@@ -56,7 +61,7 @@ export function UpdatePrompt() {
         </div>
       )}
       {install.phase === "ready" && (
-        <p role="status" className="m-0 text-small text-idle-ink">
+        <p role="status" className="m-0 text-small text-text-2">
           {s.ready}
         </p>
       )}
@@ -66,27 +71,33 @@ export function UpdatePrompt() {
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
-        {install.phase === "error" ? (
-          <>
-            <Button variant="ghost" onClick={dismiss}>
-              {s.close}
+      {install.phase !== "ready" && (
+        <div className="flex justify-end gap-2">
+          {install.phase === "downloading" ? (
+            <Button variant="ghost" onClick={() => setHidden(true)}>
+              {s.hide}
             </Button>
-            <Button variant="primary" onClick={() => void installUpdate()}>
-              {s.retry}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="ghost" disabled={busy} onClick={dismiss}>
-              {s.later}
-            </Button>
-            <Button variant="primary" disabled={busy} onClick={() => void installUpdate()}>
-              {s.install}
-            </Button>
-          </>
-        )}
-      </div>
+          ) : install.phase === "error" ? (
+            <>
+              <Button variant="ghost" onClick={dismiss}>
+                {s.later}
+              </Button>
+              <Button variant="primary" onClick={() => void installUpdate()}>
+                {s.retry}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={dismiss}>
+                {s.later}
+              </Button>
+              <Button variant="primary" onClick={() => void installUpdate()}>
+                {s.install}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

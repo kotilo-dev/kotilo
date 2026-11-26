@@ -103,7 +103,7 @@ export function MascotView({ initial = INITIAL_MASCOT_STATE }: { initial?: Masco
       style={{ "--mh": `${snailHeight(m.scale)}px` } as CSSProperties}
     >
       {bubble && (
-        <div className="ms-bubble" data-testid="mascot-bubble" aria-hidden="true" {...handlers}>
+        <div className="ms-bubble" data-testid="mascot-bubble" data-kind={m.state} aria-hidden="true" {...handlers}>
           <span className="ms-bubble-text">{bubble}</span>
         </div>
       )}
@@ -118,6 +118,7 @@ export function MascotView({ initial = INITIAL_MASCOT_STATE }: { initial?: Masco
         className="ms-body"
         role="img"
         aria-label={m.label || APP_NAME}
+        title={m.label || APP_NAME}
         data-testid="mascot-snail"
         {...handlers}
       >

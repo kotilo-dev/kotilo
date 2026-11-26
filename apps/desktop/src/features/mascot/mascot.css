@@ -126,12 +126,12 @@ html[data-view="mascot"] {
 .ms-snail .ms-halo {
   fill: none;
   stroke: var(--mascot-blocked);
-  stroke-width: 4;
+  stroke-width: 7;
   opacity: 0;
   transform-origin: center;
 }
 .mascot[data-state="perm"] .ms-halo {
-  opacity: 0.6;
+  opacity: 0.85;
   animation: ms-halo 1.4s ease-out infinite;
 }
 

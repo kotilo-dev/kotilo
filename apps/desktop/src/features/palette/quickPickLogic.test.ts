@@ -41,6 +41,23 @@ describe("filterCommands", () => {
     cmd({ id: "agents.installHooks", title: "Install Claude Code integration", category: "Agents", enabled: () => false }),
   ];
 
+  it("lists destructive commands last and Go commands in shortcut order on an empty query", () => {
+    const list = [
+      cmd({ id: "agents.uninstallHooks", title: "Uninstall integration", category: "Agents", destructive: true }),
+      cmd({ id: "navigate.tasks", title: "Tasks", category: "Go", keybinding: "Alt+7" }),
+      cmd({ id: "navigate.mission", title: "Mission", category: "Go", keybinding: "Alt+3" }),
+      cmd({ id: "navigate.workspace", title: "Workspace", category: "Go", keybinding: "Alt+1" }),
+      cmd({ id: "terminal.new", title: "New terminal", category: "Terminal" }),
+    ];
+    expect(filterCommands(list, "").map((r) => r.command.id)).toEqual([
+      "navigate.workspace",
+      "navigate.mission",
+      "navigate.tasks",
+      "terminal.new",
+      "agents.uninstallHooks",
+    ]);
+  });
+
   it("hides commands whose enabled() returns false", () => {
     const result = filterCommands(commands, "");
     expect(result.some((r) => r.command.id === "agents.installHooks")).toBe(false);

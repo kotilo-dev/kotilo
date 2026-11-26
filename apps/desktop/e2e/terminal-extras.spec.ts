@@ -49,11 +49,11 @@ test("tab menu: copy recent output and reset stuck mouse mode", async ({ page })
   const tab = page.locator("[data-tab-id]").first();
   await tab.click({ button: "right" });
   await page.screenshot({ path: "test-results/screens/terminal-tab-menu.png" });
-  await page.getByRole("button", { name: "Copy recent output" }).click();
+  await page.getByRole("menuitem", { name: "Copy recent output" }).click();
   await expect.poll(() => page.evaluate(() => window.__e2eClipboard.at(-1))).toContain("npm test\n42 passed");
 
   await tab.click({ button: "right" });
-  await page.getByRole("button", { name: "Reset terminal" }).click();
+  await page.getByRole("menuitem", { name: "Reset terminal" }).click();
   await expect(page.getByText("Terminal modes reset.")).toBeVisible();
   expect(await page.evaluate(async () => (await import("/src/features/terminal/terminalRegistry.ts")).allEntries()[0]!.term.modes.mouseTrackingMode)).toBe("none");
   expect(errors, errors.join("\n")).toEqual([]);
@@ -73,9 +73,9 @@ test("a plain click on a link offers its actions", async ({ page }) => {
   await page.mouse.move(box.x + cell.width * 10.5, box.y + cell.height * 0.5);
   await page.waitForTimeout(300);
   await page.mouse.click(box.x + cell.width * 10.5, box.y + cell.height * 0.5);
-  await expect(page.getByRole("button", { name: "Open in browser" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Open in browser" })).toBeVisible();
   await page.screenshot({ path: "test-results/screens/terminal-link-menu.png" });
-  await page.getByRole("button", { name: "Copy link" }).click();
+  await page.getByRole("menuitem", { name: "Copy link" }).click();
   await expect.poll(() => page.evaluate(() => window.__e2eClipboard.at(-1))).toBe("https://example.com/docs");
   expect(errors, errors.join("\n")).toEqual([]);
 });

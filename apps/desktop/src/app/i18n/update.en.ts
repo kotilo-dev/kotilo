@@ -43,5 +43,6 @@ export const updateEn = {
   ready: "Installing – the app restarts in a moment.",
   installFailed: (message: string) => `The update could not be installed: ${message}`,
   retry: "Try again",
-  close: "Close",
+  hide: "Hide",
+  failedTitle: "Update failed",
 };

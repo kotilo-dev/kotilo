@@ -42,6 +42,23 @@ export function mentionToken(rel: string): string {
   return /\s/.test(rel) ? `@"${rel}"` : `@${rel}`;
 }
 
+/**
+ * How a file picked in the file dialog is mentioned: relative to the workspace (with `/`)
+ * when it lies inside it, else its absolute path. Windows paths compare case-insensitively.
+ */
+export function mentionPathFor(absolute: string, workspacePath: string | null): string {
+  const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
+  const file = norm(absolute);
+  if (!workspacePath) return file;
+  const root = norm(workspacePath);
+  const windows = /^[a-z]:\//i.test(root) || root.startsWith("//");
+  const same = (a: string, b: string) => (windows ? a.toLowerCase() === b.toLowerCase() : a === b);
+  if (root && file.length > root.length + 1 && file[root.length] === "/" && same(file.slice(0, root.length), root)) {
+    return file.slice(root.length + 1);
+  }
+  return file;
+}
+
 /** Replaces the mention being typed with the chosen file; the caret lands after `@rel `. */
 export function applyMention(text: string, mention: MentionQuery, rel: string): { text: string; caret: number } {
   const end = mention.start + 1 + mention.query.length;

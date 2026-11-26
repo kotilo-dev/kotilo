@@ -30,7 +30,7 @@ export function PomodoroChip() {
   const label = s.companion.pomodoro.label(phase, clock);
   return (
     <span data-pomodoro-chip className="flex items-center gap-1" title={label} aria-label={label}>
-      <span className={`h-1.5 w-1.5 rounded-full ${pomodoro.phase === "focus" ? "bg-blocked" : "bg-idle"}`} aria-hidden />
+      <span className={`h-1.5 w-1.5 rounded-full ${pomodoro.phase === "focus" ? "bg-accent" : "bg-idle"}`} aria-hidden />
       <span>{phase}</span>
       <span className="font-mono">{clock}</span>
       {!pomodoro.running && <span>({s.companion.pomodoro.paused})</span>}

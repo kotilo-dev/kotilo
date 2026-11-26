@@ -1,4 +1,4 @@
-//! Folder picker for "Add workspace".
+//! Folder picker for "Add workspace" and file picker for the composer.
 //!
 //! Why not the dialog plugin's JS `open()`: it shows the dialog *owned* by the main
 //! window. An owned window shares the owner's input state, and when the dialog was
@@ -151,11 +151,15 @@ pub(crate) fn refocus_picker_if_open() {
     }
 }
 
-/// Shows a multi-select folder picker; returns the chosen absolute paths (empty when
-/// cancelled). Review item 4: a second concurrent call returns `[]` immediately (see
-/// [`IN_FLIGHT`]) instead of opening a second native dialog.
-#[tauri::command]
-pub async fn pick_folders(window: WebviewWindow, title: String) -> Vec<String> {
+/// Runs one unowned picker dialog (see the module docs) and returns the chosen absolute
+/// paths; empty when cancelled. Review item 4: a second concurrent call returns `[]`
+/// immediately (see [`IN_FLIGHT`]) instead of opening a second native dialog.
+async fn run_picker<F>(window: WebviewWindow, pick: F) -> Vec<String>
+where
+    F: FnOnce(tauri_plugin_dialog::FileDialogBuilder<tauri::Wry>) -> Option<Vec<tauri_plugin_dialog::FilePath>>
+        + Send
+        + 'static,
+{
     if IN_FLIGHT
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
@@ -167,16 +171,36 @@ pub async fn pick_folders(window: WebviewWindow, title: String) -> Vec<String> {
     let app = window.app_handle().clone();
     #[cfg(windows)]
     let _guard = ModalGuard::new(&window);
-    let picked = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog().file().set_title(title).blocking_pick_folders()
-    })
-    .await
-    .ok()
-    .flatten()
-    .unwrap_or_default();
+    let picked = tauri::async_runtime::spawn_blocking(move || pick(app.dialog().file()))
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     picked
         .into_iter()
         .filter_map(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
         .collect()
+}
+
+/// Shows a multi-select folder picker; returns the chosen absolute paths (empty when
+/// cancelled).
+#[tauri::command]
+pub async fn pick_folders(window: WebviewWindow, title: String) -> Vec<String> {
+    run_picker(window, move |d| d.set_title(title).blocking_pick_folders()).await
+}
+
+/// Shows a multi-select file picker (composer `@` attachments), opening in `directory`
+/// when given; returns the chosen absolute paths (empty when cancelled).
+#[tauri::command]
+pub async fn pick_files(window: WebviewWindow, title: String, directory: Option<String>) -> Vec<String> {
+    run_picker(window, move |d| {
+        let d = d.set_title(title);
+        let d = match directory {
+            Some(dir) if !dir.is_empty() => d.set_directory(dir),
+            _ => d,
+        };
+        d.blocking_pick_files()
+    })
+    .await
 }

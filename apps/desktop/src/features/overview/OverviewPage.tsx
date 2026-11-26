@@ -8,6 +8,7 @@ import { useStrings, formatNumber } from "../../app/i18n";
 import {
   AgentAvatar,
   Button,
+  StatusPill,
   Card,
   EmptyState,
   LimitMeter,
@@ -21,13 +22,16 @@ import {
   formatCost,
   formatDuration,
   formatPercent100,
+  secondsSince,
   formatTokenCount,
   useHubQuery,
   useNow,
 } from "../../app/ui";
-import type { LimitDto, ProjectDto, UsageCurrent } from "../../lib/hubTypes";
+import type { LimitDto, ProjectDto, SessionDto, SessionState, UsageCurrent } from "../../lib/hubTypes";
 import { useHubStore } from "../../stores/hubStore";
 import { useRouteStore } from "../../stores/routeStore";
+import { useTerminalStore } from "../../stores/terminalStore";
+import { canGoToSession, goToSession } from "../mission/MissionControlPage";
 import { blockProgress, countWorking, recentProjects, splitSessions } from "./overviewLogic";
 
 export function OverviewPage() {
@@ -48,7 +52,6 @@ export function OverviewPage() {
       <PageHeader
         title={s.nav.overview}
         subtitle={unavailable ? undefined : s.overview.subtitle(live, attention.length, countWorking(sessions))}
-        actions={<span className="text-small text-muted">{s.ui.estimateNote}</span>}
       />
 
       {unavailable ? (
@@ -60,7 +63,7 @@ export function OverviewPage() {
           <UsageRow usage={usage} now={now} />
           <LimitStrip limits={limits} />
 
-          <MissionLink live={live} attention={attention.length} />
+          <WaitingList waiting={attention} live={live} now={now} />
 
           <ProjectsCard projects={projects.data} loading={projects.loading} />
         </>
@@ -73,6 +76,8 @@ function UsageRow({ usage, now }: { usage: UsageCurrent | null; now: number }) {
   const s = useStrings();
   const navigate = useRouteStore((st) => st.navigate);
   const block = usage?.activeBlock ?? null;
+  const progress = block ? blockProgress(block.start, block.end, now) : 0;
+  const blockSeconds = block ? (Date.parse(block.end) - Date.parse(block.start)) / 1000 : 0;
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr]">
       <div className="flex min-w-0 flex-col gap-2.5 rounded-card border border-border-subtle bg-surface-2 px-4 py-3.5">
@@ -97,14 +102,16 @@ function UsageRow({ usage, now }: { usage: UsageCurrent | null; now: number }) {
                 {s.overview.burnRate(formatNumber(Math.round(block.tokensPerMinute)))}
               </span>
             </div>
-            <ProgressBar value={blockProgress(block.start, block.end, now)} label={s.overview.activeBlock} />
-            <span className="text-small text-muted">
-              {s.overview.projected(formatTokenCount(block.projectedTokens), formatCost(block.projectedCostUsd))}
-            </span>
+            <ProgressBar value={progress} label={s.overview.blockElapsed(formatDuration(progress * blockSeconds), formatDuration(blockSeconds))} />
+            <div className="flex flex-wrap items-center gap-x-3 text-small text-muted">
+              <span className="font-mono">{s.overview.blockElapsed(formatDuration(progress * blockSeconds), formatDuration(blockSeconds))}</span>
+              <span>{s.overview.projected(formatTokenCount(block.projectedTokens), formatCost(block.projectedCostUsd))}</span>
+            </div>
           </>
         ) : (
           <span className="text-muted">{s.overview.noActiveBlock}</span>
         )}
+        <span className="text-meta text-faint">{s.overview.blockEstimateNote}</span>
       </div>
       <StatTile
         label={s.overview.today}
@@ -144,28 +151,52 @@ export function LimitStrip({ limits }: { limits: LimitDto[] }) {
   );
 }
 
-/** Session summary: the tiles themselves live on Mission control. */
-function MissionLink({ live, attention }: { live: number; attention: number }) {
+/** Up to three agents waiting for the user, plus the way to Mission control. */
+const MAX_WAITING = 3;
+
+function WaitingList({ waiting, live, now }: { waiting: SessionDto[]; live: number; now: number }) {
   const s = useStrings();
   const navigate = useRouteStore((st) => st.navigate);
+  const shown = waiting.slice(0, MAX_WAITING);
+  const hidden = waiting.length - shown.length;
+  const byWorkspace = useTerminalStore((st) => st.byWorkspace);
   return (
-    <div
-      className={`flex flex-wrap items-center gap-3 rounded-card bg-surface-2 px-4 py-3 ${
-        attention > 0 ? "border border-blocked/50 shadow-[var(--halo-blocked)]" : "border border-border-subtle"
-      }`}
+    <Card
+      title={s.overview.waitingTitle}
+      labelledBy="overview-waiting"
+      actions={
+        <Button variant="ghost" onClick={() => navigate("mission")}>
+          {s.mission.open}
+        </Button>
+      }
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="font-medium text-text">
-          {live === 0 ? s.overview.noSessions : `${s.overview.sessions} · ${formatNumber(live)}`}
-        </span>
-        <span className="text-small text-muted">
-          {live === 0 ? s.overview.noSessionsBody : `${s.overview.attention} · ${formatNumber(attention)}`}
-        </span>
-      </div>
-      <Button variant={attention > 0 ? "primary" : "secondary"} onClick={() => navigate("mission")}>
-        {s.mission.open}
-      </Button>
-    </div>
+      {shown.length === 0 ? (
+        <p className="m-0 text-muted">{live === 0 ? s.overview.noSessions : s.overview.noAttention}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+          {shown.map((w) => (
+            <li key={`${w.agent}/${w.sessionId}`} className="flex items-center gap-3">
+              <AgentAvatar agent={w.agent} size={28} />
+              <span className="min-w-0 flex-1 truncate font-medium text-text">{w.projectName}</span>
+              <StatusPill state={w.state as SessionState} />
+              <span className="hidden w-28 text-right font-mono text-small text-muted sm:block">
+                {s.overview.waitingFor(formatDuration(secondsSince(w.stateSince, now)))}
+              </span>
+              <Button disabled={!canGoToSession(w, byWorkspace)} title={canGoToSession(w, byWorkspace) ? undefined : s.sessions.runningElsewhere} onClick={() => goToSession(w)}>
+                {s.sessions.goTo}
+              </Button>
+            </li>
+          ))}
+          {hidden > 0 && (
+            <li>
+              <Button variant="ghost" onClick={() => navigate("mission")}>
+                {s.overview.moreWaiting(hidden)}
+              </Button>
+            </li>
+          )}
+        </ul>
+      )}
+    </Card>
   );
 }
 

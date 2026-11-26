@@ -3,11 +3,13 @@ import { useHelpStore } from "../features/help/helpStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useViewerStore } from "../stores/viewerStore";
 import { useDocument } from "../stores/documentStore";
+import type { Agent } from "../lib/ipc";
 import { useAgentStore } from "../stores/agentStore";
 import { countsByState } from "../features/agents/agentLogic";
 import { useGitHead } from "../features/workspaces/useGitHead";
 import { PaneStatusDot } from "../features/workspace/PaneStatus";
 import { visualStateForAgent } from "../features/workspace/paneSession";
+import { navigateToAgent } from "../features/agents/navigate";
 import { PomodoroChip } from "../features/companion/PomodoroChip";
 
 /**
@@ -22,6 +24,18 @@ function GitBranch({ workspaceId }: { workspaceId: string }) {
   return <span> {head.kind === "branch" ? head.name : head.sha}</span>;
 }
 
+/** Last agent jumped to per state, so repeated clicks cycle through that state. */
+const lastJump: Partial<Record<"blocked" | "working" | "done", string>> = {};
+
+function jumpToNext(agents: Agent[], state: "blocked" | "working" | "done") {
+  const list = agents.filter((a) => a.state === state);
+  if (list.length === 0) return;
+  const at = list.findIndex((a) => a.paneId === lastJump[state]);
+  const next = list[(at + 1) % list.length]!;
+  lastJump[state] = next.paneId;
+  navigateToAgent(next, { ack: state === "done" });
+}
+
 /**
  * Agent summary counter (faz5-spec §2.3): status dot + count per state (M2: token-coloured dot
  * instead of an emoji, DESIGN_SYSTEM §5/§6). Zero counts are hidden; the whole section is hidden
@@ -29,6 +43,7 @@ function GitBranch({ workspaceId }: { workspaceId: string }) {
  * the active workspace name and the active text document's encoding/EOL (faz3-spec §2, display only).
  */
 function AgentSummary() {
+  const strings = useStrings();
   const agents = useAgentStore((s) => s.agents);
   if (agents.length === 0) return null;
   const counts = countsByState(agents);
@@ -38,12 +53,22 @@ function AgentSummary() {
   const background = agents.every((a) => a.state !== "working" || (a.backgroundTasks?.length ?? 0) > 0);
   return (
     <span className="flex items-center gap-3">
-      {parts.map((state) => (
-        <span key={state} className="flex items-center gap-1">
-          <PaneStatusDot state={visualStateForAgent(state)} background={state === "working" && background} />
-          <span className="font-mono">{counts[state]}</span>
-        </span>
-      ))}
+      {parts.map((state) => {
+        const label = { blocked: strings.statusBar.agentsBlocked, working: strings.statusBar.agentsWorking, done: strings.statusBar.agentsDone }[state](counts[state]);
+        return (
+          <button
+            key={state}
+            type="button"
+            title={label}
+            aria-label={label}
+            onClick={() => jumpToNext(agents, state)}
+            className="flex items-center gap-1 rounded-badge px-1 hover:bg-surface-4 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <PaneStatusDot state={visualStateForAgent(state)} background={state === "working" && background} />
+            <span className="font-mono">{counts[state]}</span>
+          </button>
+        );
+      })}
     </span>
   );
 }

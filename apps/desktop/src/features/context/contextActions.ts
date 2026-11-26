@@ -1,6 +1,6 @@
 /**
  * 0.9 agent context entry points: the workspace context menu ("Agent context…"), the palette
- * ("Agent: Show context") and the agent pane header / terminal tab menu (with that pane's agent)
+ * ("Agents: Show agent context") and the agent pane header / terminal tab menu (with that pane's agent)
  * all open the workspace's "Agent context" tab and reload the report.
  */
 import { registerCommand } from "../../app/commands";
@@ -60,7 +60,7 @@ export function installContextCommands(): () => void {
   return registerCommand({
     id: "context.show",
     title: () => strings.agentContext.commandTitle,
-    category: () => strings.agentContext.commandCategory,
+    category: () => strings.commandCategories.agents,
     enabled: () => useWorkspaceStore.getState().activeId !== null,
     run: () => openAgentContext(),
   });

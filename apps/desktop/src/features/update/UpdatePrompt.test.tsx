@@ -40,8 +40,11 @@ describe("UpdatePrompt", () => {
     render(<UpdatePrompt />);
     expect(screen.getByText(strings.update.downloading(50))).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: strings.update.progressLabel })).toHaveAttribute("aria-valuenow", "50");
-    expect(screen.getByRole("button", { name: strings.update.install })).toBeDisabled();
-    expect(screen.getByRole("button", { name: strings.update.later })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: strings.update.install })).toBeNull();
+    expect(screen.queryByRole("button", { name: strings.update.later })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: strings.update.hide }));
+    expect(screen.queryByTestId("update-prompt")).toBeNull();
+    expect(useUpdateStore.getState().install.phase).toBe("downloading");
   });
 
   it("shows an unknown-size download without a percentage", () => {
@@ -54,11 +57,13 @@ describe("UpdatePrompt", () => {
     useUpdateStore.setState({ prompt: AVAILABLE, install: { phase: "ready" } });
     render(<UpdatePrompt />);
     expect(screen.getByText(strings.update.ready)).toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
 
     act(() => useUpdateStore.setState({ install: { phase: "error", message: "disk full" } }));
     expect(screen.getByRole("alert")).toHaveTextContent(strings.update.installFailed("disk full"));
+    expect(screen.getByText(strings.update.failedTitle)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: strings.update.retry })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: strings.update.close }));
+    fireEvent.click(screen.getByRole("button", { name: strings.update.later }));
     expect(useUpdateStore.getState().prompt).toBeNull();
   });
 });

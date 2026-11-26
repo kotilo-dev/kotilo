@@ -31,8 +31,11 @@ import { openCreateWorktreeDialog } from "../worktrees/worktreeActions";
 import { quickCommandsFor } from "../quickCommands/quickCommandLogic";
 import { agentTabFor, openQuickCommandSettings, runQuickCommand } from "../quickCommands/quickCommandActions";
 import { openAgentContext, paneAgentId } from "../context/contextActions";
+import { AgentAvatar } from "../../app/ui";
+import { useTabLabels, type TabLabel } from "./tabLabel";
 
 const NO_QUICK_COMMANDS: SavedPrompt[] = [];
+const NO_TABS: TerminalTab[] = [];
 
 // faz4-spec §4.21 / LOW #8c: `windowsPty.buildNumber` is now read in `terminalStore.init()`,
 // BEFORE restored tabs become a `Terminal` in `terminalRegistry` – fetching it here as well
@@ -51,6 +54,7 @@ const TAB_DRAG_TYPE = "application/x-agenthub-tab";
 function TabButton({
   workspaceId,
   tab,
+  label,
   active,
   onActivate,
   onRequestClose,
@@ -61,6 +65,7 @@ function TabButton({
 }: {
   workspaceId: string;
   tab: TerminalTab;
+  label: TabLabel;
   /** Shown in one of the panel's halves (the active tab, or the right half of a split). */
   active: boolean;
   onActivate: () => void;
@@ -100,6 +105,7 @@ function TabButton({
       title={tab.status === "exited" ? strings.terminal.exitTooltip(tab.exitCode ?? 0) : undefined}
     >
       <AgentBadge state={agentState} />
+      {label.agent && !editing && <AgentAvatar agent={label.agent} size={16} />}
       {editing ? (
         <InlineInput
           initialValue={tab.title}
@@ -111,12 +117,15 @@ function TabButton({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <span className="max-w-[10rem] truncate">{tab.title}</span>
+        <span className="max-w-[10rem] truncate" title={tab.status === "exited" ? undefined : label.text}>
+          {label.name}
+        </span>
       )}
       {worktree && !editing && <WorktreeBadge match={worktree} />}
       <button
         type="button"
         title={strings.terminal.closeTooltip}
+        aria-label={strings.terminal.closeTab(label.text)}
         className="rounded px-0.5 leading-none text-muted"
         onClick={(e) => {
           e.stopPropagation();
@@ -156,7 +165,7 @@ function NewMenuButton({
     const run = (entry: SavedPrompt) => () => void runQuickCommand(entry, workspaceId);
     return [
       ...commands.map((e) => ({ label: e.title, onClick: run(e) })),
-      ...prompts.map((e, i) => ({ label: e.title, onClick: run(e), disabled: !hasAgent, separatorBefore: i === 0 && commands.length > 0 })),
+      ...prompts.map((e, i) => ({ label: e.title, onClick: run(e), disabled: !hasAgent, hint: hasAgent ? undefined : strings.quickCommands.noAgent, separatorBefore: i === 0 && commands.length > 0 })),
       { label: strings.quickCommands.manage, onClick: openQuickCommandSettings, separatorBefore: commands.length + prompts.length > 0 },
     ];
   }
@@ -185,15 +194,17 @@ function NewMenuButton({
   return (
     <div ref={btnRef} className="flex items-center gap-1.5">
       <div className="flex">
-        <HeaderButton joined="left" title={strings.terminal.newTerminal} onClick={() => spawnTerminal(workspaceId)}>
+        <HeaderButton joined="left" title={strings.terminal.newTerminal} aria-label={strings.terminal.newTerminal} onClick={() => spawnTerminal(workspaceId)}>
           +
         </HeaderButton>
-        <HeaderButton joined="right" title={strings.terminal.chooseShell} onClick={() => openMenu("profile")}>
+        <HeaderButton joined="right" title={strings.terminal.chooseShell} aria-label={strings.terminal.chooseShell} aria-haspopup="menu" onClick={() => openMenu("profile")}>
           ▾
         </HeaderButton>
       </div>
       {hasAgentCommands && (
-        <HeaderButton onClick={() => openMenu("agent")}>{strings.terminal.newAgent} ▶</HeaderButton>
+        <HeaderButton aria-haspopup="menu" onClick={() => openMenu("agent")}>
+          {strings.terminal.newAgent} ▾
+        </HeaderButton>
       )}
       <HeaderButton title={strings.quickCommands.button} aria-label={strings.quickCommands.button} aria-haspopup="menu" onClick={() => openMenu("quick")}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -230,7 +241,7 @@ function EmptyNewAgentButton({ workspaceId, launch }: { workspaceId: string; lau
           setMenuAt((m) => (m || !rect ? null : { x: rect.left, y: rect.bottom }));
         }}
       >
-        {strings.terminal.newAgent} ▶
+        {strings.terminal.newAgent} ▾
       </button>
       {menuAt && (
         <ContextMenu
@@ -248,6 +259,25 @@ function EmptyNewAgentButton({ workspaceId, launch }: { workspaceId: string; lau
   );
 }
 
+/** Sub-header of one half of a split: the tab label and a button that closes the half. */
+function SplitHeader({ workspaceId, label, side }: { workspaceId: string; label: TabLabel; side: "left" | "right" }) {
+  const strings = useStrings();
+  return (
+    <div className="flex h-6 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface-2 pl-2.5 pr-1 text-meta text-muted">
+      <span className="min-w-0 flex-1 truncate">{label.text}</span>
+      <button
+        type="button"
+        aria-label={strings.composer.split.closeHalf(label.text)}
+        title={strings.composer.split.closeHalf(label.text)}
+        className="rounded px-1 leading-none hover:text-text"
+        onClick={() => useTerminalStore.getState().closeSplit(workspaceId, side === "left" ? "right" : "left")}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 export function TerminalPanel() {
   const strings = useStrings();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeId);
@@ -262,6 +292,9 @@ export function TerminalPanel() {
   const [tabMenu, setTabMenu] = useState<{ workspaceId: string; tabId: string; x: number; y: number } | null>(null);
   const [dragTabId, setDragTabId] = useState<string | null>(null);
   const [dropOver, setDropOver] = useState(false);
+  const stripTabs = activeWorkspaceId ? (byWorkspace[activeWorkspaceId]?.tabs ?? NO_TABS) : NO_TABS;
+  const labels = useTabLabels(stripTabs);
+  const labelOf = (tabId: string): TabLabel => labels[stripTabs.findIndex((t) => t.id === tabId)] ?? { text: "", name: "", agent: null };
 
   useEffect(() => {
     void initTerminal();
@@ -295,7 +328,7 @@ export function TerminalPanel() {
     const ws = byWorkspace[workspaceId];
     const canSplit = ws ? splitTabToRight(ws.tabs.map((t) => t.id), ws.activeTabId, tabId) !== null : false;
     const items: ContextMenuItem[] = [
-      { label: strings.composer.split.splitRight, onClick: () => splitRight(workspaceId, tabId), disabled: !canSplit || ws?.splitTabId === tabId },
+      { label: strings.composer.split.splitRight, onClick: () => splitRight(workspaceId, tabId), disabled: !canSplit || ws?.splitTabId === tabId, hint: !canSplit && !ws?.splitTabId ? strings.composer.split.splitRightHint : undefined },
     ];
     if (ws?.splitTabId) {
       items.push({ label: strings.composer.split.closeSplit, onClick: () => useTerminalStore.getState().closeSplit(workspaceId, "left") });
@@ -362,6 +395,7 @@ export function TerminalPanel() {
               key={tab.id}
               workspaceId={activeWorkspaceId}
               tab={tab}
+              label={labelOf(tab.id)}
               active={tab.id === activeWs?.activeTabId || tab.id === activeWs?.splitTabId}
               onActivate={() => {
                 useTerminalStore.getState().activate(activeWorkspaceId, tab.id);
@@ -418,18 +452,7 @@ export function TerminalPanel() {
                 className={`absolute ${placement} ${visible ? "flex flex-col" : "hidden"}`}
               >
                 {(side === "left" || side === "right") && (
-                  <div className="flex h-6 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface-2 pl-2.5 pr-1 text-meta text-muted">
-                    <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-                    <button
-                      type="button"
-                      aria-label={strings.composer.split.closeHalf(tab.title)}
-                      title={strings.composer.split.closeHalf(tab.title)}
-                      className="rounded px-1 leading-none hover:text-text"
-                      onClick={() => useTerminalStore.getState().closeSplit(ws.id, side === "left" ? "right" : "left")}
-                    >
-                      ×
-                    </button>
-                  </div>
+                  <SplitHeader workspaceId={ws.id} label={labelOf(tab.id)} side={side} />
                 )}
                 <AgentPane
                   workspaceId={ws.id}
@@ -479,6 +502,7 @@ export function TerminalPanel() {
 
       {pendingBusyClose && (
         <ConfirmModal
+          tone="danger"
           title={strings.terminal.busyCloseTitle}
           body={strings.terminal.busyCloseBody(pendingBusyClose.processes)}
           confirmLabel={strings.terminal.closeAnyway}

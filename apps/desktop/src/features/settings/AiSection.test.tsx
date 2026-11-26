@@ -99,7 +99,7 @@ describe("Settings → AI", () => {
     const select = within(await screen.findByText(t.featureNames.dailySummary).then(() => featureCard(t.featureNames.dailySummary))).getByLabelText(t.provider);
     fireEvent.change(select, { target: { value: "openai:ollama" } });
     expect(await screen.findByText(t.fullyLocal)).toBeInTheDocument();
-    expect(screen.getByText(t.fullyLocal).getAttribute("title")).toBe(t.fullyLocalTooltip);
+    expect(screen.getByText(t.fullyLocalTooltip)).toBeInTheDocument();
   });
 
   it("adds an endpoint, sends the key to the vault only, and keeps no copy of it", async () => {

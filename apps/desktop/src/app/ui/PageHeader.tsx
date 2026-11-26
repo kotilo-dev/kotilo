@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end gap-4">
+    <div className="flex flex-wrap items-center gap-4">
       <div className="flex min-w-0 flex-col gap-1">
         <h1 id="page-title" className="m-0 text-display font-bold leading-[1.2] tracking-[-0.02em] text-text">
           {title}
@@ -11,9 +11,14 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
         {subtitle && <p className="m-0 text-muted">{subtitle}</p>}
       </div>
       <div className="flex-1" />
-      {actions}
+      {actions && <div className="flex flex-wrap items-center gap-2 [&>button]:h-9">{actions}</div>}
     </div>
   );
+}
+
+/** The single filter / search row under a page header: controls share one baseline and gap. */
+export function Toolbar({ children }: { children: ReactNode }) {
+  return <div className="flex flex-wrap items-center gap-3">{children}</div>;
 }
 
 /** Scrollable page body with the standard 28px/32px padding. */

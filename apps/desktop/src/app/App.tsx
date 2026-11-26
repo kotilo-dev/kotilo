@@ -37,6 +37,7 @@ import { scheduleStartupUpdateCheck } from "../features/update/updateStore";
 import { QuickPick } from "../features/palette/QuickPick";
 import { installRecentTabsTracking } from "../features/palette/recentTabs";
 import { useLayoutStore, type ColumnSizes } from "../stores/layoutStore";
+import { registerViewerRoom, VIEWER_MIN_WIDTH_PX } from "./viewerRoom";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useTerminalStore } from "../stores/terminalStore";
 import { useAgentStore } from "../stores/agentStore";
@@ -253,6 +254,8 @@ export function App() {
         id: "palette.show",
         title: () => strings.commandTitles.paletteShow,
         keybinding: "Mod+Shift+P",
+        // Opening the palette from inside the palette is pointless; the shortcut still works.
+        enabled: () => false,
         run: () => useQuickPickStore.getState().openCommand(),
       }),
       registerCommand({
@@ -319,6 +322,7 @@ export function App() {
         id: "agents.uninstallHooks",
         title: () => strings.commandTitles.uninstallHooks,
         category: () => strings.commandCategories.agents,
+        destructive: true,
         enabled: () => useAgentStore.getState().hooks?.installed ?? false,
         run: () => void useAgentStore.getState().uninstallHooks(),
       }),
@@ -471,6 +475,20 @@ function MainColumns() {
     // Sizes are deliberately not dependencies: apply only when visibility changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible.left, visible.terminal, visible.viewer]);
+
+  // After a diff opens, give the viewer at least VIEWER_MIN_WIDTH_PX by taking width from the terminal column.
+  useEffect(
+    () =>
+      registerViewerRoom(() => {
+        const viewer = refs.viewer.current;
+        const el = document.querySelector<HTMLElement>("[data-panel-id=\"viewer\"]");
+        if (!viewer || !el || viewer.isCollapsed() || el.offsetWidth <= 0 || el.offsetWidth >= VIEWER_MIN_WIDTH_PX) return;
+        const groupPx = el.offsetWidth / (viewer.getSize() / 100);
+        viewer.resize(Math.min(100, (VIEWER_MIN_WIDTH_PX / groupPx) * 100));
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   function handleMainLayout(sizes: number[]) {
     const update: Partial<ColumnSizes> = {};

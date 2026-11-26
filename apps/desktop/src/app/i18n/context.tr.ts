@@ -5,7 +5,7 @@ export const contextTr: typeof contextEn = {
   tabTitle: "Ajan bağlamı",
   title: "Ajan bağlamı",
   commandCategory: "Ajan",
-  commandTitle: "Bağlamı göster",
+  commandTitle: "Ajan bağlamını göster",
   contextMenu: "Ajan bağlamı…",
   paneButton: "Ajan bağlamı",
   agentLabel: "Ajan",

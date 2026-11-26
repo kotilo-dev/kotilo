@@ -43,7 +43,7 @@ export function ThemePicker({ label, kind, value, onChange }: { label: string; k
       <div role="radiogroup" aria-labelledby={labelId} className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-x-3 gap-y-3">
         {groupByFamily(themes).map(([family, members]) => (
           <div key={family} className="flex flex-col gap-1">
-            <span className="text-label font-semibold uppercase tracking-[0.08em] text-faint">{family}</span>
+            <span lang="en" className="text-label font-semibold uppercase tracking-[0.08em] text-faint">{family}</span>
             <div className="flex flex-col gap-1.5">
               {members.map((t) => (
                 <ThemeCard key={t.id} theme={t} checked={t.id === selected} onSelect={() => onChange(t.id)} />

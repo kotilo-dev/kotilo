@@ -136,10 +136,10 @@ describe("WorkspacesPanel tabs", () => {
     await mount([ws("a", "orders-service"), ws("b", "billing-api")], "a");
     fireEvent.click(tab("workspaces"));
     fireEvent.contextMenu(screen.getAllByRole("option")[1]!);
-    for (const label of ["Rename", "Remove", "Move up", "Move down", "Check docs", "New agent in worktree…", "Agent context…"]) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    for (const label of ["Rename", "Remove workspace", "Move up", "Move down", "Check docs", "New agent in worktree…", "Agent context…"]) {
+      expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
     }
-    expect(screen.queryByRole("button", { name: "New File" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "New File" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Make active" })).toBeNull();
   });
 });
