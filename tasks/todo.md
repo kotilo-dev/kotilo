@@ -1,5 +1,7 @@
 ## Görev dosyaları
 
+- 2026-11-27 · Bekleyen bütün manuel testlerin ortak turu (kurulu 0.11.0) · TAMAMLANDI (0.11.1) · [dosya](2026-11-27-manuel-test-turu.md)
+- 2026-11-26 · Web sitesi ana sayfasını stüdyo tanıtımına çevirme (commit bekliyor) · TAMAMLANDI · [dosya](2026-11-26-site-studyo.md)
 - 2026-11-26 · İzleme kuralları (watch rules, 0.11.0 olarak yayınlandı) · TAMAMLANDI · [dosya](2026-11-26-izleme-kurallari.md)
 - 2026-11-26 · Görsel cila turu (UI estetiği) · TAMAMLANDI · [dosya](2026-11-26-gorsel-cila.md)
 - 2026-11-26 · Tüm ekranların UX/UI gözden geçirmesi · TAMAMLANDI · [dosya](2026-11-26-ux-gozden-gecirme.md)
@@ -47,7 +49,7 @@ Order: A ∥ B → C → D.
 - [x] D-076, user guide EN/TR, manual tests CX-1…CX-9
 - [x] cargo test 733 (+ hook latency, docs, proto) + clippy ✓, hub 745 + 262 + 90 ✓ (`GitRunnerTests.Status_of_a_real_repo…` timed out once under load, passes alone), npm test 1071 + build ✓, full e2e 130/130 ✓ (one flaky failure in the first run)
 - [x] Version 0.9.0 (covers 0.6 Worktrees, 0.7 Docs, 0.8 Usage extras, 0.9 Context)
-- [ ] (user) Manual CX-1…CX-9
+- [x] (user) Manual CX-1…CX-9 — done in the 2026-11-27 manual tour
 
 # 0.8 – Usage extras: tray summary, weekly view (planned 2026-11-12)
 
@@ -98,7 +100,7 @@ Order: A ∥ B → C → D.
 ## D – Docs and checks
 - [x] D-074, user guide EN/TR (docs.toml example, CLI in CI), manual tests DC-1…, README CLI note
 - [x] cargo test 708 + docs 32 + clippy ✓, hub unchanged, npm test 1046 + build ✓, docs/review/workspaces/timeline/worktrees e2e ✓, full e2e 119/119 ✓ (--workers=1)
-- [ ] Manual DC-1…DC-10 (user, `tauri dev`)
+- [x] Manual DC-1…DC-10 (user, `tauri dev`) — done in the 2026-11-27 manual tour (DC-8 not reproducible)
 
 # 0.6 – Worktrees for parallel agents (planned 2026-11-09)
 
@@ -142,7 +144,7 @@ Order: A → B → C → D → E → F (A and D can run in parallel).
 - [x] Unit tests (parser, slugs, preconditions), e2e (mocked IPC) + screenshots of panel, compare and badges
 - [x] `docs/manual-tests.md` W-1…W-12 (two agents in parallel worktrees, merge, conflict, cleanup with an open terminal)
 - [x] D-073 ✓; cargo test 707 + clippy ✓, hub 745/261/90 ✓ (one infra failure once under load, not reproduced), npm test 1032 + build ✓, full e2e 114/114 ✓ (--workers=2)
-- [ ] Manual W-1…W-12 (user, `tauri dev` after `dotnet build`)
+- [x] Manual W-1…W-12 (user, `tauri dev` after `dotnet build`) — done in the 2026-11-27 manual tour
 
 Later (not 0.6): setup command after create (e.g. `npm install`, copying `.env`), PR creation via `gh`, worktree-per-task from Tasks.
 
@@ -219,7 +221,7 @@ Input: comparison with Orca (onorca.dev docs, 2026-10-26). Taken: what fits Koti
 - [x] Manual checks R-1…R-14 in `docs/manual-tests.md`
 - [x] Version 0.4.0 (8b4c99c), tag v0.4.0 on 337f3ef, CI + Release green, DRAFT "Kotilo 0.4.0 (beta)" with notes (covers 0.3.5…0.4.0; Windows x64/arm64, Linux, macOS aarch64/x64)
 - [x] Published 2026-10-27
-- [ ] (user) Checks R-1…R-14 on the desktop
+- [x] (user) Checks R-1…R-14 on the desktop — done in the 2026-11-27 manual tour
 
 # U-3 – macOS beta (planned 2026-10-23)
 
@@ -361,7 +363,7 @@ Verified in the Claude Code docs (hooks, statusline, model-config): `Stop`/`Suba
 - [x] All checks (dotnet test 1057, cargo test 637+83 + clippy, npm test 935, e2e 84), DECISIONS D-060, manual tests G-1…G-11 in `docs/manual-tests.md`
 - [x] Version 0.3.2: 50e7e9c + 26c048d, tag v0.3.2, CI + Release green, DRAFT release with notes (covers the unpublished 0.3.1 too)
 - [x] Superseded: 0.3.3 published 2026-10-17, the 0.3.1/0.3.2 drafts deleted
-- [ ] (user) Tests G-1…G-11 (and F-1…F-15; `tasks/manual-test-run.md` §5–6) on the second machine
+- [x] (user) Tests G-1…G-11 (and F-1…F-15; `tasks/manual-test-run.md` §5–6) on the second machine — done in the 2026-11-27 manual tour
 
 # 0.4 – Phone notifications through ntfy (planned 2026-10-13, D-059) – DEFERRED to the backlog (user, 2026-11-15)
 
@@ -397,7 +399,7 @@ User: a PowerShell profile that changes to the home folder made new terminals an
 - [x] Agent questions vs. the permission card: Claude's `AskUserQuestion` goes through its permission dialog, so the card's Allow/Deny sent `1`/`Esc` to a multiple-choice question (picked the first answer or cancelled it). The hub now treats a question tool (`AskUserQuestion`, plan approval `ExitPlanMode`) as WaitingInput and the desktop hides the card for them even with an older hub; the card takes focus also when the window comes back (only from this pane's terminal or an empty input), ignores Enter/Space/Esc in the first 400 ms after taking focus, and the result note is a small top-right pill (2.5 s) instead of a strip over the agent's prompt
 - [x] Workspace rows: arrow cursor instead of the text cursor (`select-none`); inactive roots get a "Switch" button on hover/selection, a double click switches, the ○ dot has a bigger hit area; "Make active" stays in the context menu; e2e `workspaces.spec.ts` (`?workspaces=2`)
 - [x] Right click pasted twice in an agent: with mouse tracking on, xterm reports the click to the program (which may paste itself) and Kotilo pasted too. Now the click is left to a mouse-tracking program, as in Windows Terminal; Shift+right click still pastes; a selection is still copied; e2e `paste.spec.ts`
-- [ ] Manual checks F-1–F-15 (`docs/manual-tests.md`, run list `tasks/manual-test-run.md` §5) – needs the user and a build with these fixes
+- [x] Manual checks F-1–F-15 (`docs/manual-tests.md`, run list `tasks/manual-test-run.md` §5) – needs the user and a build with these fixes — done in the 2026-11-27 manual tour
 # 0.3 – Unseen finished work + terminal colour schemes (planned 2026-10-11)
 
 User: after D-054 a finished turn sends one "completed" toast; "o an bilgisayar başında değilse ya da bildirimi pas geçtiyse bir süre sonra unutabilir". Second track: terminal colour schemes for the terminal area only (app chrome keeps the design tokens).
@@ -727,7 +729,7 @@ Split (D-020): the desktop app (Rust) owns hotkeys, microphone, overlay window, 
 - [x] Build/test everything: hub 394 + 103 + 50, Rust 460 + 35 + 10 + 1 + 1 + clippy, UI 587, e2e 8 (overlay screenshots dark + light); help docs (EN/TR) and keybindings updated; manual test list in `docs/manual-tests.md`
 - [x] D-020 in `docs/DECISIONS.md`
 - [x] Real app start (a `tauri dev` run, 18:54): dictation starts, settings reload after the hub stream connects, no hotkey registration warnings, the app exits cleanly with the hidden overlay
-- [ ] Manual tests D1–D14 on the real desktop (hotkey, microphone, insertion into Notepad / Windows Terminal / an elevated window) – needs the user, AGENTS rule 6
+- [x] Manual tests D1–D14 on the real desktop (hotkey, microphone, insertion into Notepad / Windows Terminal / an elevated window) – needs the user, AGENTS rule 6 — done in the 2026-11-27 manual tour
 
 
 ---
