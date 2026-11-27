@@ -9,6 +9,8 @@ import { useStrings } from "../../app/strings";
 import { ConfirmModal } from "../../app/ConfirmModal";
 import type { AppError, Workspace, WorkspaceGroup } from "../../lib/ipc";
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from "./ContextMenu";
+import { homeDir } from "../../lib/platform";
+import { shortenHome } from "./paths";
 import { InlineInput } from "./InlineInput";
 import { AgentStatePill } from "./AgentStatePill";
 import { defaultCursor, groupNeighbour, groupedWorkspaces, rowKey, visibleRows } from "./groups";
@@ -58,7 +60,7 @@ function GroupHeader({
       aria-label={label}
       data-group-id={group?.id ?? "ungrouped"}
       data-collapsed={collapsible ? String(collapsed) : undefined}
-      className={`mt-1 flex select-none items-center gap-1.5 rounded-md px-2 py-1 text-label tracking-wide text-muted first:mt-0 ${
+      className={`mt-2 flex select-none items-center gap-1.5 rounded-md px-2 py-1 text-label font-medium tracking-wide text-text-2 first:mt-0 ${
         isCursor ? "bg-surface-4" : collapsible ? "hover:bg-surface-4" : ""
       } ${collapsible ? "cursor-pointer" : "cursor-default"}`}
       onClick={() => {
@@ -66,7 +68,7 @@ function GroupHeader({
       }}
       onContextMenu={onContextMenu}
     >
-      <span aria-hidden className={`w-3 shrink-0 text-center ${collapsible ? "" : "invisible"}`}>
+      <span aria-hidden className={`w-3 shrink-0 text-center text-muted ${collapsible ? "" : "invisible"}`}>
         {collapsed ? "▸" : "▾"}
       </span>
       {editing && onRename && onCancelRename ? (
@@ -89,7 +91,7 @@ function GroupHeader({
           {blocked}
         </span>
       )}
-      <span className="shrink-0 tabular-nums">{count}</span>
+      <span className="shrink-0 tabular-nums text-muted">{count}</span>
     </div>
   );
 }
@@ -147,7 +149,7 @@ function WorkspaceRow({
           </span>
         )}
         <span className="truncate font-mono text-label text-muted" title={workspace.path}>
-          {workspace.path}
+          {shortenHome(workspace.path, homeDir())}
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -455,8 +457,12 @@ export function WorkspaceList() {
                 onCancelRename={() => setRenamingGroupId(null)}
               />
             )}
-            {!isCollapsed &&
-              section.workspaces.map((ws) => (
+            {!isCollapsed && (
+              <div
+                data-testid={hasGroups ? "group-rows" : undefined}
+                className={`flex flex-col gap-0.5 ${hasGroups ? "ml-3.5 border-l border-border-subtle pl-1.5" : ""}`}
+              >
+              {section.workspaces.map((ws) => (
                 <WorkspaceRow
                   key={ws.id}
                   workspace={ws}
@@ -478,6 +484,8 @@ export function WorkspaceList() {
                   onCancelRename={() => setRenamingId(null)}
                 />
               ))}
+              </div>
+            )}
           </div>
         );
       })}

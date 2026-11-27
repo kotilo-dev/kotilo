@@ -304,3 +304,38 @@ export function disposeTerminal(tabId: string): void {
 export function clearAllEntries(): void {
   for (const tabId of Array.from(entries.keys())) disposeTerminal(tabId);
 }
+
+const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], dialog, [role="dialog"]';
+
+/**
+ * True when the focus sits in a field or dialog outside any terminal: the user moved on. Another
+ * terminal's xterm helper textarea does not count, or switching between terminals could never move the focus.
+ */
+function focusIsElsewhere(host: HTMLElement): boolean {
+  const active = document.activeElement;
+  if (!active || host.contains(active) || !active.matches(EDITABLE)) return false;
+  for (const other of entries.values()) if (other.host.contains(active)) return false;
+  return true;
+}
+
+/**
+ * Focuses a terminal that was just activated: its host only becomes visible after React renders the
+ * new active tab (and, for another workspace, after the switch's IPC), so an immediate focus can land on
+ * a hidden element. Retries once per frame for up to `timeoutMs` until the xterm helper textarea really
+ * holds the focus. Stops early when the user focused a field or dialog elsewhere, or when
+ * `stillWanted` says the tab is no longer the one on show.
+ */
+export function focusTerminalWhenReady(tabId: string, opts: { timeoutMs?: number; stillWanted?: () => boolean } = {}): void {
+  const entry = entries.get(tabId);
+  if (!entry) return;
+  const deadline = performance.now() + (opts.timeoutMs ?? 1000);
+  const step = (): void => {
+    if (opts.stillWanted && !opts.stillWanted()) return;
+    if (focusIsElsewhere(entry.host)) return;
+    focusTerminal(tabId);
+    const active = document.activeElement;
+    if (active && entry.host.contains(active)) return;
+    if (performance.now() < deadline) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}

@@ -15,6 +15,8 @@ import { dndUntil, formatTimeSpan, INVALID_TIMESPAN, inputToTimeOnly, parseNumbe
 
 export interface HubSectionProps {
   draft: HubSettings;
+  /** The last saved settings (what the service runs with). */
+  saved?: HubSettings;
   update: (change: (draft: HubSettings) => HubSettings) => void;
   errors: Record<string, string>;
   /**
@@ -64,7 +66,7 @@ function SpanField({ label, value, unit, error, onChange }: { label: string; val
   );
 }
 
-export function NotificationsSection({ draft, update, errors }: HubSectionProps) {
+export function NotificationsSection({ draft, saved, update, errors }: HubSectionProps) {
   const s = useStrings();
   const t = s.settingsPage.notifications;
   const rules = draft.rules;
@@ -163,7 +165,7 @@ export function NotificationsSection({ draft, update, errors }: HubSectionProps)
         </div>
       </div>
 
-      <WatchRulesSettings draft={draft} update={update} />
+      <WatchRulesSettings draft={draft} saved={saved} update={update} />
     </div>
   );
 }

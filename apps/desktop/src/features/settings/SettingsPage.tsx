@@ -229,7 +229,7 @@ export function SettingsPage() {
     if (hub.error) return withApp(<Notice tone="error">{t.loadFailed(hub.error.message)}</Notice>);
     if (!draft) return appPart;
     const C = current.hub;
-    return withApp(<C draft={draft} update={update} errors={errors} commitAi={commitAi} />);
+    return withApp(<C draft={draft} saved={base ?? undefined} update={update} errors={errors} commitAi={commitAi} />);
   }
 
   return (

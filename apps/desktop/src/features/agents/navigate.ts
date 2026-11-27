@@ -10,7 +10,7 @@ import { useLayoutStore } from "../../stores/layoutStore";
 import { useRouteStore } from "../../stores/routeStore";
 import { useTerminalStore } from "../../stores/terminalStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { focusTerminal } from "../terminal/terminalRegistry";
+import { focusTabWhenShown } from "../terminal/focusTab";
 
 export function navigateToAgent(agent: Agent, opts?: { ack?: boolean }): void {
   useRouteStore.getState().navigate("workspace");
@@ -20,7 +20,7 @@ export function navigateToAgent(agent: Agent, opts?: { ack?: boolean }): void {
   const found = useTerminalStore.getState().findTabByPaneId(agent.paneId);
   if (found) {
     useTerminalStore.getState().activate(found.workspaceId, found.tab.id);
-    requestAnimationFrame(() => focusTerminal(found.tab.id));
+    focusTabWhenShown(found.tab.id);
   }
 
   if (opts?.ack) void agentAck(agent.paneId).catch(() => {});

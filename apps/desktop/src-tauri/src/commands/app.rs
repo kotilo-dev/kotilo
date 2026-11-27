@@ -31,6 +31,8 @@ pub struct AppInfo {
     pub repository: String,
     pub website: String,
     pub support_email: String,
+    /// The user home folder (empty when unknown); the UI shows paths under it as `~`.
+    pub home_dir: String,
 }
 
 /// Spec §9.7 `app_info.os` on Windows: e.g. `"Windows 11 (10.0.26100)"` — pure so it's
@@ -124,6 +126,7 @@ pub fn brand_info() -> AppInfo {
         repository: crate::brand::REPOSITORY.to_string(),
         website: crate::brand::WEBSITE.to_string(),
         support_email: crate::brand::SUPPORT_EMAIL.to_string(),
+        home_dir: crate::platform::home_dir(&|k| std::env::var(k).ok()).unwrap_or_default(),
     }
 }
 
@@ -163,6 +166,12 @@ mod tests {
         assert_eq!(os_label("linux", None), "Linux");
         assert_eq!(os_label("macos", Some(1)), "macOS");
         assert_eq!(os_label("windows", Some(26100)), "Windows 11 (10.0.26100)");
+    }
+
+    #[test]
+    fn app_info_carries_the_home_folder() {
+        let json = serde_json::to_value(brand_info()).unwrap();
+        assert!(json["homeDir"].is_string());
     }
 
     #[test]

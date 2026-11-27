@@ -398,7 +398,7 @@ Preparation: `tauri dev` after `dotnet build hub/AgentHub.sln` (dev app closed),
 
 | # | Steps | Expected |
 |---|---|---|
-| WR-1 | Create a dummy `.env`, ask the agent to run `cat .env`, allow it | Permission card shows "Rule: Secret file"; no separate watch toast, the permission toast names the rule; the timeline row has the warning mark |
+| WR-1 | Create a dummy `.env`, ask the agent to run `cp .env .env.bak` (not `cat .env`: Claude Code auto-allows read-only commands, so it never asks). In auto mode, or with Bash allow-listed, the card only appears with an ask rule: add `"permissions": {"ask": ["Bash(cp .env*)"]}` to `.claude/settings.local.json`. Allow the command | Permission card shows "Rule: Secret file"; no separate watch toast, the permission toast names the rule; the timeline row has the warning mark |
 | WR-2 | Allow-list `Bash(git push:*)` in the agent, ask for `git push --force` to a throwaway remote | No card; a toast "Force push · Bash" (unless the pane is visible in the focused window) |
 | WR-3 | Ask for `rm -rf node_modules`, then `rm -rf /tmp/x` (or `Remove-Item -Recurse -Force C:\temp\x`) | First: nothing; second: "Wide delete" |
 | WR-4 | Trigger the same rule twice within 5 minutes | Only one toast |

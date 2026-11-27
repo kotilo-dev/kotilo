@@ -99,6 +99,33 @@ describe("WatchRulesSettings", () => {
     expect(apply().watch?.trustedProjects).toEqual(["C:/src/app"]);
   });
 
+  it("labels the project checkbox with the action and shows the path beneath", async () => {
+    renderBlock();
+    const box = await screen.findByRole("checkbox", { name: /Use this project.s rules/ });
+    expect(box.closest("label")).toHaveTextContent("C:/src/app");
+  });
+
+  it("marks a user rule that the service reported as invalid", async () => {
+    const bad = { id: "user.npm", name: "Npm", tools: [], command: "npm(", paths: [], notify: true, enabled: true };
+    ipc.hubRequest.mockImplementation(() =>
+      Promise.resolve({ ...structuredClone(OVERVIEW), user: [bad], problems: [{ ruleId: "user.npm", message: "command: Invalid regular expression." }] }),
+    );
+    renderBlock(draft({ enabled: true, disabledBuiltins: [], notifyOffBuiltins: [], rules: [bad], trustedProjects: [] }));
+    const row = (await screen.findByRole("list", { name: "Your rules" })).querySelector("li")!;
+    await waitFor(() => expect(within(row).getByRole("status")).toHaveTextContent("Not applied: command: Invalid regular expression."));
+  });
+
+  it("drops the mark once the draft rule differs from the one the service reported", async () => {
+    const bad = { id: "user.npm", name: "Npm", tools: [], command: "npm(", paths: [], notify: true, enabled: true };
+    ipc.hubRequest.mockImplementation(() =>
+      Promise.resolve({ ...structuredClone(OVERVIEW), user: [bad], problems: [{ ruleId: "user.npm", message: "command: Invalid regular expression." }] }),
+    );
+    renderBlock(draft({ enabled: true, disabledBuiltins: [], notifyOffBuiltins: [], rules: [{ ...bad, command: "npm\s+x" }], trustedProjects: [] }));
+    await screen.findByRole("list", { name: "Your rules" });
+    await waitFor(() => expect(ipc.hubRequest).toHaveBeenCalledWith("GET", "/v1/watch"));
+    expect(within(screen.getByRole("list", { name: "Your rules" })).queryByRole("status")).toBeNull();
+  });
+
   it("tries a command against the hub and lists the matching rules", async () => {
     renderBlock();
     fireEvent.change(await screen.findByRole("textbox", { name: "Command" }), { target: { value: "git push -f" } });

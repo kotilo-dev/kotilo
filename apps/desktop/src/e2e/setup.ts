@@ -331,9 +331,9 @@ mockIPC(
       case "app_info":
         if (platform !== "windows") {
           const os = platform === "macos" ? "macOS 15" : "Ubuntu 22.04";
-          return { osBuild: 0, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os, buildDate: "2026-10-04", platform, features: offWindows };
+          return { osBuild: 0, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os, buildDate: "2026-10-04", platform, features: offWindows, homeDir: platform === "macos" ? "/Users/e2e" : "/home/e2e" };
         }
-        return { osBuild: 26300, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os: "Windows 11", buildDate: "2026-10-04" };
+        return { osBuild: 26300, version: "0.1.0", gitSha: "e2e", webview2: "e2e", os: "Windows 11", buildDate: "2026-10-04", homeDir: "C:\\Users\\e2e" };
       case "pty_profiles":
         return [{ id: "pwsh", name: "PowerShell", program: "pwsh.exe", args: [], available: true }];
       case "pty_spawn": {

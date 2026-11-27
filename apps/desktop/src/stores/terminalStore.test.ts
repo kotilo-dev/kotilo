@@ -395,6 +395,16 @@ describe("titleEdited rule (§2.2)", () => {
     expect(tabsOf(store, "ws1")[0]?.title).toBe("My shell");
   });
 
+  it("setAutoTitle falls back to the default label for a bare executable path", async () => {
+    const store = await freshStore();
+    await store.useTerminalStore.getState().init();
+    const tabId = store.useTerminalStore.getState().newTerminal("ws1");
+    const initial = tabsOf(store, "ws1")[0]?.title;
+    store.useTerminalStore.getState().setAutoTitle("ws1", tabId, "vim x");
+    store.useTerminalStore.getState().setAutoTitle("ws1", tabId, "C:\\Program Files\\WindowsApps\\X\\pwsh.exe");
+    expect(tabsOf(store, "ws1")[0]?.title).toBe(initial);
+  });
+
   it("rename() ignores an empty name", async () => {
     const store = await freshStore();
     await store.useTerminalStore.getState().init();

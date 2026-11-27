@@ -23,7 +23,7 @@ import { ContextMenu, type ContextMenuItem } from "../workspaces/ContextMenu";
 import { InlineInput } from "../workspaces/InlineInput";
 import { spawnTerminal } from "./defaultShell";
 import { splitBeside, splitTabToRight } from "./splitLayout";
-import { focusTerminal } from "./terminalRegistry";
+import { focusTabWhenShown } from "./focusTab";
 import { copyOutputWithToast, resetWithToast } from "./terminalActions";
 import { AgentPane } from "../workspace/AgentPane";
 import { WorktreeBadge, useWorktreeMatch } from "../worktrees/WorktreeBadge";
@@ -97,7 +97,10 @@ function TabButton({
         e.preventDefault();
         onMenu(e.clientX, e.clientY);
       }}
-      onClick={onActivate}
+      // While renaming, clicks (also inside the input) must not activate or take the focus.
+      onClick={() => {
+        if (!editing) onActivate();
+      }}
       onAuxClick={(e) => {
         if (e.button === 1) onRequestClose(); // middle click closes
       }}
@@ -399,7 +402,7 @@ export function TerminalPanel() {
               active={tab.id === activeWs?.activeTabId || tab.id === activeWs?.splitTabId}
               onActivate={() => {
                 useTerminalStore.getState().activate(activeWorkspaceId, tab.id);
-                if (tab.id === activeWs?.splitTabId) focusTerminal(tab.id);
+                focusTabWhenShown(tab.id);
               }}
               onRequestClose={() => void requestClose(activeWorkspaceId, tab.id)}
               onRename={(title) => useTerminalStore.getState().rename(activeWorkspaceId, tab.id, title)}

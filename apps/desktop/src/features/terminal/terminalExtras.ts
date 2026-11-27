@@ -68,3 +68,15 @@ export function recentOutputText(rows: readonly string[]): string {
   while (end > start && rows[end - 1]!.trim() === "") end--;
   return rows.slice(start, end).join("\n");
 }
+
+/**
+ * True when an OSC title is just an executable path (pwsh reports its own exe, e.g.
+ * `C:\Program Files\WindowsApps\Microsoft.PowerShell_…\pwsh.exe`). Such a title carries no
+ * information, so the tab keeps its default label instead.
+ */
+export function isExecutablePathTitle(title: string): boolean {
+  const t = title.trim().replace(/^Administrator:\s*/i, "").replace(/^"(.*)"$/, "$1");
+  // One absolute path with nothing after its first ".exe" (so "cmd.exe - C:\tools\build.exe" is a real title).
+  // Windows paths may hold spaces; a "/" path may not (a shell prompt like "/c/dev $ ./run.exe" is not one).
+  return /^(?:(?:[A-Za-z]:[\\/]|\\\\)(?:(?!\.exe)[^<>|?*"])*\.exe|\/[^\s<>|?*"]*\.exe)$/i.test(t);
+}

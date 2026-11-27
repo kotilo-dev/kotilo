@@ -3,6 +3,7 @@ import {
   absolutePath,
   ancestorsOf,
   baseName,
+  shortenHome,
   depthOf,
   isSameOrDescendant,
   joinRel,
@@ -112,5 +113,28 @@ describe("rekeySetPrefix / pruneSetPrefix", () => {
     const set = new Set(["src/gone", "src/gone/child", "src/keep"]);
     const next = pruneSetPrefix(set, "src/gone");
     expect([...next]).toEqual(["src/keep"]);
+  });
+});
+
+describe("shortenHome", () => {
+  it("replaces a leading home folder with ~ and keeps the separators", () => {
+    expect(shortenHome("C:\\Users\\ab\\dev\\x", "C:\\Users\\ab")).toBe("~\\dev\\x");
+    expect(shortenHome("/home/ab/dev/x", "/home/ab")).toBe("~/dev/x");
+    expect(shortenHome("C:\\Users\\ab", "C:\\Users\\ab\\")).toBe("~");
+  });
+  it("matches case-insensitively on Windows paths only", () => {
+    expect(shortenHome("c:\\users\\AB\\dev", "C:\\Users\\ab")).toBe("~\\dev");
+    expect(shortenHome("/home/AB/dev", "/home/ab")).toBe("/home/AB/dev");
+  });
+  it("only matches a whole leading segment", () => {
+    expect(shortenHome("C:\\Users\\abc\\dev", "C:\\Users\\ab")).toBe("C:\\Users\\abc\\dev");
+    expect(shortenHome("D:\\src\\C:\\Users\\ab", "C:\\Users\\ab")).toBe("D:\\src\\C:\\Users\\ab");
+  });
+  it("does not shorten against a drive root or /", () => {
+    expect(shortenHome("C:\\src\\x", "C:\\")).toBe("C:\\src\\x");
+    expect(shortenHome("/src/x", "/")).toBe("/src/x");
+  });
+  it("leaves the path alone when the home is unknown", () => {
+    expect(shortenHome("C:\\src\\x", "")).toBe("C:\\src\\x");
   });
 });

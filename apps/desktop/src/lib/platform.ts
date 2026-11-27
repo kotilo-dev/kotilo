@@ -17,12 +17,12 @@ const ALL: PlatformFeatures = {
   windowAcrylic: true,
 };
 
-let current: { platform: string; features: PlatformFeatures } = { platform: "windows", features: ALL };
+let current: { platform: string; features: PlatformFeatures; homeDir: string } = { platform: "windows", features: ALL, homeDir: "" };
 
 export async function hydratePlatform(): Promise<void> {
   try {
     const info = await appInfo();
-    current = { platform: info.platform ?? "windows", features: { ...ALL, ...info.features } };
+    current = { platform: info.platform ?? "windows", features: { ...ALL, ...info.features }, homeDir: info.homeDir ?? "" };
   } catch {
     // An older backend or a failed call: keep the Windows defaults.
   }
@@ -30,6 +30,11 @@ export async function hydratePlatform(): Promise<void> {
 
 export function platformFeatures(): PlatformFeatures {
   return current.features;
+}
+
+/** The user home folder (empty until known); paths under it are shown as `~`. */
+export function homeDir(): string {
+  return current.homeDir;
 }
 
 /** `"windows"`, `"macos"` or `"linux"`. */
@@ -54,5 +59,5 @@ export function webviewName(platform: string = current.platform): string {
 
 /** Tests only. */
 export function setPlatformForTests(platform: string, features: Partial<PlatformFeatures> = {}): void {
-  current = { platform, features: { ...ALL, ...features } };
+  current = { platform, features: { ...ALL, ...features }, homeDir: current.homeDir };
 }

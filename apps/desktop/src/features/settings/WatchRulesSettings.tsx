@@ -5,10 +5,11 @@
  * settings draft (`settings.watch`); the page's save bar sends them. The overview and the
  * test box talk to the hub directly and use the saved rules.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStrings } from "../../app/i18n";
 import { hubRequest } from "../../lib/ipc";
 import type { WatchHit, WatchOverview, WatchRule, WatchSettings, WatchTestResult } from "../../lib/hubTypes";
+import { WarningIcon } from "../../app/ui/pageIcons";
 import { Button, Checkbox, Field, Notice, SectionLabel, TextInput } from "./controls";
 import { useHubResource } from "./hubData";
 import { checkRule, cleanRule, formatList, newRuleId, parseList, watchHitName, watchOf } from "./watchRules";
@@ -158,7 +159,11 @@ function TestBox() {
   );
 }
 
-export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "draft" | "update">) {
+function sameRuleBody(a: WatchRule, b: WatchRule): boolean {
+  return a.name === b.name && (a.command ?? "") === (b.command ?? "") && formatList(a.tools) === formatList(b.tools) && formatList(a.paths) === formatList(b.paths);
+}
+
+export function WatchRulesSettings({ draft, saved, update }: Pick<HubSectionProps, "draft" | "saved" | "update">) {
   const s = useStrings();
   const w = s.watch.settings;
   const watch = watchOf(draft);
@@ -169,6 +174,17 @@ export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "dra
   const builtins = overview.data?.builtins ?? [];
   const projects = overview.data?.projects ?? [];
   const hubProblems = overview.data?.problems ?? [];
+  // Settings were saved: ask the service again which rules it could not use.
+  const { reload } = overview;
+  useEffect(() => {
+    if (saved) void reload();
+  }, [saved, reload]);
+  // The service reports a problem for the rule as it was saved: show it only while the draft rule is that rule.
+  const problemOf = (rule: WatchRule) => {
+    const problem = hubProblems.find((p) => p.ruleId === rule.id);
+    const reported = overview.data?.user.find((x) => x.id === rule.id);
+    return problem && reported && sameRuleBody(reported, rule) ? problem : undefined;
+  };
 
   function saveRule(rule: WatchRule) {
     if (!form) return;
@@ -221,7 +237,9 @@ export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "dra
             <span className="text-small font-medium text-text-3">{w.userRules}</span>
             {watch.rules.length === 0 && !form && <span className="text-small italic text-muted">{w.noUserRules}</span>}
             <ul aria-label={w.userRules} className="m-0 flex list-none flex-col gap-1.5 p-0">
-              {watch.rules.map((r, i) => (
+              {watch.rules.map((r, i) => {
+                const problem = problemOf(r);
+                return (
                 <li key={r.id} className="flex items-center gap-2 rounded-control border border-border-subtle bg-surface-3 px-2.5 py-1.5">
                   <input
                     type="checkbox"
@@ -237,6 +255,12 @@ export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "dra
                         .filter(Boolean)
                         .join(" · ")}
                     </div>
+                    {problem && (
+                      <div role="status" className="flex items-start gap-1 text-meta text-blocked-ink">
+                        <WarningIcon className="mt-0.5 size-3 shrink-0" />
+                        <span className="[overflow-wrap:anywhere]">{w.ruleProblem(problem.message)}</span>
+                      </div>
+                    )}
                   </div>
                   <Button
                     small
@@ -249,7 +273,8 @@ export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "dra
                     {w.removeButton}
                   </Button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
             {form ? (
               <RuleEditor form={form} onChange={setForm} onSave={saveRule} onCancel={() => setForm(null)} takenIds={watch.rules.map((r) => r.id)} />
@@ -287,8 +312,9 @@ export function WatchRulesSettings({ draft, update }: Pick<HubSectionProps, "dra
                         <Checkbox
                           checked={watch.trustedProjects.includes(p.root)}
                           onChange={(on) => setWatch({ trustedProjects: toggled(watch.trustedProjects, p.root, on) })}
-                          label={p.root}
-                          hint={w.useProjectLabel}
+                          label={w.useProjectLabel}
+                          hint={p.root}
+                          hintMono
                         />
                       </div>
                       <span className="text-small text-text-2">{w.ruleCount(p.ruleCount)}</span>

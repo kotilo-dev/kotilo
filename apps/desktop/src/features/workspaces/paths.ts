@@ -104,3 +104,21 @@ export function ancestorsOf(rel: string): string[] {
   for (let i = seen.length - 1; i >= 0; i--) result.push(seen[i]!);
   return result;
 }
+
+/**
+ * Shows a path under the user's home folder as `~` + the rest (`C:\Users\a\dev\x` -> `~\dev\x`), keeping
+ * the platform's separators. Only a whole leading segment matches (`C:\Users\ab` is not under
+ * `C:\Users\a`); Windows-style paths compare case-insensitively. Unknown home: the path as is.
+ */
+export function shortenHome(path: string, home: string): string {
+  const h = home.replace(/[\\/]+$/, "");
+  // "" (home is "/") and a bare drive ("C:") are roots, not a home: shortening would hide the whole path.
+  if (h === "" || /^[A-Za-z]:$/.test(h) || path.length < h.length) return path;
+  const windows = /^[A-Za-z]:|^\\\\/.test(h);
+  const head = path.slice(0, h.length);
+  const same = windows ? head.toLowerCase() === h.toLowerCase() : head === h;
+  if (!same) return path;
+  const rest = path.slice(h.length);
+  if (rest === "") return "~";
+  return rest[0] === "\\" || rest[0] === "/" ? `~${rest}` : path;
+}

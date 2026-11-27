@@ -215,12 +215,15 @@ export function Checkbox({
   onChange,
   label,
   hint,
+  hintMono,
   disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   hint?: string;
+  /** Show the hint as a path/code line. */
+  hintMono?: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -228,7 +231,7 @@ export function Checkbox({
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-accent disabled:opacity-60" />
       <span className="flex flex-col gap-0.5">
         {label}
-        {hint && <span className="text-meta text-muted">{hint}</span>}
+        {hint && <span className={hintMono ? "font-mono text-meta text-muted" : "text-meta text-muted"}>{hint}</span>}
       </span>
     </label>
   );

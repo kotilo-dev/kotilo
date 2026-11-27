@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OSC52_MAX_BYTES, parseOsc52, recentOutputText, RESET_MODES_SEQUENCE } from "./terminalExtras";
+import { isExecutablePathTitle, OSC52_MAX_BYTES, parseOsc52, recentOutputText, RESET_MODES_SEQUENCE } from "./terminalExtras";
 
 function b64(text: string): string {
   return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
@@ -39,5 +39,25 @@ describe("RESET_MODES_SEQUENCE", () => {
     expect(RESET_MODES_SEQUENCE).toContain("\x1b[?1049l");
     expect(RESET_MODES_SEQUENCE).not.toContain("2004");
     expect(RESET_MODES_SEQUENCE).not.toContain("9001");
+  });
+});
+
+describe("isExecutablePathTitle", () => {
+  it("flags bare executable paths", () => {
+    expect(isExecutablePathTitle("C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.5_x64\\pwsh.exe")).toBe(true);
+    expect(isExecutablePathTitle("c:/windows/system32/cmd.exe")).toBe(true);
+    expect(isExecutablePathTitle('"C:\\Program Files\\PowerShell\\7\\pwsh.exe"')).toBe(true);
+    expect(isExecutablePathTitle("/usr/bin/fake.exe")).toBe(true);
+    expect(isExecutablePathTitle("Administrator: C:\\WINDOWS\\system32\\cmd.exe")).toBe(true);
+  });
+  it("keeps real titles", () => {
+    expect(isExecutablePathTitle("PowerShell")).toBe(false);
+    expect(isExecutablePathTitle("vim main.rs")).toBe(false);
+    expect(isExecutablePathTitle("claude — working")).toBe(false);
+    expect(isExecutablePathTitle("C:\\dev\\kotilo")).toBe(false);
+    expect(isExecutablePathTitle("pwsh.exe")).toBe(false);
+    expect(isExecutablePathTitle("C:\\WINDOWS\\system32\\cmd.exe - C:\\tools\\build.exe")).toBe(false);
+    expect(isExecutablePathTitle("/c/dev $ ./run.exe")).toBe(false);
+    expect(isExecutablePathTitle("~/dev ❯ run C:\\x\\a.exe now")).toBe(false);
   });
 });

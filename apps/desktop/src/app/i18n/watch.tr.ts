@@ -46,6 +46,7 @@ export const watchTr: typeof watchEn = {
     needsMatch: "Araçlar, komut veya yollardan en az birini doldurun.",
     regexSuspect: "Bu geçerli bir düzenli ifade gibi görünmüyor. Kaydedince servis denetler.",
     ruleInvalid: (name: string, why: string) => `“${name}” kuralı: ${why}`,
+    ruleProblem: (why: string) => `Uygulanmıyor: ${why}`,
     test: "Bir komutu dene",
     testIntro: "Serviste kayıtlı kurallara göre denetler; önce değişiklikleri kaydedin.",
     testTool: "Araç",

@@ -103,6 +103,8 @@ function AgentRow({ agent, now }: { agent: Agent; now: number }) {
         role="button"
         tabIndex={0}
         className="flex h-6 shrink-0 items-center gap-1.5 px-2 text-label cursor-pointer"
+        // Keep focus from landing on the row on mousedown; the terminal takes it after the click.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => navigateToAgent(agent, { ack: true })}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {

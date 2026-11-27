@@ -32,6 +32,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useResolvedTheme } from "../../app/theme/resolvedTheme";
 import { currentTerminalColors, effectiveTerminalFont, getOrCreateEntry, terminalBoxBackground, windowTranslucent, xtermThemeFor } from "./terminalRegistry";
 import { routeKey } from "./keyRouting";
+import { focusTabWhenShown } from "./focusTab";
 import { isMac, isModPressed } from "../../lib/keys";
 import { extractLinkCandidates } from "./linkCandidates";
 import { buildCellColumnMap, cellRangeFromStringRange } from "./cellColumnMap";
@@ -541,6 +542,12 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
   }, [entry, term]);
 
   const showAgentPrompt = tab.status === "idle" && tab.agentCommand !== null;
+  // The Start overlay's buttons unmount once the tab starts, which drops the focus onto <body>; hand it to
+  // the terminal instead so the agent can be typed to at once (restored tabs).
+  const startFromOverlay = (opts?: { shellOnly: true }): void => {
+    void useTerminalStore.getState().start(workspaceId, tab.id, opts);
+    focusTabWhenShown(tab.id);
+  };
   const showExitBar = tab.status === "exited";
 
   return (
@@ -555,14 +562,14 @@ export function TerminalView({ workspaceId, tab, visible }: TerminalViewProps) {
           <button
             type="button"
             className="rounded bg-accent px-3 py-1 text-xs font-medium text-on-accent"
-            onClick={() => void useTerminalStore.getState().start(workspaceId, tab.id)}
+            onClick={() => startFromOverlay()}
           >
             {strings.terminal.startAgent(tab.agentCommand!)}
           </button>
           <button
             type="button"
             className="rounded px-3 py-1 text-xs text-muted"
-            onClick={() => void useTerminalStore.getState().start(workspaceId, tab.id, { shellOnly: true })}
+            onClick={() => startFromOverlay({ shellOnly: true })}
           >
             {strings.terminal.startShellOnly}
           </button>

@@ -16,6 +16,7 @@ import {
   clearAllEntries,
   disposeTerminal,
   effectiveTerminalFont,
+  focusTerminalWhenReady,
   getChannel,
   getOrCreateEntry,
   resetCreateTerminalFactory,
@@ -142,5 +143,59 @@ describe("effectiveTerminalFont (D-055)", () => {
     expect(effectiveTerminalFont("Consolas")).toBe("Consolas");
     setTerminalFontSuggestion(null);
     expect(effectiveTerminalFont(DEFAULT)).toBe(DEFAULT);
+  });
+});
+
+describe("focusTerminalWhenReady", () => {
+  afterEach(() => {
+    clearAllEntries();
+    resetCreateTerminalFactory();
+    document.body.innerHTML = "";
+  });
+
+  function setup() {
+    const focus = vi.fn();
+    setCreateTerminalFactory(() => ({ ...makeFakeTerm(), focus }) as never);
+    const entry = getOrCreateEntry("tab-f");
+    document.body.appendChild(entry.host);
+    return { focus };
+  }
+
+  it("focuses the terminal on a following frame", async () => {
+    const { focus } = setup();
+    focusTerminalWhenReady("tab-f");
+    await new Promise((r) => setTimeout(r, 80));
+    expect(focus).toHaveBeenCalled();
+  });
+
+  it("does not steal the focus from an input outside the terminal", async () => {
+    const { focus } = setup();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
+    focusTerminalWhenReady("tab-f");
+    await new Promise((r) => setTimeout(r, 80));
+    expect(focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("takes the focus from another terminal's textarea", async () => {
+    const { focus } = setup();
+    const other = getOrCreateEntry("tab-other");
+    document.body.appendChild(other.host);
+    const helper = document.createElement("textarea");
+    other.host.appendChild(helper);
+    helper.focus();
+    // The fake focus never moves the DOM focus, so keep the retry loop short and inside this test.
+    focusTerminalWhenReady("tab-f", { timeoutMs: 30 });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(focus).toHaveBeenCalled();
+  });
+
+  it("stops when the tab is no longer wanted", async () => {
+    const { focus } = setup();
+    focusTerminalWhenReady("tab-f", { stillWanted: () => false });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(focus).not.toHaveBeenCalled();
   });
 });

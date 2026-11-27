@@ -27,6 +27,7 @@ import { strings } from "../app/strings";
 import * as registry from "../features/terminal/terminalRegistry";
 import { restoreSplit, splitAfterRemove } from "../features/terminal/splitLayout";
 import { useLeftoverStore } from "./leftoverStore";
+import { isExecutablePathTitle } from "../features/terminal/terminalExtras";
 
 export type TabStatus = "idle" | "starting" | "running" | "exited";
 
@@ -429,7 +430,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   setAutoTitle: (workspaceId, tabId, title) => {
     const tab = findTab(get, workspaceId, tabId);
     if (!tab || tab.titleEdited) return;
-    updateTab(set, workspaceId, tabId, { title });
+    // A bare executable path (pwsh reports its own exe) says nothing: keep the default label.
+    const next = isExecutablePathTitle(title) ? defaultTitleFor(get().profiles, tab.profileId, tab.agentCommand) : title;
+    updateTab(set, workspaceId, tabId, { title: next });
   },
 
   closeTab: async (workspaceId, tabId) => {

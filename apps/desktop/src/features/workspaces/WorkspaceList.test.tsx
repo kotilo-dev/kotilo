@@ -51,6 +51,19 @@ describe("WorkspaceList groups", () => {
     expect(screen.getAllByRole("option")).toHaveLength(2);
   });
 
+  it("indents rows under a header with a guide line, and not at all without groups", () => {
+    setup([ws("a", "alpha", "g1"), ws("c", "gamma")], [{ id: "g1", name: "Work" }]);
+    const lists = screen.getAllByTestId("group-rows");
+    expect(lists).toHaveLength(2);
+    expect(lists[0]!.className).toContain("border-l");
+    expect(lists[0]).toContainElement(screen.getByRole("option", { name: /alpha/ }));
+  });
+
+  it("has no indent wrapper without groups", () => {
+    setup([ws("a", "alpha")], []);
+    expect(screen.queryByTestId("group-rows")).toBeNull();
+  });
+
   it("shows headers with counts and an Ungrouped header; collapsed groups hide rows", () => {
     setup([ws("a", "alpha", "g1"), ws("b", "beta", "g1"), ws("c", "gamma")], [{ id: "g1", name: "Work" }], ["g1"]);
     expect(screen.getByRole("group", { name: "Work" })).toHaveTextContent("2");

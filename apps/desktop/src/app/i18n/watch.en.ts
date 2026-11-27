@@ -50,6 +50,7 @@ export const watchEn = {
     needsMatch: "Fill in at least one of tools, command or paths.",
     regexSuspect: "This doesn't look like a valid regular expression. The service checks it when you save.",
     ruleInvalid: (name: string, why: string) => `Rule “${name}”: ${why}`,
+    ruleProblem: (why: string) => `Not applied: ${why}`,
     test: "Try a command",
     testIntro: "Checks against the rules saved on the service, so save your changes first.",
     testTool: "Tool",

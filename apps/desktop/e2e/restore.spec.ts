@@ -4,7 +4,8 @@ import { startAtFixtureTime } from "./clock";
 
 startAtFixtureTime(test);
 
-// A Claude tab restored from the last run waits behind the Start overlay; its button must start it.
+// A Claude tab restored from the last run waits behind the Start overlay; its button must start it
+// and hand the keyboard to the terminal.
 test("restored agent tab · Start button spawns the agent", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -16,5 +17,7 @@ test("restored agent tab · Start button spawns the agent", async ({ page }) => 
   await page.screenshot({ path: "test-results/screens/restore-start-overlay.png" });
   await start.click();
   await expect(start).toBeHidden();
+  // The overlay button vanishes on click; the keyboard must land in the started terminal, not on <body>.
+  await expect(page.locator(".xterm-helper-textarea:focus")).toHaveCount(1);
   expect(errors).toEqual([]);
 });

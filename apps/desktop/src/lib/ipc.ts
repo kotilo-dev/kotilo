@@ -573,6 +573,8 @@ export interface AppInfo {
   platform?: string;
   /** U-2: OS-dependent features that exist here; see `lib/platform.ts`. */
   features?: PlatformFeatures;
+  /** The user home folder, empty when unknown (missing from an older backend). */
+  homeDir?: string;
 }
 
 /** U-2: features that need OS code which exists only on some systems (all Windows-only today). */
